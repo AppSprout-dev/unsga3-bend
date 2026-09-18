@@ -5,41 +5,41 @@ import Base
 
 type Interval is Data:
   MkInterval{
-    lo: F32
-    hi: F32
+    low: F32
+    high: F32
   }
 
 type Box is Data:
   MkBox{
-    n_obj: Nat
-    intervals: List<&2, Interval>
+    m: Nat
+    ivs: List<&2, Interval>
   }
 
-def interval(+lo: F32, +hi: F32) -> Interval:
-  MkInterval{lo, hi}
+def interval(+low: F32, +high: F32) -> Interval:
+  MkInterval{low, high}
 
 def lo(b: Interval) -> F32:
   match b:
-    case MkInterval{lo, hi}:
-      lo
+    case MkInterval{low, high}:
+      low
 
 def hi(b: Interval) -> F32:
   match b:
-    case MkInterval{lo, hi}:
-      hi
+    case MkInterval{low, high}:
+      high
 
-def box(+n_obj: Nat, intervals: List<&2, Interval>) -> Box:
-  MkBox{n_obj, intervals}
+def box(+m: Nat, ivs: List<&2, Interval>) -> Box:
+  MkBox{m, ivs}
 
 def n_obj(b: Box) -> Nat:
   match b:
-    case MkBox{n_obj, intervals}:
-      n_obj
+    case MkBox{m, ivs}:
+      m
 
 def intervals_of(b: Box) -> List<&2, Interval>:
   match b:
-    case MkBox{n_obj, intervals}:
-      intervals
+    case MkBox{m, ivs}:
+      ivs
 
 def n_var(b: Box) -> Nat:
   List.length(&2, Interval, intervals_of(b))
@@ -54,6 +54,6 @@ def at.go(m: Maybe<&2, Interval>) -> Interval:
 def at(b: Box, i: Nat) -> Interval:
   at.go(List.get(&2, Interval, intervals_of(b), i))
 
-# n_var copies of [0, 1]. Smoke / operator tests; not a named problem.
-def unit_n(n_var: Nat, n_obj: Nat) -> Box:
-  MkBox{n_obj, List.replicate(Interval, n_var, MkInterval{0.0, 1.0})}
+# nv copies of [0, 1]. Smoke / operator tests; not a named problem.
+def unit_n(nv: Nat, nm: Nat) -> Box:
+  MkBox{nm, List.replicate(Interval, nv, MkInterval{0.0, 1.0})}

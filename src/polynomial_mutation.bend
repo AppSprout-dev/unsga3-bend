@@ -8,19 +8,19 @@ import ./rng.bend as Rng
 
 type Poly is Data:
   MkPoly{
-    eta: F32
+    e: F32
   }
 
-def mk(+eta: F32) -> Poly:
-  MkPoly{eta}
+def mk(+e: F32) -> Poly:
+  MkPoly{e}
 
 def default() -> Poly:
   MkPoly{20.0}
 
 def eta(op: Poly) -> F32:
   match op:
-    case MkPoly{eta}:
-      eta
+    case MkPoly{e}:
+      e
 
 # C# Unsga3Algorithm: mutationProbability ?? (1.0 / nVars) at the call site.
 def typical_probability(n_var: Nat) -> F32:
@@ -60,91 +60,97 @@ def deltaq.pick(+eta: F32, +mut_pow: F32, +delta1: F32, +delta2: F32, +rand: F32
 def deltaq(+eta: F32, +mut_pow: F32, +delta1: F32, +delta2: F32, +rand: F32) -> F32:
   deltaq.pick(eta, mut_pow, delta1, delta2, rand, F32.is_lt(rand, 0.5))
 
-# One variable. Does not recurse — `loop` is the only recursive def.
-def apply3(
-  rng: Rng.State,
-  ind: Ind.Individual,
-  +i: Nat,
-  +eta: F32,
-  +lo: F32,
-  +hi: F32,
-  +x: F32,
-  +dmax: F32
-) -> Rng.State & Ind.Individual:
-  (rng2, +rand) = Rng.next_double(rng)
-  +mut_pow = F32.div(1.0, F32.add(eta, 1.0))
-  +dq = deltaq(eta, mut_pow, F32.div(F32.sub(x, lo), dmax), F32.div(F32.sub(hi, x), dmax), rand)
-  +y = F32.clamp(F32.add(x, F32.mul(dq, dmax)), lo, hi)
-  (rng2, Ind.set_evaluated(Ind.set_var_at(ind, i, y), False{}))
-
-def apply2(
-  rng: Rng.State,
-  ind: Ind.Individual,
-  +i: Nat,
-  +eta: F32,
-  +lo: F32,
-  +hi: F32,
-  +x: F32,
-  +dmax: F32,
-  tiny: Bool
-) -> Rng.State & Ind.Individual:
-  match tiny:
-    case True{}:
-      (rng, ind)
-    case False{}:
-      apply3(rng, ind, i, eta, lo, hi, x, dmax)
-
-def apply(
-  +eta: F32,
-  +box: Bounds.Box,
-  rng: Rng.State,
-  ind: Ind.Individual,
-  +i: Nat
-) -> Rng.State & Ind.Individual:
+def span_at(+box: Bounds.Box, i: Nat) -> F32:
   +iv = Bounds.at(box, i)
-  +lo = Bounds.lo(iv)
-  +hi = Bounds.hi(iv)
-  +x = Ind.var_at(ind, i)
-  +dmax = F32.sub(hi, lo)
-  apply2(rng, ind, i, eta, lo, hi, x, dmax, F32.is_lt(dmax, 1.0e-14))
+  F32.sub(Bounds.hi(iv), Bounds.lo(iv))
 
-def after_coin(
+def tiny_at(+box: Bounds.Box, i: Nat) -> Bool:
+  F32.is_lt(span_at(box, i), 1.0e-14)
+
+def advance(rng: Rng.State, rest: Nat) -> Rng.State:
+  match rest:
+    case 0n:
+      rng
+    case 1n+g:
+      Rng.next_double(rng)
+
+# fuel is remaining variables including `i`.
+# skip = last per-var coin > p. tiny = (hi-lo) < 1e-14 at `i`.
+def loop(
+  fuel: Nat,
+  +i: Nat,
+  skip: Bool,
+  tiny: Bool,
   +eta: F32,
   +box: Bounds.Box,
   rng: Rng.State,
-  ind: Ind.Individual,
-  +i: Nat,
-  skip: Bool
+  +ind: Ind.Individual,
+  +p: F32
 ) -> Rng.State & Ind.Individual:
-  match skip:
-    case True{}:
+  match fuel skip tiny:
+    case 0n s t:
       (rng, ind)
-    case False{}:
-      apply(eta, box, rng, ind, i)
+    case 1n++f True{} t:
+      +rng2 = advance(rng, f)
+      loop(
+        f, 1n+i,
+        F32.is_gt(Rng.last_double(rng2), p),
+        tiny_at(box, 1n+i),
+        eta, box, rng2, ind, p
+      )
+    case 1n++f False{} True{}:
+      +rng2 = advance(rng, f)
+      loop(
+        f, 1n+i,
+        F32.is_gt(Rng.last_double(rng2), p),
+        tiny_at(box, 1n+i),
+        eta, box, rng2, ind, p
+      )
+    case 1n++f False{} False{}:
+      +iv = Bounds.at(box, i)
+      +lo = Bounds.lo(iv)
+      +hi = Bounds.hi(iv)
+      +x = Ind.var_at(ind, i)
+      +dmax = F32.sub(hi, lo)
+      +rng_a = Rng.next_double(rng)
+      +rand = Rng.last_double(rng_a)
+      +mut_pow = F32.div(1.0, F32.add(eta, 1.0))
+      +dq = deltaq(eta, mut_pow, F32.div(F32.sub(x, lo), dmax), F32.div(F32.sub(hi, x), dmax), rand)
+      +y = F32.clamp(F32.add(x, F32.mul(dq, dmax)), lo, hi)
+      +nind = Ind.set_evaluated(Ind.set_var_at(ind, i, y), False{})
+      +rng_b = advance(rng_a, f)
+      loop(
+        f, 1n+i,
+        F32.is_gt(Rng.last_double(rng_b), p),
+        tiny_at(box, 1n+i),
+        eta, box, rng_b, nind, p
+      )
 
-def loop(
+def start(
   +eta: F32,
   +box: Bounds.Box,
   rng: Rng.State,
   ind: Ind.Individual,
   +p: F32,
-  fuel: Nat,
-  +i: Nat
+  n: Nat
 ) -> Rng.State & Ind.Individual:
-  match fuel:
+  match n:
     case 0n:
       (rng, ind)
     case 1n+f:
-      (rng2, u) = Rng.next_double(rng)
-      (rng3, nind) = after_coin(eta, box, rng2, ind, i, F32.is_gt(u, p))
-      loop(eta, box, rng3, nind, p, f, 1n+i)
+      +rng2 = Rng.next_double(rng)
+      loop(
+        1n+f, 0n,
+        F32.is_gt(Rng.last_double(rng2), p),
+        tiny_at(box, 0n),
+        eta, box, rng2, ind, p
+      )
 
 def mutate(
   +op: Poly,
-  ind: Ind.Individual,
+  +ind: Ind.Individual,
   +box: Bounds.Box,
   rng: Rng.State,
   +p: F32
 ) -> Rng.State & Ind.Individual:
-  +n = Ind.n_var(ind)
-  loop(eta(op), box, rng, ind, p, n, 0n)
+  start(eta(op), box, rng, ind, p, Ind.n_var(ind))

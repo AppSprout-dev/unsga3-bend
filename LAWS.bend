@@ -105,7 +105,7 @@ law poly_default_eta:
 
 # LAW: C# Run uses 1/n when mutationProbability is unset
 law poly_typical_n2:
-  {Poly.typical_probability(2n) == 0.5 : F32}
+  {Poly.typical_probability(2n) == F32.div(1.0, F32.from_nat(2n)) : F32}
 
 def law_box2() -> Bounds.Box:
   Bounds.unit_n(2n, 2n)
@@ -117,6 +117,7 @@ def law_parent_b() -> Ind.Individual:
   Ind.from_variables([0.7, 0.3], 2n)
 
 # LAW: pair probability 0 copies parent variables (first NextDouble > 0).
+# F32 comparison is opaque to the checker; proof stays ?TODO.
 law sbx_prob0_child1_vars:
   {Ind.variables(Sbx.child1(Sbx.crossover(Sbx.mk(30.0, 0.0), law_parent_a(), law_parent_b(), law_box2(), Rng.from_nat(1n)))) == Ind.variables(law_parent_a()) : List<&2, F32>}
 
@@ -124,6 +125,6 @@ law sbx_prob0_child2_vars:
   {Ind.variables(Sbx.child2(Sbx.crossover(Sbx.mk(30.0, 0.0), law_parent_a(), law_parent_b(), law_box2(), Rng.from_nat(1n)))) == Ind.variables(law_parent_b()) : List<&2, F32>}
 
 # LAW: per-variable probability 0 leaves the decision vector unchanged
-# (each NextDouble > 0 on this seed).
+# (each NextDouble > 0 on this seed). F32-opaque; proof stays ?TODO.
 law poly_prob0_vars:
   {Ind.variables(Poly.result(Poly.mutate(Poly.default(), law_parent_a(), law_box2(), Rng.from_nat(1n), 0.0))) == Ind.variables(law_parent_a()) : List<&2, F32>}

@@ -37,7 +37,7 @@ Jason unlocked pass 2. **First slice (this tree):** decision variables on `Indiv
 - [x] SBX crossover (default η=30, pair probability=1.0)
 - [x] Polynomial mutation (default η=20; **probability per variable is passed in** — C# `Run` uses `1/n` when unset)
 - [x] Operator smoke: `bend src/op_smoke.bend` on a 2-var unit box, seed 42, prints child variables
-- [x] Laws for operator defaults + concrete probability-0 copy smokes
+- [x] Laws for operator defaults (closed) + concrete probability-0 copy claims (`?TODO`; F32-opaque)
 - [ ] `Unsga3Algorithm.Run` generational loop
 - [ ] Shared ZDT / DTLZ problem definitions
 - [ ] Samples that exercise variation

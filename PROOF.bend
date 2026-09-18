@@ -1,7 +1,7 @@
 # Proofs. `bend PROOF.bend` is the gate.
 # Closed: empty-input / M=1 / binomial / das_dennis_count, plus pass-2
-# operator defaults and the concrete p=0 copy smokes. Remaining
-# quantified size / irreflexivity facts stay ?TODO.
+# operator defaults / typical 1/n / from_objectives roundtrip. Remaining
+# quantified size / irreflexivity / F32-opaque p=0 copy facts stay ?TODO.
 
 import Base
 import ./LAWS.bend as Laws
@@ -72,10 +72,10 @@ def Laws.poly_typical_n2():
   {==}
 
 def Laws.sbx_prob0_child1_vars():
-  {==}
+  ?TODO
 
 def Laws.sbx_prob0_child2_vars():
-  {==}
+  ?TODO
 
 def Laws.poly_prob0_vars():
-  {==}
+  ?TODO

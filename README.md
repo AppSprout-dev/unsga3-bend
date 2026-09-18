@@ -63,14 +63,14 @@ bend guide
 bend src/lib.bend       # core + SBX/mutation: All terms check (Bend 2.0.9+)
 bend src/ab_select.bend # v0 selection smoke (prints CSV front)
 bend src/op_smoke.bend  # SBX + poly mutation on a 2-var box, seed 42
-bend PROOF.bend         # gate: v0 empty/M=1/binomial/count + operator defaults / p=0 copies; remaining ?TODO
+bend PROOF.bend         # gate: v0 empty/M=1/binomial/count + operator defaults; remaining ?TODO
 python3 ab/dump_bend_front.py
 python3 ab/igd_vs_pymoo.py   # skip if pymoo missing
 ```
 
 Language: [bend-lang.com](https://bend-lang.com/) · [github.com/bendlang/bend](https://github.com/bendlang/bend).
 
-Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `LAWS.bend` (human-owned). Proofs live in `PROOF.bend`. `bend PROOF.bend` is the gate; empty-input / M=1 / `binomial(n,0)` / `das_dennis_count` plus operator-default and probability-0 copy laws are closed, quantified size laws stay `?TODO`.
+Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `LAWS.bend` (human-owned). Proofs live in `PROOF.bend`. `bend PROOF.bend` is the gate; empty-input / M=1 / `binomial(n,0)` / `das_dennis_count` plus operator-default laws are closed; quantified size and F32-opaque p=0 copy laws stay `?TODO`.
 
 ## Layout
 
