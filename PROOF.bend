@@ -1,7 +1,8 @@
 # Proofs. `bend PROOF.bend` is the gate.
 # Closed: empty-input / M=1 / binomial / das_dennis_count, plus pass-2
-# operator defaults / typical 1/n / from_objectives roundtrip. Remaining
-# quantified size / irreflexivity / F32-opaque p=0 copy facts stay ?TODO.
+# operator defaults / typical 1/n / from_objectives / ZDT-DTLZ dimensions /
+# zero-parent tournament / zero-pop Run. Remaining quantified size /
+# irreflexivity / F32-opaque p=0 copy / |Run|==pop stay ?TODO.
 
 import Base
 import ./LAWS.bend as Laws
@@ -78,4 +79,28 @@ def Laws.sbx_prob0_child2_vars():
   ?TODO
 
 def Laws.poly_prob0_vars():
+  ?TODO
+
+def Laws.zdt1_n_obj():
+  {==}
+
+def Laws.zdt2_n_obj():
+  {==}
+
+def Laws.zdt1_n_var():
+  {==}
+
+def Laws.dtlz2_n_obj():
+  {==}
+
+def Laws.dtlz2_n_var():
+  {==}
+
+def Laws.select_parents_zero():
+  {==}
+
+def Laws.run_zero_pop():
+  {==}
+
+def Laws.run_pop_size(cfg):
   ?TODO

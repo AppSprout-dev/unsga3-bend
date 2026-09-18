@@ -27,6 +27,11 @@ def asg_dist(a: Assignment) -> F32:
     case MkAssignment{reference_index, perpendicular_distance, niche_count}:
       perpendicular_distance
 
+def asg_count(a: Assignment) -> Nat:
+  match a:
+    case MkAssignment{reference_index, perpendicular_distance, niche_count}:
+      niche_count
+
 def get_asg(asgs: List<&2, Assignment>, i: Nat) -> Assignment:
   Maybe.default(&2, Assignment, List.get(&2, Assignment, asgs, i), MkAssignment{0n, 0.0, 0n})
 
@@ -302,3 +307,35 @@ def select_idx(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: Li
 
 def select(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
   gather(combined, select_idx(combined, target_size, dirs))
+
+# Persistent-normalization Select for Unsga3Algorithm.Run. Same
+# deterministic niching as `select` (C# `rng == null`). Threads the
+# Normalization state so ideal / extremes persist across generations.
+def select_st.with(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, +fronts: List<&2, List<&2, Nat>>, pair: Norm.State & List<&2, List<&2, F32>>) -> Norm.State & List<&2, Ind.Individual>:
+  (st, F) = pair
+  (st, gather(pop, fill.wrap(fronts, target, associate(pop, F, dirs), Util.list_len(List<&2, F32>, dirs))))
+
+def select_st.big(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State) -> Norm.State & List<&2, Ind.Individual>:
+  +fronts = NDS.sort(pop)
+  select_st.with(pop, target, dirs, fronts, Norm.normalize_nd(state, pop, front0(fronts)))
+
+def select_st.take(+pop: List<&2, Ind.Individual>, +target: Nat, state: Norm.State) -> Norm.State & List<&2, Ind.Individual>:
+  (state, gather(pop, List.take(&2, Nat, List.range(Util.list_len(Ind.Individual, pop)), target)))
+
+def select_st.dirs(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, empty_dirs: Bool) -> Norm.State & List<&2, Ind.Individual>:
+  match empty_dirs:
+    case True{}:
+      select_st.take(pop, target, state)
+    case False{}:
+      select_st.big(pop, target, dirs, state)
+
+def select_st.by(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, small: Bool) -> Norm.State & List<&2, Ind.Individual>:
+  match small:
+    case True{}:
+      (state, pop)
+    case False{}:
+      select_st.dirs(pop, target, dirs, state, List.is_empty(&2, List<&2, F32>, dirs))
+
+def select_st(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State) -> Norm.State & List<&2, Ind.Individual>:
+  +n = Util.list_len(Ind.Individual, combined)
+  select_st.by(combined, target_size, dirs, state, Nat.is_le(n, target_size))
