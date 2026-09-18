@@ -1,6 +1,5 @@
-# v0 core facade. Importing this file is the module graph check.
-# Bodies live in the imported modules. No Unsga3Algorithm.Run, SBX, or
-# polynomial mutation here.
+# Core + pass-2 variation facade. Importing this file is the module graph
+# check. No Unsga3Algorithm.Run, ZDT/DTLZ, or algorithm A/B here.
 
 import Base
 import ./individual.bend as Individual
@@ -9,9 +8,22 @@ import ./normalization.bend as Normalization
 import ./reference_directions.bend as ReferenceDirections
 import ./survival.bend as Survival
 import ./util.bend as Util
+import ./bounds.bend as Bounds
+import ./rng.bend as Rng
+import ./sbx.bend as Sbx
+import ./polynomial_mutation.bend as Poly
 
 def core_modules_loaded() -> Bool:
   True{}
+
+def variation_defaults() -> F32 & F32 & F32:
+  (Sbx.eta(Sbx.default()), Sbx.probability(Sbx.default()), Poly.eta(Poly.default()))
+
+def unit_box2() -> Bounds.Box:
+  Bounds.unit_n(2n, 2n)
+
+def rng_seed1() -> Rng.State:
+  Rng.from_nat(1n)
 
 def empty_fronts() -> List<&2, List<&2, Nat>>:
   NonDominatedSort.sort(Nil{})

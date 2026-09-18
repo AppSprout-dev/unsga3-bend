@@ -1,7 +1,7 @@
-# v0 proofs. `bend PROOF.bend` is the gate.
-# Closed laws are those whose sides compute equal after the v0 bodies.
-# Remaining obligations stay ?TODO (quantified partition / size facts;
-# F32-opaque irreflexivity).
+# Proofs. `bend PROOF.bend` is the gate.
+# Closed: empty-input / M=1 / binomial / das_dennis_count, plus pass-2
+# operator defaults / typical 1/n / from_objectives roundtrip. Remaining
+# quantified size / irreflexivity / F32-opaque p=0 copy facts stay ?TODO.
 
 import Base
 import ./LAWS.bend as Laws
@@ -54,4 +54,28 @@ def Laws.select_empty():
   {==}
 
 def Laws.select_size(pop, n, dirs):
+  ?TODO
+
+def Laws.from_objectives_roundtrip():
+  {==}
+
+def Laws.sbx_default_eta():
+  {==}
+
+def Laws.sbx_default_probability():
+  {==}
+
+def Laws.poly_default_eta():
+  {==}
+
+def Laws.poly_typical_n2():
+  {==}
+
+def Laws.sbx_prob0_child1_vars():
+  ?TODO
+
+def Laws.sbx_prob0_child2_vars():
+  ?TODO
+
+def Laws.poly_prob0_vars():
   ?TODO

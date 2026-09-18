@@ -19,24 +19,28 @@ The reference implementation is the existing C# library:
 
 Bend artifacts publish later via `bend … --publish` (content-hash hub). They do **not** go to NuGet.
 
-## v0 vs later
+## v0 vs pass 2
 
-**v0 (this tree) — core only**, enough to A/B a front when a **population of objectives** is already provided:
+**v0 core** — enough to A/B a front when a **population of objectives** is already provided:
 
 | Module | C# surface it mirrors |
 |--------|------------------------|
-| `Individual` | objectives only (no decision variables yet) |
+| `Individual` | objectives (v0) + decision variables + evaluated (pass 2) |
 | `NonDominatedSort` | fast non-dominated sort + Pareto compare |
 | `Normalization` | NSGA-III adaptive hyperplane (ASF extremes + intercepts; C# front/pop/unit fallbacks) |
 | `ReferenceDirections` | Das–Dennis directions / count |
 | `Survival` | niching association + environmental selection |
 
-**Out of v0** (second pass, after v0 core matches):
+**Pass 2, first slice (in tree)** — variation operators, not a full run:
 
-- SBX crossover
-- polynomial mutation
-- `Unsga3Algorithm.Run` generational loop
-- samples that need variation operators
+| Module | C# surface it mirrors |
+|--------|------------------------|
+| `bounds` | tiny `IProblem` box: variable count + per-var `[lo, hi]` (not ZDT/DTLZ) |
+| `rng` | `RandomProvider` (seed + `NextDouble`; portable LCG, not .NET `System.Random`) |
+| `sbx` | `SimulatedBinaryCrossover` — default η=30, pair probability=1.0 |
+| `polynomial_mutation` | `PolynomialMutation` — default η=20; **per-variable probability is passed in** (C# `Run` uses `1/n` when unset) |
+
+**Still next:** `Unsga3Algorithm.Run`, shared ZDT/DTLZ, samples, algorithm A/B / IGD vs pymoo.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -45,7 +49,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md).
 Two layers; do not invent IGD numbers in this repo.
 
 1. **v0 core A/B** — feed the **same objective population** to C# and Bend sort / normalize / associate / select. Compare ranks, associations, and the selected index set. No full evolutionary run required.
-2. **Later algorithm A/B** — once variation + `Run` exist, dump non-dominated fronts from C# Unsga3 and from Bend on the same ZDT/DTLZ settings, compute IGD vs pymoo, compare. Protocol: same Das–Dennis partitions, pop size, generations, and seed as the C# oracle docs.
+2. **Later algorithm A/B** — once `Run` + ZDT/DTLZ exist, dump non-dominated fronts from C# Unsga3 and from Bend on the same settings, compute IGD vs pymoo, compare. Protocol: same Das–Dennis partitions, pop size, generations, and seed as the C# oracle docs. SBX + polynomial mutation are in; the generational loop is not.
 
 v0 core path: [ab/README.md](ab/README.md). `dump_bend_front.py` runs Bend selection. The C# dump runs `NondominatedSortingSurvival.Select` when `UNSGA3_CS_ROOT` and `dotnet` work, otherwise both it and the pymoo IGD script skip with a clear message. No invented metrics.
 
@@ -56,25 +60,26 @@ Bend is **not** assumed to be on `PATH` in every environment. Install from the o
 ```bash
 curl -fsSL https://bend-lang.com/install.sh | sh
 bend guide
-bend src/lib.bend       # v0 core: All terms check (Bend 2.0.9)
+bend src/lib.bend       # core + SBX/mutation: All terms check (Bend 2.0.9+)
 bend src/ab_select.bend # v0 selection smoke (prints CSV front)
-bend PROOF.bend         # gate: empty-input / M=1 / binomial / das_dennis_count closed; remaining ?TODO
+bend src/op_smoke.bend  # SBX + poly mutation on a 2-var box, seed 42
+bend PROOF.bend         # gate: v0 empty/M=1/binomial/count + operator defaults; remaining ?TODO
 python3 ab/dump_bend_front.py
 python3 ab/igd_vs_pymoo.py   # skip if pymoo missing
 ```
 
 Language: [bend-lang.com](https://bend-lang.com/) · [github.com/bendlang/bend](https://github.com/bendlang/bend).
 
-Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `LAWS.bend` (human-owned). Proofs live in `PROOF.bend`. `bend PROOF.bend` is the gate; empty-input / M=1 / `binomial(n,0)` / `das_dennis_count` laws are closed, quantified size laws stay `?TODO`.
+Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `LAWS.bend` (human-owned). Proofs live in `PROOF.bend`. `bend PROOF.bend` is the gate; empty-input / M=1 / `binomial(n,0)` / `das_dennis_count` plus operator-default laws are closed; quantified size and F32-opaque p=0 copy laws stay `?TODO`.
 
 ## Layout
 
 ```
 unsga3-bend/
 ├── AGENTS.md                 # Bend agent rules + product locks
-├── LAWS.bend                 # v0 core claims (human-owned)
+├── LAWS.bend                 # core + operator claims (human-owned)
 ├── PROOF.bend                # imports LAWS; open / stub proofs
-├── src/                      # Bend v0 core (real bodies) + ab_select
+├── src/                      # core + SBX / mutation + ab_select / op_smoke
 ├── ab/                       # v0 selection dump / optional IGD / optional C#
 ├── docs/ROADMAP.md
 └── LICENSE                   # MIT
