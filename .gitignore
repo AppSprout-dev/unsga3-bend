@@ -1,0 +1,17 @@
+# Bend
+.bend/
+*.o
+*.gpu
+
+# A/B dumps (never commit invented or local oracle numbers)
+ab/out/
+
+# Python glue
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editor
+.DS_Store
+*.swp
