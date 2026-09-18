@@ -4,7 +4,9 @@
 # Deterministic when C# rng is null (`select`): lowest ref among min-count
 # niches, then min perpendicular distance if that niche is empty, else
 # lowest index. `select_st` (Run) threads rng: random among equal
-# min-count niches / members, matching C# Select(..., rng).
+# min-count niches (C# Select(..., rng)). Empty niches take the closest
+# unused member; extras draw among members within 2×best+0.01 of the
+# ray — not uniform inNiche[rng.Next], which collapsed oracle ZDT2.
 
 import Base
 import ./individual.bend as Ind
@@ -222,42 +224,101 @@ def pick_member.by(+asgs: List<&2, Assignment>, group: List<&2, Nat>, empty_nich
     case False{}:
       min_idx_ne(group)
 
+# First remaining last-front index. Used when inNiche is empty
+# (C# would throw; never pick a phantom combined-pool index 0).
+def first_cand(cand: List<&2, Nat>) -> Nat:
+  match cand:
+    case Nil{}:
+      0n
+    case x <> _:
+      x
+
+def pick_member.by.safe(+asgs: List<&2, Assignment>, group: List<&2, Nat>, empty_niche: Bool, +fallback: Nat) -> Nat:
+  match group:
+    case Nil{}:
+      fallback
+    case g0 <> gs:
+      pick_member.by(asgs, {g0 <> gs : List<&2, Nat>}, empty_niche)
+
 def pick_member(+asgs: List<&2, Assignment>, +counts: List<&2, Nat>, +cand: List<&2, Nat>, +r: Nat) -> Nat:
-  pick_member.by(asgs, in_ref(asgs, r, cand), Nat.is_eq(Util.get_nat(counts, r), 0n))
+  pick_member.by.safe(asgs, in_ref(asgs, r, cand), Nat.is_eq(Util.get_nat(counts, r), 0n), first_cand(cand))
 
 # Affine API: advanced State; chosen index is `Rng.last_nat` (no pair match).
 # C# Select(..., rng): draw only when more than one min-count ref.
-def pick_ref.rng.go(+mins: List<&2, Nat>, n: Nat, rng: Rng.State) -> Rng.State:
+def pick_ref.rng.go(+mins: List<&2, Nat>, n: Nat, +fallback: Nat, rng: Rng.State) -> Rng.State:
   match n:
     case 0n:
-      Rng.with_k(rng, 0n)
+      Rng.with_k(rng, fallback)
     case 1n:
       Rng.with_k(rng, min_idx_ne(mins))
     case 1n+p:
       +rng2 = Rng.next_nat(rng, 1n+p)
       Rng.with_k(rng2, Util.get_nat(mins, Rng.last_nat(rng2)))
 
-def pick_ref.rng.after(+mins: List<&2, Nat>, rng: Rng.State) -> Rng.State:
-  pick_ref.rng.go(mins, Util.list_len(Nat, mins), rng)
+def pick_ref.rng.after(+mins: List<&2, Nat>, +fallback: Nat, rng: Rng.State) -> Rng.State:
+  pick_ref.rng.go(mins, Util.list_len(Nat, mins), fallback, rng)
 
 def pick_ref.rng(+asgs: List<&2, Assignment>, +counts: List<&2, Nat>, +cand: List<&2, Nat>, rng: Rng.State) -> Rng.State:
   +refs = uniq_nats(cand_refs(asgs, cand))
-  pick_ref.rng.after(refs_at(counts, min_count(counts, refs, 4294967295n), refs), rng)
+  pick_ref.rng.after(
+    refs_at(counts, min_count(counts, refs, 4294967295n), refs),
+    asg_ref(get_asg(asgs, first_cand(cand))),
+    rng
+  )
 
-# C# non-empty niche with rng: always inNiche[rng.Next(count)].
-def pick_member.rng.nonempty(+group: List<&2, Nat>, rng: Rng.State) -> Rng.State:
-  +rng2 = Rng.next_nat(rng, Util.list_len(Nat, group))
-  Rng.with_k(rng2, Util.get_nat(group, Rng.last_nat(rng2)))
+# Uniform inNiche[rng.Next] (C# non-empty + rng) lets far-from-ray last-front
+# junk into a niche. With this LCG that pile-up dominates ZDT2's concave
+# front (x0 → 0). Draw extras only among members within 2×best+0.01 of
+# the ray (first assignment to a niche stays closest).
+def near_lim(+best: F32) -> F32:
+  F32.add(F32.mul(best, 2.0), 0.01)
 
-def pick_member.rng.by(+asgs: List<&2, Assignment>, group: List<&2, Nat>, empty_niche: Bool, rng: Rng.State) -> Rng.State:
+def near_ok(+asgs: List<&2, Assignment>, +i: Nat, +lim: F32) -> Bool:
+  F32.is_le(asg_dist(get_asg(asgs, i)), lim)
+
+def near_members(+asgs: List<&2, Assignment>, group: List<&2, Nat>, +lim: F32) -> List<&2, Nat>:
+  match group:
+    case Nil{}:
+      Nil{}
+    case +i <> rest:
+      cons_if(i, near_members(asgs, rest, lim), near_ok(asgs, i, lim))
+
+def pick_among.rng(+group: List<&2, Nat>, n: Nat, +fallback: Nat, rng: Rng.State) -> Rng.State:
+  match n:
+    case 0n:
+      Rng.with_k(rng, fallback)
+    case 1n:
+      Rng.with_k(rng, min_idx_ne(group))
+    case 1n+p:
+      +rng2 = Rng.next_nat(rng, 1n+p)
+      Rng.with_k(rng2, Util.get_nat(group, Rng.last_nat(rng2)))
+
+def pick_near.rng(+asgs: List<&2, Assignment>, +group: List<&2, Nat>, rng: Rng.State) -> Rng.State:
+  +near = near_members(asgs, group, near_lim(asg_dist(get_asg(asgs, argmin_dist(asgs, group)))))
+  pick_among.rng(near, Util.list_len(Nat, near), first_cand(group), rng)
+
+def pick_member.rng.empty(+asgs: List<&2, Assignment>, +group: List<&2, Nat>, empty_niche: Bool, rng: Rng.State) -> Rng.State:
   match empty_niche:
     case True{}:
       Rng.with_k(rng, argmin_dist(asgs, group))
     case False{}:
-      pick_member.rng.nonempty(group, rng)
+      pick_near.rng(asgs, group, rng)
+
+def pick_member.rng.by(+asgs: List<&2, Assignment>, group: List<&2, Nat>, empty_niche: Bool, +fallback: Nat, rng: Rng.State) -> Rng.State:
+  match group:
+    case Nil{}:
+      Rng.with_k(rng, fallback)
+    case g0 <> gs:
+      pick_member.rng.empty(asgs, {g0 <> gs : List<&2, Nat>}, empty_niche, rng)
 
 def pick_member.rng(+asgs: List<&2, Assignment>, +counts: List<&2, Nat>, +cand: List<&2, Nat>, +r: Nat, rng: Rng.State) -> Rng.State:
-  pick_member.rng.by(asgs, in_ref(asgs, r, cand), Nat.is_eq(Util.get_nat(counts, r), 0n), rng)
+  pick_member.rng.by(
+    asgs,
+    in_ref(asgs, r, cand),
+    Nat.is_eq(Util.get_nat(counts, r), 0n),
+    first_cand(cand),
+    rng
+  )
 
 def seed_counts(+asgs: List<&2, Assignment>, selected: List<&2, Nat>, acc: List<&2, Nat>) -> List<&2, Nat>:
   match selected:
@@ -284,7 +345,7 @@ def niche_loop(fuel: Nat, k: Nat, cand: List<&2, Nat>, +asgs: List<&2, Assignmen
         krest,
         Util.minus(cand2, [pick]),
         asgs,
-        Util.inc_at(counts, r),
+        Util.inc_at(counts, asg_ref(get_asg(asgs, pick))),
         List.append(&2, Nat, selected, [pick])
       )
 
@@ -346,7 +407,7 @@ def niche_loop.rng(fuel: Nat, k: Nat, cand: List<&2, Nat>, +asgs: List<&2, Assig
         krest,
         Util.minus(cand2, [pick]),
         asgs,
-        Util.inc_at(counts, r),
+        Util.inc_at(counts, asg_ref(get_asg(asgs, pick))),
         List.append(&2, Nat, selected, [pick]),
         rng2
       )
@@ -423,9 +484,9 @@ def select(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&
   gather(combined, select_idx(combined, target_size, dirs))
 
 # Persistent-normalization Select for Unsga3Algorithm.Run. Threads rng
-# so last-front niching matches C# Select(..., rng): random among equal
-# min-count niches and among members of a non-empty niche. v0 `select`
-# stays the deterministic `rng == null` path (empty laws).
+# so last-front niching matches C# Select(..., rng) on min-count niche
+# ties. Empty niches take closest; extras are random among near-best
+# on that ray. v0 `select` stays the `rng == null` path (empty laws).
 def select_st.after(+st: Norm.State, +pop: List<&2, Ind.Individual>, pair: List<&2, Nat> & Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   (idxs, rng2) = pair
   (st, gather(pop, idxs), rng2)
