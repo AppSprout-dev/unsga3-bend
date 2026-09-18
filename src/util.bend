@@ -166,3 +166,21 @@ def csv_step(x: F32, acc: String) -> String:
 
 def show_f32s(xs: List<&2, F32>) -> String:
   List.foldr(~&2, ~F32, ~String, ~csv_step, xs, "")
+
+def f32s_eq(a: List<&2, F32>, b: List<&2, F32>) -> Bool:
+  match a b:
+    case Nil{} Nil{}:
+      True{}
+    case x <> xs y <> ys:
+      Bool.and(F32.is_eq(x, y), f32s_eq(xs, ys))
+    case Nil{} y <> ys:
+      False{}
+    case x <> xs Nil{}:
+      False{}
+
+def has_f32s(+needle: List<&2, F32>, xs: List<&2, List<&2, F32>>) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case h <> t:
+      Bool.or(f32s_eq(needle, h), has_f32s(needle, t))

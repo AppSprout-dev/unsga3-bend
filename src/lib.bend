@@ -1,5 +1,5 @@
-# Core + pass-2 variation facade. Importing this file is the module graph
-# check. No Unsga3Algorithm.Run, ZDT/DTLZ, or algorithm A/B here.
+# Core + pass-2 facade. Importing this file is the module graph check:
+# v0 selection, SBX / mutation, ZDT/DTLZ, tournament, Unsga3Algorithm.Run.
 
 import Base
 import ./individual.bend as Individual
@@ -12,6 +12,9 @@ import ./bounds.bend as Bounds
 import ./rng.bend as Rng
 import ./sbx.bend as Sbx
 import ./polynomial_mutation.bend as Poly
+import ./problems.bend as Problems
+import ./tournament.bend as Tournament
+import ./algorithm.bend as Algorithm
 
 def core_modules_loaded() -> Bool:
   True{}
@@ -39,3 +42,15 @@ def empty_selected() -> List<&2, Individual.Individual>:
 
 def count_m1() -> Nat:
   Util.nat_min(ReferenceDirections.count(1n, 12n), 1n)
+
+def zdt1_n_obj() -> Nat:
+  Problems.n_obj(Problems.zdt1(30n))
+
+def dtlz2_n_var() -> Nat:
+  Problems.n_var(Problems.dtlz2(3n, 10n))
+
+def empty_run() -> List<&2, Individual.Individual>:
+  Algorithm.run(Problems.zdt1(30n), Algorithm.mk(Nil{}, 0n, 0n, 1n, Tournament.pymoo(), True{}))
+
+def parents_zero() -> List<&2, Individual.Individual>:
+  Tournament.parents_of(Tournament.select_parents(Tournament.pymoo(), Nil{}, 0n, Rng.from_nat(1n)))

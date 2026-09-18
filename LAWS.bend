@@ -1,4 +1,5 @@
-# Core + pass-2 operator laws. Human-owned. Do not add Run / ZDT claims.
+# Core + pass-2 laws. Human-owned. Do not weaken v0 / operator claims.
+# Run / ZDT size facts stay ?TODO unless a closed Nat equality holds.
 # A law with no proof in PROOF.bend is an open claim.
 
 import Base
@@ -12,6 +13,9 @@ import ./src/bounds.bend as Bounds
 import ./src/rng.bend as Rng
 import ./src/sbx.bend as Sbx
 import ./src/polynomial_mutation.bend as Poly
+import ./src/problems.bend as Prob
+import ./src/tournament.bend as Tour
+import ./src/algorithm.bend as Algo
 
 # LAW: empty population → empty fronts
 law sort_empty:
@@ -128,3 +132,32 @@ law sbx_prob0_child2_vars:
 # (each NextDouble > 0 on this seed). F32-opaque; proof stays ?TODO.
 law poly_prob0_vars:
   {Ind.variables(Poly.result(Poly.mutate(Poly.default(), law_parent_a(), law_box2(), Rng.from_nat(1n), 0.0))) == Ind.variables(law_parent_a()) : List<&2, F32>}
+
+# LAW: C# Zdt1Problem / Zdt2Problem / Dtlz2Problem dimensions
+law zdt1_n_obj:
+  {Prob.n_obj(Prob.zdt1(30n)) == 2n : Nat}
+
+law zdt2_n_obj:
+  {Prob.n_obj(Prob.zdt2(30n)) == 2n : Nat}
+
+law zdt1_n_var:
+  {Prob.n_var(Prob.zdt1(30n)) == 30n : Nat}
+
+law dtlz2_n_obj:
+  {Prob.n_obj(Prob.dtlz2(3n, 10n)) == 3n : Nat}
+
+law dtlz2_n_var:
+  {Prob.n_var(Prob.dtlz2(3n, 10n)) == 12n : Nat}
+
+# LAW: zero parent-count tournament returns no parents
+law select_parents_zero:
+  {Util.list_len(Ind.Individual, Tour.parents_of(Tour.select_parents(Tour.pymoo(), Nil{}, 0n, Rng.from_nat(1n)))) == 0n : Nat}
+
+# LAW: pop_size 0 → empty Run (C# ctor rejects pop < 2; Bend stays total)
+law run_zero_pop:
+  {Util.list_len(Ind.Individual, Algo.run(Prob.zdt1(30n), Algo.mk(Nil{}, 0n, 0n, 1n, Tour.pymoo(), True{}))) == 0n : Nat}
+
+# LAW: |Run| == pop_size after gens (quantified; F32/RNG opaque)
+law run_pop_size:
+  for +cfg: Algo.Config
+  {Util.list_len(Ind.Individual, Algo.run(Prob.zdt1(30n), cfg)) == Algo.cfg_pop(cfg) : Nat}

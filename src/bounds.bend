@@ -1,5 +1,5 @@
-# Tiny IProblem bounds stub — variable count + per-var [lo, hi].
-# Not ZDT / DTLZ and not Evaluate. Those arrive with the Run PR.
+# IProblem box — variable count + per-var [lo, hi].
+# Named problems (ZDT1 / ZDT2 / DTLZ2) live in problems.bend.
 
 import Base
 
