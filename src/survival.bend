@@ -1,13 +1,16 @@
 # Survival / niching — C# ReferencePointManager + NondominatedSortingSurvival.
 # Associate normalized individuals to Das–Dennis rays; select `target_size`
 # from a combined pool (fill complete fronts, niche-preserve the last).
-# Deterministic when C# rng is null: lowest ref among min-count niches,
-# then min perpendicular distance if that niche is empty, else lowest index.
+# Deterministic when C# rng is null (`select`): lowest ref among min-count
+# niches, then min perpendicular distance if that niche is empty, else
+# lowest index. `select_st` (Run) threads rng: random among equal
+# min-count niches / members, matching C# Select(..., rng).
 
 import Base
 import ./individual.bend as Ind
 import ./non_dominated_sort.bend as NDS
 import ./normalization.bend as Norm
+import ./rng.bend as Rng
 import ./util.bend as Util
 
 type Assignment is Data:
@@ -149,6 +152,17 @@ def cons_if(h: Nat, rest: List<&2, Nat>, keep: Bool) -> List<&2, Nat>:
     case False{}:
       rest
 
+# First-occurrence unique (C# HashSet of refs-with-candidates).
+def uniq_nats.go(xs: List<&2, Nat>, +acc: List<&2, Nat>) -> List<&2, Nat>:
+  match xs:
+    case Nil{}:
+      List.reverse(&2, Nat, acc)
+    case +h <> t:
+      uniq_nats.go(t, cons_if(h, acc, Bool.not(Util.in_nats(h, acc))))
+
+def uniq_nats(xs: List<&2, Nat>) -> List<&2, Nat>:
+  uniq_nats.go(xs, Nil{})
+
 def refs_at(+counts: List<&2, Nat>, +need: Nat, refs: List<&2, Nat>) -> List<&2, Nat>:
   match refs:
     case Nil{}:
@@ -210,6 +224,40 @@ def pick_member.by(+asgs: List<&2, Assignment>, group: List<&2, Nat>, empty_nich
 
 def pick_member(+asgs: List<&2, Assignment>, +counts: List<&2, Nat>, +cand: List<&2, Nat>, +r: Nat) -> Nat:
   pick_member.by(asgs, in_ref(asgs, r, cand), Nat.is_eq(Util.get_nat(counts, r), 0n))
+
+# Affine API: advanced State; chosen index is `Rng.last_nat` (no pair match).
+# C# Select(..., rng): draw only when more than one min-count ref.
+def pick_ref.rng.go(+mins: List<&2, Nat>, n: Nat, rng: Rng.State) -> Rng.State:
+  match n:
+    case 0n:
+      Rng.with_k(rng, 0n)
+    case 1n:
+      Rng.with_k(rng, min_idx_ne(mins))
+    case 1n+p:
+      +rng2 = Rng.next_nat(rng, 1n+p)
+      Rng.with_k(rng2, Util.get_nat(mins, Rng.last_nat(rng2)))
+
+def pick_ref.rng.after(+mins: List<&2, Nat>, rng: Rng.State) -> Rng.State:
+  pick_ref.rng.go(mins, Util.list_len(Nat, mins), rng)
+
+def pick_ref.rng(+asgs: List<&2, Assignment>, +counts: List<&2, Nat>, +cand: List<&2, Nat>, rng: Rng.State) -> Rng.State:
+  +refs = uniq_nats(cand_refs(asgs, cand))
+  pick_ref.rng.after(refs_at(counts, min_count(counts, refs, 4294967295n), refs), rng)
+
+# C# non-empty niche with rng: always inNiche[rng.Next(count)].
+def pick_member.rng.nonempty(+group: List<&2, Nat>, rng: Rng.State) -> Rng.State:
+  +rng2 = Rng.next_nat(rng, Util.list_len(Nat, group))
+  Rng.with_k(rng2, Util.get_nat(group, Rng.last_nat(rng2)))
+
+def pick_member.rng.by(+asgs: List<&2, Assignment>, group: List<&2, Nat>, empty_niche: Bool, rng: Rng.State) -> Rng.State:
+  match empty_niche:
+    case True{}:
+      Rng.with_k(rng, argmin_dist(asgs, group))
+    case False{}:
+      pick_member.rng.nonempty(group, rng)
+
+def pick_member.rng(+asgs: List<&2, Assignment>, +counts: List<&2, Nat>, +cand: List<&2, Nat>, +r: Nat, rng: Rng.State) -> Rng.State:
+  pick_member.rng.by(asgs, in_ref(asgs, r, cand), Nat.is_eq(Util.get_nat(counts, r), 0n), rng)
 
 def seed_counts(+asgs: List<&2, Assignment>, selected: List<&2, Nat>, acc: List<&2, Nat>) -> List<&2, Nat>:
   match selected:
@@ -279,6 +327,72 @@ def fill.wrap(+fronts: List<&2, List<&2, Nat>>, +target: Nat, +asgs: List<&2, As
     n_dirs
   )
 
+def niche_loop.rng(fuel: Nat, k: Nat, cand: List<&2, Nat>, +asgs: List<&2, Assignment>, +counts: List<&2, Nat>, selected: List<&2, Nat>, rng: Rng.State) -> List<&2, Nat> & Rng.State:
+  match fuel k cand:
+    case 0n kk c:
+      (selected, rng)
+    case f 0n c:
+      (selected, rng)
+    case f kk Nil{}:
+      (selected, rng)
+    case 1n+f 1n+krest +c0 <> +cs:
+      +cand2 = {c0 <> cs : List<&2, Nat>}
+      +rng1 = pick_ref.rng(asgs, counts, cand2, rng)
+      +r = Rng.last_nat(rng1)
+      +rng2 = pick_member.rng(asgs, counts, cand2, r, rng1)
+      +pick = Rng.last_nat(rng2)
+      niche_loop.rng(
+        f,
+        krest,
+        Util.minus(cand2, [pick]),
+        asgs,
+        Util.inc_at(counts, r),
+        List.append(&2, Nat, selected, [pick]),
+        rng2
+      )
+
+def fill.rng(fuel: Nat, fronts: List<&2, List<&2, Nat>>, fits: Bool, +acc: List<&2, Nat>, +target: Nat, +asgs: List<&2, Assignment>, +n_dirs: Nat, rng: Rng.State) -> List<&2, Nat> & Rng.State:
+  match fuel fronts fits:
+    case 0n fs p:
+      (acc, rng)
+    case f Nil{} p:
+      (acc, rng)
+    case 1n+f +fr <> +rest False{}:
+      +need = Nat.sub(target, Util.list_len(Nat, acc))
+      niche_loop.rng(
+        1n+Util.list_len(Nat, fr),
+        need,
+        fr,
+        asgs,
+        seed_counts(asgs, acc, Util.zeros_nat(n_dirs)),
+        acc,
+        rng
+      )
+    case 1n+f +fr <> +rest True{}:
+      +new_acc = List.append(&2, Nat, acc, fr)
+      fill.rng(
+        f,
+        rest,
+        Nat.is_le(Nat.add(Util.list_len(Nat, new_acc), head_len(rest)), target),
+        new_acc,
+        target,
+        asgs,
+        n_dirs,
+        rng
+      )
+
+def fill.wrap.rng(+fronts: List<&2, List<&2, Nat>>, +target: Nat, +asgs: List<&2, Assignment>, +n_dirs: Nat, rng: Rng.State) -> List<&2, Nat> & Rng.State:
+  fill.rng(
+    1n+n_fronts(fronts),
+    fronts,
+    Nat.is_le(head_len(fronts), target),
+    Nil{},
+    target,
+    asgs,
+    n_dirs,
+    rng
+  )
+
 def select_idx.with(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, +fronts: List<&2, List<&2, Nat>>, pair: Norm.State & List<&2, List<&2, F32>>) -> List<&2, Nat>:
   (st, F) = pair
   fill.wrap(fronts, target, associate(pop, F, dirs), Util.list_len(List<&2, F32>, dirs))
@@ -308,34 +422,39 @@ def select_idx(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: Li
 def select(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
   gather(combined, select_idx(combined, target_size, dirs))
 
-# Persistent-normalization Select for Unsga3Algorithm.Run. Same
-# deterministic niching as `select` (C# `rng == null`). Threads the
-# Normalization state so ideal / extremes persist across generations.
-def select_st.with(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, +fronts: List<&2, List<&2, Nat>>, pair: Norm.State & List<&2, List<&2, F32>>) -> Norm.State & List<&2, Ind.Individual>:
+# Persistent-normalization Select for Unsga3Algorithm.Run. Threads rng
+# so last-front niching matches C# Select(..., rng): random among equal
+# min-count niches and among members of a non-empty niche. v0 `select`
+# stays the deterministic `rng == null` path (empty laws).
+def select_st.after(+st: Norm.State, +pop: List<&2, Ind.Individual>, pair: List<&2, Nat> & Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  (idxs, rng2) = pair
+  (st, gather(pop, idxs), rng2)
+
+def select_st.with(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, +fronts: List<&2, List<&2, Nat>>, pair: Norm.State & List<&2, List<&2, F32>>, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   (st, F) = pair
-  (st, gather(pop, fill.wrap(fronts, target, associate(pop, F, dirs), Util.list_len(List<&2, F32>, dirs))))
+  select_st.after(st, pop, fill.wrap.rng(fronts, target, associate(pop, F, dirs), Util.list_len(List<&2, F32>, dirs), rng))
 
-def select_st.big(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State) -> Norm.State & List<&2, Ind.Individual>:
+def select_st.big(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   +fronts = NDS.sort(pop)
-  select_st.with(pop, target, dirs, fronts, Norm.normalize_nd(state, pop, front0(fronts)))
+  select_st.with(pop, target, dirs, fronts, Norm.normalize_nd(state, pop, front0(fronts)), rng)
 
-def select_st.take(+pop: List<&2, Ind.Individual>, +target: Nat, state: Norm.State) -> Norm.State & List<&2, Ind.Individual>:
-  (state, gather(pop, List.take(&2, Nat, List.range(Util.list_len(Ind.Individual, pop)), target)))
+def select_st.take(+pop: List<&2, Ind.Individual>, +target: Nat, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  (state, gather(pop, List.take(&2, Nat, List.range(Util.list_len(Ind.Individual, pop)), target)), rng)
 
-def select_st.dirs(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, empty_dirs: Bool) -> Norm.State & List<&2, Ind.Individual>:
+def select_st.dirs(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State, empty_dirs: Bool) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   match empty_dirs:
     case True{}:
-      select_st.take(pop, target, state)
+      select_st.take(pop, target, state, rng)
     case False{}:
-      select_st.big(pop, target, dirs, state)
+      select_st.big(pop, target, dirs, state, rng)
 
-def select_st.by(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, small: Bool) -> Norm.State & List<&2, Ind.Individual>:
+def select_st.by(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State, small: Bool) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   match small:
     case True{}:
-      (state, pop)
+      (state, pop, rng)
     case False{}:
-      select_st.dirs(pop, target, dirs, state, List.is_empty(&2, List<&2, F32>, dirs))
+      select_st.dirs(pop, target, dirs, state, rng, List.is_empty(&2, List<&2, F32>, dirs))
 
-def select_st(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State) -> Norm.State & List<&2, Ind.Individual>:
+def select_st(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   +n = Util.list_len(Ind.Individual, combined)
-  select_st.by(combined, target_size, dirs, state, Nat.is_le(n, target_size))
+  select_st.by(combined, target_size, dirs, state, rng, Nat.is_le(n, target_size))
