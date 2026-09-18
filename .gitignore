@@ -5,6 +5,8 @@
 
 # A/B dumps (never commit invented or local oracle numbers)
 ab/out/
+ab/csharp_core_dump/bin/
+ab/csharp_core_dump/obj/
 
 # Python glue
 __pycache__/

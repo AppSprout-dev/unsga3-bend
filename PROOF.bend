@@ -1,6 +1,7 @@
 # v0 proofs. `bend PROOF.bend` is the gate.
 # Closed laws are those whose sides compute equal after the v0 bodies.
-# Remaining obligations stay ?TODO (quantified partition / size facts).
+# Remaining obligations stay ?TODO (quantified partition / size facts;
+# F32-opaque irreflexivity).
 
 import Base
 import ./LAWS.bend as Laws
@@ -31,7 +32,7 @@ def Laws.das_dennis_count_m1(p):
   {==}
 
 def Laws.das_dennis_count(m, p):
-  ?TODO
+  {==}
 
 def Laws.das_dennis_m1_len(p):
   match p:

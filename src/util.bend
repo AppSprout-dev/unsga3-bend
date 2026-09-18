@@ -141,9 +141,10 @@ def f32_or_one(+span: F32, tiny: Bool) -> F32:
     case False{}:
       span
 
+# C# Normalize: denom < 1e-12 → 1.0 (intercept span uses the same floor).
 def denom(+lo: F32, +hi: F32) -> F32:
   +span = F32.sub(hi, lo)
-  f32_or_one(span, F32.is_le(span, 0.000001))
+  f32_or_one(span, F32.is_lt(span, 1.0e-12))
 
 def vec_norm_div(f: List<&2, F32>, ideal: List<&2, F32>, nadir: List<&2, F32>) -> List<&2, F32>:
   match f ideal nadir:

@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Compare dumped fronts. Uses only files that exist — no invented metrics.
 
-v0: compare Bend vs optional C# CSV row-sets. IGD is a separate script
-(ab/igd_vs_pymoo.py) and is skipped when pymoo is missing.
+v0: compare Bend vs optional C# CSV row-sets (row-set equality when
+ab/out/csharp_F.csv exists). Produce that file with
+ab/dump_csharp_front.py when UNSGA3_CS_ROOT points at a local Unsga3
+checkout and dotnet can build ab/csharp_core_dump. IGD is a separate
+script (ab/igd_vs_pymoo.py) and is skipped when pymoo is missing.
 """
 
 from __future__ import annotations
@@ -50,8 +53,8 @@ def main() -> int:
 
     if not args.csharp.is_file():
         print(
-            "csharp_front=absent (optional; dump_csharp_front.py skips unless "
-            "UNSGA3_CS_ROOT is set and a C# dump is written)",
+            "csharp_front=absent (optional; dump_csharp_front.py writes this "
+            "when UNSGA3_CS_ROOT + dotnet succeed)",
             file=sys.stderr,
         )
         return 0
