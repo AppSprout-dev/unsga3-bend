@@ -69,7 +69,7 @@ python3 ab/igd_vs_pymoo.py --front ab/out/csharp_zdt1_F.csv --problem zdt1 --pf-
 ### Deltas vs C#
 
 - Bend RNG is a portable LCG, not `System.Random` — fronts will not match bit-for-bit.
-- `Run` survival niching threads rng (random among equal min-count niches / members), matching C# `Select(..., rng)`. v0 `Survival.select` stays deterministic (`rng == null`).
+- `Run` survival niching threads rng (random among equal min-count niches), matching C# `Select(..., rng)` for the ref pick. Last-front members are the closest unused candidate (C# empty-niche rule). C# `inNiche[rng.Next]` with this LCG collapsed oracle ZDT2. v0 `Survival.select` stays deterministic (`rng == null`).
 - Duplicate keys use C# G12-style 12-decimal rounding on decision vars (Bend F32 ULP is coarser than 1e-12).
 - Unconstrained problems only (no constraint-domination).
 - A/B / smoke tournament is `PymooCompatible`. C# ctor default is `RankNicheDistance` (also implemented).

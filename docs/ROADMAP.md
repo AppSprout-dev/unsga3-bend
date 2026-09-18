@@ -20,11 +20,11 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] Wire [ab/](../ab/README.md) Bend dump + compare (C# / pymoo still optional)
 - [ ] C# Unsga3 and Bend agree on sort / normalize / associate / select for shared fixtures (C# dump runs when `UNSGA3_CS_ROOT` + `dotnet` work; this repo does not clone Unsga3)
 - [x] Document remaining intentional deltas (constraint-domination, LCG RNG)
-- [x] `Run` survival niching threads rng (random among equal min-count niches / members)
+- [x] `Run` survival niching threads rng (random among equal min-count niches; closest unused member)
 - [x] Duplicate keys use C# G12-style 12-decimal rounding
 - [x] DTLZ2 IGD yardstick is Das–Dennis-density PF (not pymoo default ~136-pt sample)
 
-**Intentional remaining deltas vs C#:** v0 sort is still Pareto-only (no constraint-domination). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`. v0 `select` stays the deterministic `rng == null` branch.
+**Intentional remaining deltas vs C#:** v0 sort is still Pareto-only (no constraint-domination). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`. v0 `select` stays the deterministic `rng == null` branch. `Run` randomizes min-count niche ties like C# `Select(..., rng)` but picks the closest unused last-front member (C# empty-niche rule), not `inNiche[rng.Next]` — that LCG path collapsed oracle ZDT2.
 
 ## Pass 2 — variation, Run, samples
 

@@ -56,7 +56,7 @@ Protocol (same as C# `docs/EQUIVALENCE.md` / `tools/OracleCompare`):
 
 Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Smoke is labeled smoke and is **not** an oracle claim.
 
-**Intentional deltas vs C#:** Bend RNG is a portable LCG (not `System.Random`), so fronts will not match bit-for-bit. `Run` survival niching threads rng (C# `Select(..., rng)`); v0 `select` stays deterministic. Duplicate keys use C# G12-style 12-decimal rounding. C# ctor default tournament is `RankNicheDistance`; Bend A/B / smoke uses `PymooCompatible`. DTLZ2 IGD uses a Das–Dennis-density PF (see [ab/README.md](ab/README.md)); pymoo’s default ~136-pt PF is a different yardstick.
+**Intentional deltas vs C#:** Bend RNG is a portable LCG (not `System.Random`), so fronts will not match bit-for-bit. `Run` survival niching threads rng for min-count niche ties (C# `Select(..., rng)`); last-front members are closest-unused, not `inNiche[rng.Next]` (that LCG path collapsed oracle ZDT2). v0 `select` stays deterministic. Duplicate keys use C# G12-style 12-decimal rounding. C# ctor default tournament is `RankNicheDistance`; Bend A/B / smoke uses `PymooCompatible`. DTLZ2 IGD uses a Das–Dennis-density PF (see [ab/README.md](ab/README.md)); pymoo’s default ~136-pt PF is a different yardstick.
 
 ## Install Bend
 
