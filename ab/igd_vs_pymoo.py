@@ -7,7 +7,9 @@ Reference sets:
 - simplex: analytic 2-obj unit simplex (v0 core fixture)
 - zdt1: analytic f2 = 1 - sqrt(f1), f1 ∈ [0, 1]
 - zdt2: analytic f2 = 1 - f1^2, f1 ∈ [0, 1]
-- dtlz2: pymoo get_problem('dtlz2').pareto_front() when pymoo can build it
+- dtlz2: Das–Dennis unit-sphere PF at the run's partitions (C# OracleCompare
+  `ParetoFronts.Dtlz2(M, partitions)`). Default pymoo `pareto_front()` is a
+  different ~136-point sample and is **not** the oracle yardstick.
 
 Never fabricates IGD / HV / Wilcoxon values.
 """
@@ -63,6 +65,55 @@ def zdt2_pf(n_points: int) -> list[list[float]]:
     return pf
 
 
+def das_dennis(n_obj: int, partitions: int) -> list[list[float]]:
+    """C# ReferenceDirections.DasDennis: first coordinate 0..p, DFS."""
+    rows: list[list[float]] = []
+
+    def rec(left: int, dims: int, prefix: list[int]) -> None:
+        if dims == 1:
+            comps = prefix + [left]
+            rows.append([c / partitions for c in comps])
+            return
+        for i in range(left + 1):
+            rec(left - i, dims - 1, prefix + [i])
+
+    if n_obj < 1:
+        return []
+    if n_obj == 1:
+        return [[1.0]]
+    if partitions < 1:
+        return []
+    rec(partitions, n_obj, [])
+    return rows
+
+
+def dtlz2_pf_analytic(n_obj: int, partitions: int) -> list[list[float]]:
+    """C# ParetoFronts.Dtlz2: Das–Dennis directions, L2-normalized to the sphere."""
+    pf: list[list[float]] = []
+    for w in das_dennis(n_obj, partitions):
+        nrm = math.sqrt(sum(x * x for x in w))
+        pf.append([x / nrm for x in w])
+    return pf
+
+
+def dtlz2_pf(n_obj: int, partitions: int) -> tuple[list[list[float]], str]:
+    """Das–Dennis-density DTLZ2 PF. Prefer pymoo(ref_dirs=...); else analytic."""
+    try:
+        from pymoo.problems import get_problem
+        from pymoo.util.ref_dirs import get_reference_directions
+
+        ref_dirs = get_reference_directions("das-dennis", n_obj, n_partitions=partitions)
+        pf_arr = get_problem("dtlz2", n_obj=n_obj, n_var=n_obj + 9).pareto_front(
+            ref_dirs=ref_dirs
+        )
+        pf = [list(map(float, row)) for row in pf_arr]
+        if pf:
+            return pf, "pymoo-das-dennis"
+    except Exception:
+        pass
+    return dtlz2_pf_analytic(n_obj, partitions), "analytic-das-dennis-l2"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--front", type=Path, default=DEFAULT_FRONT)
@@ -76,7 +127,13 @@ def main() -> int:
         "--pf-points",
         type=int,
         default=101,
-        help="samples for analytic 2-obj PFs",
+        help="samples for analytic 2-obj PFs (C# OracleCompare ZDT uses 500)",
+    )
+    parser.add_argument(
+        "--partitions",
+        type=int,
+        default=12,
+        help="Das–Dennis partitions for the DTLZ2 PF (oracle default 12 → 91 pts at M=3)",
     )
     args = parser.parse_args()
 
@@ -102,6 +159,7 @@ def main() -> int:
 
     n_obj = len(front[0])
     pf: list[list[float]]
+    pf_source: str
     if args.problem == "simplex":
         if n_obj != 2:
             print(
@@ -110,6 +168,7 @@ def main() -> int:
             )
             return 0
         pf = simplex_pf(args.pf_points)
+        pf_source = f"analytic-simplex n={args.pf_points}"
     elif args.problem == "zdt1":
         if n_obj != 2:
             print(
@@ -118,6 +177,7 @@ def main() -> int:
             )
             return 0
         pf = zdt1_pf(args.pf_points)
+        pf_source = f"analytic-zdt1 n={args.pf_points}"
     elif args.problem == "zdt2":
         if n_obj != 2:
             print(
@@ -126,15 +186,26 @@ def main() -> int:
             )
             return 0
         pf = zdt2_pf(args.pf_points)
+        pf_source = f"analytic-zdt2 n={args.pf_points}"
     else:
+        if n_obj != 3:
+            print(
+                f"skip: DTLZ2 PF helper is M=3; front has {n_obj} columns.",
+                file=sys.stderr,
+            )
+            return 0
         try:
-            from pymoo.problems import get_problem
-            pf_arr = get_problem("dtlz2", n_obj=3, n_var=12).pareto_front()
-            pf = [list(map(float, row)) for row in pf_arr]
+            pf, pf_source = dtlz2_pf(3, args.partitions)
         except Exception as exc:
             print(
-                f"skip: pymoo DTLZ2 Pareto front unavailable ({exc}). "
+                f"skip: DTLZ2 Das–Dennis Pareto front unavailable ({exc}). "
                 "Refusing to invent a PF or IGD.",
+                file=sys.stderr,
+            )
+            return 0
+        if not pf:
+            print(
+                "skip: DTLZ2 Das–Dennis PF is empty. Refusing to invent a PF or IGD.",
                 file=sys.stderr,
             )
             return 0
@@ -144,6 +215,9 @@ def main() -> int:
     print(f"problem={args.problem}")
     print(f"front_rows={len(front)}")
     print(f"pf_rows={len(pf)}")
+    print(f"pf_source={pf_source}")
+    if args.problem == "dtlz2":
+        print(f"partitions={args.partitions}")
     print(f"front={args.front}")
     return 0
 

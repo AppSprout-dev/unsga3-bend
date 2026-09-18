@@ -3,8 +3,9 @@
 # polynomial mutation (η=20, p=1/n) → evaluate → survival Select
 # with persistent Normalization. Defaults match C# operator defaults.
 # Mating tournament for A/B is PymooCompatible (document RankNicheDistance
-# as the C# ctor default). Survival niching stays the v0 deterministic
-# branch (C# Run passes rng; that is an intentional delta).
+# as the C# ctor default). Survival niching in Run threads rng (C#
+# Select(..., rng): random among equal min-count niches / members).
+# Duplicate keys use C# G12-style 12-decimal rounding, not bit-exact F32.
 
 import Base
 import ./individual.bend as Ind
@@ -130,17 +131,17 @@ def vars_of(xs: List<&2, Ind.Individual>) -> List<&2, List<&2, F32>>:
     case Nil{}:
       Nil{}
     case h <> t:
-      Ind.variables(h) <> vars_of(t)
+      Util.g12_vec(Ind.variables(h)) <> vars_of(t)
 
 def try_add.go(+acc: List<&2, Ind.Individual>, +child: Ind.Individual, +seen: List<&2, List<&2, F32>>, skip: Bool) -> List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool:
   match skip:
     case True{}:
       (acc, seen, False{})
     case False{}:
-      (List.append(&2, Ind.Individual, acc, [child]), Ind.variables(child) <> seen, True{})
+      (List.append(&2, Ind.Individual, acc, [child]), Util.g12_vec(Ind.variables(child)) <> seen, True{})
 
 def try_add(+acc: List<&2, Ind.Individual>, +child: Ind.Individual, +seen: List<&2, List<&2, F32>>, elim: Bool) -> List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool:
-  try_add.go(acc, child, seen, Bool.and(elim, Util.has_f32s(Ind.variables(child), seen)))
+  try_add.go(acc, child, seen, Bool.and(elim, Util.has_f32s(Util.g12_vec(Ind.variables(child)), seen)))
 
 def pred_or_zero(n: Nat) -> Nat:
   match n:
@@ -375,6 +376,10 @@ def hold_s(pair: Norm.State & List<&2, Ind.Individual>, rng: Rng.State) -> GHold
   (st, xs) = pair
   HS{st, xs, rng}
 
+def hold_sr(trip: Norm.State & List<&2, Ind.Individual> & Rng.State) -> GHold:
+  (st, xs, rng) = trip
+  HS{st, xs, rng}
+
 # tag 0: start a generation (shrink fuel) or return.
 # tags 1–4: parents → offspring → select → prepare → back to tag 0.
 # @unsafe: tag advances without shrinking fuel.
@@ -409,14 +414,14 @@ def hold_s(pair: Norm.State & List<&2, Ind.Individual>, rng: Rng.State) -> GHold
     case 1n+1n HO{+rng2, offs}:
       gen_work(
         1n+1n+1n,
-        hold_s(
+        hold_sr(
           Surv.select_st(
             List.append(&2, Ind.Individual, pop, Prob.evaluate_all(prob, offs)),
             cfg_pop(cfg),
             cfg_dirs(cfg),
-            state
-          ),
-          rng2
+            state,
+            rng2
+          )
         ),
         fuel,
         pop,

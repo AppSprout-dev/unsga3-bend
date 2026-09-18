@@ -56,7 +56,7 @@ Protocol (same as C# `docs/EQUIVALENCE.md` / `tools/OracleCompare`):
 
 Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Smoke is labeled smoke and is **not** an oracle claim.
 
-**Intentional deltas vs C#:** Bend RNG is a portable LCG (not `System.Random`), so fronts will not match bit-for-bit. Survival niching stays the v0 deterministic (`rng == null`) branch. Duplicate elimination uses exact F32 equality, not C# G12 strings. C# ctor default tournament is `RankNicheDistance`; Bend A/B / smoke uses `PymooCompatible`.
+**Intentional deltas vs C#:** Bend RNG is a portable LCG (not `System.Random`), so fronts will not match bit-for-bit. `Run` survival niching threads rng (C# `Select(..., rng)`); v0 `select` stays deterministic. Duplicate keys use C# G12-style 12-decimal rounding. C# ctor default tournament is `RankNicheDistance`; Bend A/B / smoke uses `PymooCompatible`. DTLZ2 IGD uses a Das–Dennis-density PF (see [ab/README.md](ab/README.md)); pymoo’s default ~136-pt PF is a different yardstick.
 
 ## Install Bend
 
@@ -75,6 +75,7 @@ python3 ab/dump_bend_run.py
 python3 ab/dump_csharp_front.py   # skip if UNSGA3_CS_ROOT unset
 python3 ab/dump_csharp_run.py     # skip if UNSGA3_CS_ROOT unset
 python3 ab/igd_vs_pymoo.py --front ab/out/bend_run_F.csv --problem zdt1
+python3 ab/igd_vs_pymoo.py --front ab/out/bend_run_F.csv --problem dtlz2 --partitions 12
 ```
 
 Language: [bend-lang.com](https://bend-lang.com/) · [github.com/bendlang/bend](https://github.com/bendlang/bend).

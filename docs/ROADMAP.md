@@ -19,9 +19,12 @@ Enough to A/B a front when a population of **objectives** is provided.
 
 - [x] Wire [ab/](../ab/README.md) Bend dump + compare (C# / pymoo still optional)
 - [ ] C# Unsga3 and Bend agree on sort / normalize / associate / select for shared fixtures (C# dump runs when `UNSGA3_CS_ROOT` + `dotnet` work; this repo does not clone Unsga3)
-- [x] Document remaining intentional deltas (constraint-domination, RNG niching)
+- [x] Document remaining intentional deltas (constraint-domination, LCG RNG)
+- [x] `Run` survival niching threads rng (random among equal min-count niches / members)
+- [x] Duplicate keys use C# G12-style 12-decimal rounding
+- [x] DTLZ2 IGD yardstick is Das–Dennis-density PF (not pymoo default ~136-pt sample)
 
-**Intentional remaining deltas vs C#:** v0 sort is still Pareto-only (no constraint-domination). Survival is the deterministic `rng == null` branch even inside `Run` (C# `Run` passes rng for random-among-equal-niches). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`.
+**Intentional remaining deltas vs C#:** v0 sort is still Pareto-only (no constraint-domination). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`. v0 `select` stays the deterministic `rng == null` branch.
 
 ## Pass 2 — variation, Run, samples
 
@@ -33,7 +36,7 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] Operator smoke: `bend src/op_smoke.bend` on a 2-var unit box, seed 42
 - [x] Shared ZDT1 / ZDT2 / DTLZ2 (3-obj, k=10) bounds + Evaluate matching C# `IProblem`
 - [x] Mating tournament: `PymooCompatible` (A/B default) + `RankNicheDistance` (C# ctor default)
-- [x] `Unsga3Algorithm.Run` generational loop (persistent Normalization, v0 survival)
+- [x] `Unsga3Algorithm.Run` generational loop (persistent Normalization, rng niching)
 - [x] Samples: `src/run_smoke.bend` + `ab/dump_bend_run.py` dump a real front under `ab/out/`
 - [x] Algorithm A/B scripts: Bend Run dump; optional C# `OracleCompare` when `UNSGA3_CS_ROOT` is set; `igd_vs_pymoo.py` vs analytic / pymoo PF or `skip:`
 - [x] Laws for operator defaults (closed) + ZDT/DTLZ dimensions / zero-pop Run (closed) + `|Run|==pop` (`?TODO`)

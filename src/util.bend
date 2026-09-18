@@ -184,3 +184,31 @@ def has_f32s(+needle: List<&2, F32>, xs: List<&2, List<&2, F32>>) -> Bool:
       False{}
     case h <> t:
       Bool.or(f32s_eq(needle, h), has_f32s(needle, t))
+
+# C# Unsga3Algorithm.DecisionKey: double.ToString("G12") — 12 significant
+# digits, which on the unit box is 12 decimal places. Round each coord
+# to 12 dp before duplicate-key compare. Bend F32 ULP is coarser than
+# 1e-12, so this matches C# G12 at the precision this tree has.
+def g12_scale() -> F32:
+  1000000000000.0
+
+def g12_round_abs(+x: F32) -> F32:
+  +s = g12_scale()
+  F32.div(F32.round(F32.mul(x, s)), s)
+
+def g12_one.signed(+x: F32, neg: Bool) -> F32:
+  match neg:
+    case True{}:
+      F32.neg(g12_round_abs(F32.neg(x)))
+    case False{}:
+      g12_round_abs(x)
+
+def g12_one(+x: F32) -> F32:
+  g12_one.signed(x, F32.is_lt(x, 0.0))
+
+def g12_vec(xs: List<&2, F32>) -> List<&2, F32>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case x <> rest:
+      g12_one(x) <> g12_vec(rest)

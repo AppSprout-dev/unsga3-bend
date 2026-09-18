@@ -86,7 +86,11 @@ def main() -> int:
         seed = args.seed
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    tmp_dir = OUT_DIR / "csharp_oracle"
+    # Per-run subdirectory: a shared csharp_oracle/ plus glob[-1] picks the
+    # wrong CSV after multi-problem dumps (sorted name, not this invocation).
+    mode = "pymoo"
+    stem = f"csharp_{problem}_p{partitions}_pop{pop}_g{gens}_s{seed}_{mode}"
+    tmp_dir = OUT_DIR / "csharp_oracle" / stem
     tmp_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
         dotnet,
@@ -129,13 +133,17 @@ def main() -> int:
             detail = detail[:800] + "…"
         return skip(f"C# OracleCompare build/run failed: {detail}")
 
-    csvs = sorted(tmp_dir.glob("csharp_*_F.csv"))
-    if not csvs:
-        return skip(
-            f"OracleCompare exited 0 but no csharp_*_F.csv under {tmp_dir}. "
-            "Refusing to invent a front."
-        )
-    src = csvs[-1]
+    exact = tmp_dir / f"{stem}_F.csv"
+    if exact.is_file():
+        src = exact
+    else:
+        csvs = sorted(tmp_dir.glob(f"csharp_{problem}_*_F.csv"))
+        if not csvs:
+            return skip(
+                f"OracleCompare exited 0 but no csharp_{problem}_*_F.csv under {tmp_dir}. "
+                "Refusing to invent a front."
+            )
+        src = csvs[-1]
     args.out.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
     n = sum(1 for line in args.out.read_text(encoding="utf-8").splitlines() if line.strip())
     print(f"wrote {args.out} from {src.name} ({n} rows)", file=sys.stderr)
