@@ -21,13 +21,13 @@ Bend artifacts publish later via `bend … --publish` (content-hash hub). They d
 
 ## v0 vs later
 
-**v0 (this scaffold) — core only**, enough to A/B a front when a **population of objectives** is already provided:
+**v0 (this tree) — core only**, enough to A/B a front when a **population of objectives** is already provided:
 
 | Module | C# surface it mirrors |
 |--------|------------------------|
 | `Individual` | objectives only (no decision variables yet) |
 | `NonDominatedSort` | fast non-dominated sort + Pareto compare |
-| `Normalization` | NSGA-III hyperplane normalization |
+| `Normalization` | NSGA-III min/max (C# intercept-failure fallback; ASF intercepts are pass-2) |
 | `ReferenceDirections` | Das–Dennis directions / count |
 | `Survival` | niching association + environmental selection |
 
@@ -47,7 +47,7 @@ Two layers; do not invent IGD numbers in this repo.
 1. **v0 core A/B** — feed the **same objective population** to C# and Bend sort / normalize / associate / select. Compare ranks, associations, and the selected index set. No full evolutionary run required.
 2. **Later algorithm A/B** — once variation + `Run` exist, dump non-dominated fronts from C# Unsga3 and from Bend on the same ZDT/DTLZ settings, compute IGD vs pymoo, compare. Protocol: same Das–Dennis partitions, pop size, generations, and seed as the C# oracle docs.
 
-Outline and unwired stubs: [ab/README.md](ab/README.md). Scripts print `not wired` rather than fake metrics.
+v0 core path: [ab/README.md](ab/README.md). `dump_bend_front.py` runs Bend selection; IGD vs pymoo and the C# dump skip with a clear message when those oracles are missing. No invented metrics.
 
 ## Install Bend
 
@@ -56,13 +56,16 @@ Bend is **not** assumed to be on `PATH` in every environment. Install from the o
 ```bash
 curl -fsSL https://bend-lang.com/install.sh | sh
 bend guide
-bend src/lib.bend    # v0 stubs: All terms check (Bend 2.0.9)
-bend PROOF.bend      # gate: open laws, currently 13 ?TODO
+bend src/lib.bend       # v0 core: All terms check (Bend 2.0.9)
+bend src/ab_select.bend # v0 selection smoke (prints CSV front)
+bend PROOF.bend         # gate: empty-input laws closed; remaining ?TODO
+python3 ab/dump_bend_front.py
+python3 ab/igd_vs_pymoo.py   # skip if pymoo missing
 ```
 
 Language: [bend-lang.com](https://bend-lang.com/) · [github.com/bendlang/bend](https://github.com/bendlang/bend).
 
-Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `LAWS.bend` (human-owned). Proofs live in `PROOF.bend`. `bend PROOF.bend` is the gate; v0 proofs are mostly open (`?TODO`).
+Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `LAWS.bend` (human-owned). Proofs live in `PROOF.bend`. `bend PROOF.bend` is the gate; empty-input / M=1 / `binomial(n,0)` laws are closed, quantified size laws stay `?TODO`.
 
 ## Layout
 
@@ -71,8 +74,8 @@ unsga3-bend/
 ├── AGENTS.md                 # Bend agent rules + product locks
 ├── LAWS.bend                 # v0 core claims (human-owned)
 ├── PROOF.bend                # imports LAWS; open / stub proofs
-├── src/                      # Bend modules (signatures + stubs)
-├── ab/                       # A/B outline; scripts print "not wired"
+├── src/                      # Bend v0 core (real bodies) + ab_select
+├── ab/                       # v0 selection dump / optional IGD / optional C#
 ├── docs/ROADMAP.md
 └── LICENSE                   # MIT
 ```

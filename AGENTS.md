@@ -27,7 +27,7 @@ Language docs: https://bend-lang.com/ and https://github.com/bendlang/bend
 - **v0 scope — CORE ONLY:** non-dominated sort, normalization, Das–Dennis reference directions, niching / reference-point association, survival selection. Enough to A/B fronts when a **population of objectives** is provided.
 - **OUT of v0:** SBX crossover, polynomial mutation, full `Unsga3Algorithm.Run` loop, samples that need variation operators. Those are a second pass after v0 matches. Do not add SBX / mutation / `Run` laws yet.
 - **Standalone OSS:** no mentions of private product repos or internal application names. Consumers wire their own Unsga3 usage; this repo does not know about them.
-- **No fabricated benchmark numbers.** A/B stubs print `not wired`. Do not invent IGD, HV, or Wilcoxon results.
+- **No fabricated benchmark numbers.** A/B scripts dump a real Bend front or print `skip: …` when an oracle is missing. Do not invent IGD, HV, or Wilcoxon results.
 
 ## v0 module surface (mirror C# names)
 

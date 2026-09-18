@@ -1,5 +1,6 @@
 # v0 core facade. Importing this file is the module graph check.
-# There is no Unsga3Algorithm.Run, SBX, or polynomial mutation here.
+# Bodies live in the imported modules. No Unsga3Algorithm.Run, SBX, or
+# polynomial mutation here.
 
 import Base
 import ./individual.bend as Individual

@@ -1,0 +1,17 @@
+{
+  "problem": "fixture",
+  "n_obj": 2,
+  "partitions": 4,
+  "target_size": 5,
+  "notes": "2-objective mix of non-dominated and dominated points. First front is larger than target_size, so v0 selection niches the last front. Analytic PF for optional IGD is the unit simplex f1+f2=1, fi>=0.",
+  "objectives": [
+    [0.0, 1.0],
+    [0.5, 0.5],
+    [1.0, 0.0],
+    [0.2, 0.9],
+    [0.9, 0.2],
+    [0.8, 0.8],
+    [1.0, 1.0],
+    [0.1, 0.95]
+  ]
+}

@@ -25,3 +25,6 @@ def rank(ind: Individual) -> Nat:
   match ind:
     case MkIndividual{f, rnk, nic, aref, dist}:
       rnk
+
+def n_obj(ind: Individual) -> Nat:
+  List.length(&2, F32, objectives(ind))

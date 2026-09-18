@@ -55,6 +55,13 @@ law das_dennis_m1_len:
   for p: Nat
   {Util.list_len(List<&2, F32>, Refs.das_dennis(1n, p)) == 1n : Nat}
 
+# LAW: |DasDennis(M, p+1)| = Count(M, p+1). p+1 avoids p==0 (C# rejects
+# partitions < 1; v0 returns Nil{} for M>1 / p==0 while Count is C(M-1, M-1)).
+law das_dennis_len:
+  for m: Nat
+  for p: Nat
+  {Util.list_len(List<&2, F32>, Refs.das_dennis(m, 1n+p)) == Refs.count(m, 1n+p) : Nat}
+
 # LAW: empty population → no associations
 law associate_empty:
   {Surv.associate(Nil{}, Nil{}, Nil{}) == Nil{} : List<&2, Surv.Assignment>}
