@@ -97,21 +97,18 @@ def dtlz2_pf_analytic(n_obj: int, partitions: int) -> list[list[float]]:
 
 
 def dtlz2_pf(n_obj: int, partitions: int) -> tuple[list[list[float]], str]:
-    """Das–Dennis-density DTLZ2 PF. Prefer pymoo(ref_dirs=...); else analytic."""
-    try:
-        from pymoo.problems import get_problem
-        from pymoo.util.ref_dirs import get_reference_directions
+    """Das–Dennis-density DTLZ2 PF via pymoo ref_dirs; analytic fallback."""
+    from pymoo.problems import get_problem
+    from pymoo.util.ref_dirs import get_reference_directions
 
-        ref_dirs = get_reference_directions("das-dennis", n_obj, n_partitions=partitions)
-        pf_arr = get_problem("dtlz2", n_obj=n_obj, n_var=n_obj + 9).pareto_front(
-            ref_dirs=ref_dirs
-        )
-        pf = [list(map(float, row)) for row in pf_arr]
-        if pf:
-            return pf, "pymoo-das-dennis"
-    except Exception:
-        pass
-    return dtlz2_pf_analytic(n_obj, partitions), "analytic-das-dennis-l2"
+    ref_dirs = get_reference_directions("das-dennis", n_obj, n_partitions=partitions)
+    pf_arr = get_problem("dtlz2", n_obj=n_obj, n_var=n_obj + 9).pareto_front(
+        ref_dirs=ref_dirs
+    )
+    pf = [list(map(float, row)) for row in pf_arr]
+    if not pf:
+        raise RuntimeError("pymoo DTLZ2 pareto_front(ref_dirs=...) returned no points")
+    return pf, "pymoo-das-dennis"
 
 
 def main() -> int:
@@ -197,12 +194,15 @@ def main() -> int:
         try:
             pf, pf_source = dtlz2_pf(3, args.partitions)
         except Exception as exc:
+            # pymoo is installed (IGD import succeeded) but ref_dirs PF failed.
+            # Analytic L2 Das–Dennis matches C# ParetoFronts.Dtlz2 — not a made-up PF.
             print(
-                f"skip: DTLZ2 Das–Dennis Pareto front unavailable ({exc}). "
-                "Refusing to invent a PF or IGD.",
+                f"note: pymoo get_reference_directions / pareto_front(ref_dirs=...) "
+                f"failed ({exc}); using analytic Das–Dennis L2 PF.",
                 file=sys.stderr,
             )
-            return 0
+            pf = dtlz2_pf_analytic(3, args.partitions)
+            pf_source = "analytic-das-dennis-l2"
         if not pf:
             print(
                 "skip: DTLZ2 Das–Dennis PF is empty. Refusing to invent a PF or IGD.",

@@ -36,6 +36,36 @@ dotnet run --project tools/OracleCompare -c Release -- \
   --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 --pymoo-mode
 ```
 
+### Apples-to-apples IGD (Bend vs C#, same PF)
+
+Dump both fronts, then score **both** with this repo’s `igd_vs_pymoo.py` and the **same** PF flags. Do not compare C# `OracleCompare`’s printed IGD to a score against pymoo’s default DTLZ2 `pareto_front()` (~136 pts). That is a yardstick mismatch.
+
+**DTLZ2** — Das–Dennis `--partitions` (default 12 → 91 pts at M=3). Expect `pf_rows=91` and `pf_source=pymoo-das-dennis` when pymoo is installed (`get_reference_directions` + `pareto_front(ref_dirs=…)`).
+
+```bash
+python3 ab/dump_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 \
+  --out ab/out/bend_dtlz2_F.csv
+python3 ab/dump_csharp_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 \
+  --out ab/out/csharp_dtlz2_F.csv
+
+python3 ab/igd_vs_pymoo.py --front ab/out/bend_dtlz2_F.csv --problem dtlz2 --partitions 12
+python3 ab/igd_vs_pymoo.py --front ab/out/csharp_dtlz2_F.csv --problem dtlz2 --partitions 12
+```
+
+**ZDT1** — analytic PF; `--pf-points 500` matches C# `ParetoFronts.Zdt1(500)`.
+
+```bash
+python3 ab/dump_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 \
+  --out ab/out/bend_zdt1_F.csv
+python3 ab/dump_csharp_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 \
+  --out ab/out/csharp_zdt1_F.csv
+
+python3 ab/igd_vs_pymoo.py --front ab/out/bend_zdt1_F.csv --problem zdt1 --pf-points 500
+python3 ab/igd_vs_pymoo.py --front ab/out/csharp_zdt1_F.csv --problem zdt1 --pf-points 500
+```
+
+`dump_csharp_run.py` skips (exit 0) without `UNSGA3_CS_ROOT` / `dotnet`. Do not invent a C# front or IGD. Compare the two `igd=` lines only when both CSVs exist and both prints show the same `pf_rows` / `partitions`.
+
 ### Deltas vs C#
 
 - Bend RNG is a portable LCG, not `System.Random` — fronts will not match bit-for-bit.
