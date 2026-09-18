@@ -6,7 +6,7 @@ This repo is not a NuGet package and is not a drop-in into C# consumers. Do not 
 
 ## Layer 1 — v0 core (wired)
 
-Feed a **population of objective vectors** through Bend `NonDominatedSort` → `Normalization` → associate → `Survival.select`. No SBX, mutation, or `Run` loop.
+Feed a **population of objective vectors** through Bend `NonDominatedSort` → `Normalization` → associate → `Survival.select`. No `Run` loop. Variation operators live in `src/sbx.bend` / `src/polynomial_mutation.bend` (`bend src/op_smoke.bend`).
 
 1. Fixture JSON: same `M`, same order, plus Das–Dennis `(n_obj, partitions)` and `target_size`. Checked-in smoke: [fixtures/core_2obj.json](fixtures/core_2obj.json) (mirrored in `src/ab_select.bend`).
 2. **Bend dump:** `ab/dump_bend_front.py` runs `bend src/ab_select.bend` (or a generated program from `--fixture`) and writes `ab/out/bend_F.csv`.
@@ -14,9 +14,9 @@ Feed a **population of objective vectors** through Bend `NonDominatedSort` → `
 4. **Compare:** `ab/compare.py` prints the Bend rows and, if `ab/out/csharp_F.csv` exists, whether the row-sets match.
 5. **IGD vs pymoo (optional):** `ab/igd_vs_pymoo.py` computes IGD of the dumped front against the analytic 2-obj unit simplex when pymoo is installed; otherwise it prints `skip: pymoo is not installed` and exits 0.
 
-## Layer 2 — later algorithm A/B (after pass 2)
+## Layer 2 — later algorithm A/B (after `Run`)
 
-Once SBX, polynomial mutation, and `Unsga3Algorithm.Run` exist: dump C# / Bend fronts on shared ZDT/DTLZ settings and IGD vs pymoo. Not in v0.
+SBX and polynomial mutation are in. Once `Unsga3Algorithm.Run` and shared ZDT/DTLZ exist: dump C# / Bend fronts on those settings and IGD vs pymoo. Not in this slice.
 
 ## Smoke
 

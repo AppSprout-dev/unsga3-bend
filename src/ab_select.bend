@@ -1,6 +1,6 @@
 # v0 A/B driver: run Survival.select on a population of objective vectors
 # and print the selected front as CSV (one row per individual).
-# No SBX, mutation, or generational Run.
+# Still no generational Run; variation smoke is src/op_smoke.bend.
 
 import Base
 import ./individual.bend as Ind
