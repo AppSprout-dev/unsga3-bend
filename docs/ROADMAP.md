@@ -42,6 +42,16 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] Laws for operator defaults (closed) + ZDT/DTLZ dimensions / zero-pop Run (closed) + `|Run|==pop` (`?TODO`)
 - [ ] Bit-for-bit / IGD match vs C# + pymoo on oracle-sized ZDT/DTLZ (needs a real C# checkout + pymoo; do not invent numbers)
 
+## Pass 3 — Bend-shaped speed (started)
+
+CPU parallel calls on independent per-individual work. Not a better-IGD bet. No fabricated timings.
+
+- [x] `Prob.evaluate_all` — mid-split, `a b = evaluate_all(lo) evaluate_all(hi)`
+- [x] `Surv.associate_raw` — nearest-ref per individual (dirs shared); `with_counts` / `gather` same shape
+- [x] `Norm.map_norm` / `gather_objs` — independent given ideal/nadir or the population
+- [ ] Native `bend … -o` dump pipeline (compile a binary; wire A/B dumps later)
+- [ ] Close remaining `PROOF.bend` `?TODO`s
+
 ## Hub publish
 
 - [ ] `bend … --publish` content-hash hub

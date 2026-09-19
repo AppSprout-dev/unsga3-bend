@@ -125,19 +125,34 @@ def obj_at.go(m: Maybe<&2, Ind.Individual>) -> List<&2, F32>:
 def obj_at(+pop: List<&2, Ind.Individual>, i: Nat) -> List<&2, F32>:
   obj_at.go(get_ind(pop, i))
 
-def gather_objs(+pop: List<&2, Ind.Individual>, idxs: List<&2, Nat>) -> List<&2, List<&2, F32>>:
-  match idxs:
-    case Nil{}:
-      Nil{}
-    case i <> rest:
-      obj_at(pop, i) <> gather_objs(pop, rest)
+def gather_objs.one(+pop: List<&2, Ind.Individual>, +i: Nat) -> List<&2, F32>:
+  obj_at(pop, i)
 
-def map_norm(+ideal: List<&2, F32>, +nadir: List<&2, F32>, pop: List<&2, Ind.Individual>) -> List<&2, List<&2, F32>>:
-  match pop:
-    case Nil{}:
+def gather_objs(+pop: List<&2, Ind.Individual>, +idxs: List<&2, Nat>) -> List<&2, List<&2, F32>>:
+  Util.map_halves(~Nat, ~List<&2, F32>, ~List<&2, Ind.Individual>, ~gather_objs.one, pop, idxs)
+
+def map_norm.one(+ideal: List<&2, F32>, +nadir: List<&2, F32>, +ind: Ind.Individual) -> List<&2, F32>:
+  Util.vec_norm_div(Ind.objectives(ind), ideal, nadir)
+
+# Independent per individual given ideal/nadir. Mid-split + parallel recurse.
+def map_norm.go(+ideal: List<&2, F32>, +nadir: List<&2, F32>, +fuel: Nat, pop: List<&2, Ind.Individual>) -> List<&2, List<&2, F32>>:
+  match fuel pop:
+    case 0n Nil{}:
       Nil{}
-    case ind <> rest:
-      Util.vec_norm_div(Ind.objectives(ind), ideal, nadir) <> map_norm(ideal, nadir, rest)
+    case 0n h <> t:
+      map_norm.one(ideal, nadir, h) <> map_norm.go(ideal, nadir, 0n, t)
+    case 1n+p Nil{}:
+      Nil{}
+    case 1n+p h <> Nil{}:
+      map_norm.one(ideal, nadir, h) <> Nil{}
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Ind.Individual>}
+      +mid = Nat.div(Util.list_len(Ind.Individual, all), 2n)
+      lo hi = map_norm.go(ideal, nadir, p, List.take(&2, Ind.Individual, all, mid)) map_norm.go(ideal, nadir, p, List.drop(&2, Ind.Individual, all, mid))
+      List.append(&2, List<&2, F32>, lo, hi)
+
+def map_norm(+ideal: List<&2, F32>, +nadir: List<&2, F32>, +pop: List<&2, Ind.Individual>) -> List<&2, List<&2, F32>>:
+  map_norm.go(ideal, nadir, Util.list_len(Ind.Individual, pop), pop)
 
 def n_obj_pop(pop: List<&2, Ind.Individual>) -> Nat:
   match pop:

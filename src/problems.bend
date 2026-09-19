@@ -175,9 +175,6 @@ def eval_kind(kind: Family, +x: List<&2, F32>, +m: Nat) -> List<&2, F32>:
 def evaluate(+p: Problem, +ind: Ind.Individual) -> Ind.Individual:
   Ind.set_objectives(ind, eval_kind(kind_of(p), Ind.variables(ind), n_obj(p)))
 
-def evaluate_all(+p: Problem, xs: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case h <> t:
-      evaluate(p, h) <> evaluate_all(p, t)
+# Independent per individual. Mid-split + parallel recurse; same order as cons.
+def evaluate_all(+p: Problem, +xs: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
+  Util.map_halves(~Ind.Individual, ~Ind.Individual, ~Problem, ~evaluate, p, xs)
