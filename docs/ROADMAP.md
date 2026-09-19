@@ -52,7 +52,7 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 - [x] Native `bend … -o` dump path — compile `src/run_smoke.bend` (or a generated driver) to a binary; `ab/dump_bend_run.py --native` prefers it and falls back to `bend file.bend` if the build fails. Same driver source reuses `ab/out/run_cache/<sha256>`; stderr splits `compile_s` from `run_s` (earlier dump wall times included compile)
 - [x] Close `dominates_irreflexive`, `normalize_len`, `associate_len` (same-list verdict / mid-split map length)
 - [x] Close remaining `PROOF.bend` laws: `sort_index_count`, `das_dennis_len`, `select_size`, `sbx_prob0_child1_vars`, `sbx_prob0_child2_vars`, `poly_prob0_vars`, `run_pop_size`. `bend PROOF.bend` is 0 `?TODO` (one `@unsafe` Das–Dennis index walk)
-- [x] Remaining independent Run-path maps — NDS `is_dominated` / `split_walk` / `first_scan`, nearest-ref tree-min, niche `cand_refs` / `in_ref` / `near_members` / `refs_at` / count histograms, `col_min`/`col_max`/`col_max_idx`/`pick_extremes`, `stamp_asgs`, `g12_vec` / `vars_of`. Same fronts given the same RNG (tournament / SBX / mutation / `niche_loop.rng` stay sequential)
+- [x] Remaining independent Run-path maps — NDS `split_walk` / `first_scan` (inner `is_dominated` stays sequential for OR short-circuit), niche `cand_refs` / `in_ref` / `near_members` / `refs_at` / count histograms, `col_min`/`col_max`/`col_max_idx`/`pick_extremes`, `stamp_asgs`, `g12_vec` / `vars_of`. Same fronts given the same RNG (tournament / SBX / mutation / `niche_loop.rng` stay sequential)
 
 Hub publish is still later.
 

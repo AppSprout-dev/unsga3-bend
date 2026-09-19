@@ -1,8 +1,9 @@
 # NonDominatedSort — C# Unsga3.Core.NonDominatedSort.
 # Fast non-dominated sorting by peeling (Deb et al.). v0: Pareto on
 # objectives only (no constraint-domination until constraints exist).
-# Independent per-candidate domination / split uses mid-split
-# `a b = f(lo) f(hi)` (same front/leftover order as the tail-first walk).
+# Per-candidate split / first_scan uses mid-split `a b = f(lo) f(hi)`
+# (same front/leftover order as the tail-first walk). Inner is_dominated
+# stays a sequential OR so a first hit skips the rest.
 
 import Base
 import ./individual.bend as Ind
@@ -83,28 +84,17 @@ def first_put(i: Nat, rest: List<&2, Nat>, dominated: Bool) -> List<&2, Nat>:
     case False{}:
       i <> rest
 
-def hit(+pop: List<&2, Ind.Individual>, +i: Nat, +j: Nat) -> Bool:
-  Bool.and(Bool.not(Nat.is_eq(i, j)), dominates_idx(pop, j, i))
-
-# OR-reduce over others. Mid-split; Bool.or is associative.
-def is_dominated.go(+pop: List<&2, Ind.Individual>, +i: Nat, +fuel: Nat, others: List<&2, Nat>) -> Bool:
-  match fuel others:
-    case 0n Nil{}:
+# Sequential OR so a first hit can skip the rest. Candidate-level
+# parallelism lives in split_walk / first_scan (coarse mid-split).
+def is_dominated(+pop: List<&2, Ind.Individual>, others: List<&2, Nat>, +i: Nat) -> Bool:
+  match others:
+    case Nil{}:
       False{}
-    case 0n +j <> js:
-      Bool.or(hit(pop, i, j), is_dominated.go(pop, i, 0n, js))
-    case 1n+p Nil{}:
-      False{}
-    case 1n+p +j <> Nil{}:
-      hit(pop, i, j)
-    case 1n+p h <> t:
-      +all = {h <> t : List<&2, Nat>}
-      +mid = Nat.div(Util.list_len(Nat, all), 2n)
-      a b = is_dominated.go(pop, i, p, List.take(&2, Nat, all, mid)) is_dominated.go(pop, i, p, List.drop(&2, Nat, all, mid))
-      Bool.or(a, b)
-
-def is_dominated(+pop: List<&2, Ind.Individual>, +others: List<&2, Nat>, +i: Nat) -> Bool:
-  is_dominated.go(pop, i, Util.list_len(Nat, others), others)
+    case +j <> js:
+      Bool.or(
+        Bool.and(Bool.not(Nat.is_eq(i, j)), dominates_idx(pop, j, i)),
+        is_dominated(pop, js, i)
+      )
 
 # Per-candidate domination is independent given `all`. Mid-split;
 # `take ++ drop` matches the old tail-first first_put order.

@@ -1,6 +1,7 @@
 # Survival / niching — C# ReferencePointManager + NondominatedSortingSurvival.
-# Independent maps (nearest-ref tree-min, cand_refs / in_ref / near_members /
-# refs_at, count / seed histograms) use mid-split `a b = f(lo) f(hi)`.
+# Independent maps (cand_refs / in_ref / near_members / refs_at, count /
+# seed histograms) use mid-split `a b = f(lo) f(hi)`. Nearest-ref stays
+# sequential (associate_raw already splits per individual).
 # `niche_loop` / `niche_loop.rng` stay sequential (counts + RNG).
 # Associate normalized individuals to Das–Dennis rays; select `target_size`
 # from a combined pool (fill complete fronts, niche-preserve the last).
@@ -68,30 +69,24 @@ def perp(+f: List<&2, F32>, +w: List<&2, F32>) -> F32:
   +ww = Util.vec_sqnorm(w)
   perp.pick(f, w, ww, F32.is_lt(ww, 0.0000000000000001))
 
-# First-min on strict `<` (ties keep the lower index). Mid-split dirs.
-def nearer(a: Assignment, b: Assignment) -> Assignment:
-  match a b:
-    case MkAssignment{+ia, +da, +na} MkAssignment{+ib, +db, +nb}:
-      Bool.pick(Assignment, F32.is_lt(db, da), MkAssignment{ib, db, nb}, MkAssignment{ia, da, na})
+# First-min on strict `<` (ties keep the lower index). Sequential over
+# dirs; associate_raw already mid-splits per individual.
+def nearest_go(+f: List<&2, F32>, dirs: List<&2, List<&2, F32>>, +i: Nat, +best_i: Nat, +best_d: F32) -> Assignment:
+  match dirs:
+    case Nil{}:
+      MkAssignment{best_i, best_d, 0n}
+    case +w <> ws:
+      +d = perp(f, w)
+      nearest_go(
+        f,
+        ws,
+        1n+i,
+        Bool.pick(Nat, F32.is_lt(d, best_d), i, best_i),
+        Bool.pick(F32, F32.is_lt(d, best_d), d, best_d)
+      )
 
-def nearest_go(+f: List<&2, F32>, +fuel: Nat, dirs: List<&2, List<&2, F32>>, +i0: Nat) -> Assignment:
-  match fuel dirs:
-    case 0n Nil{}:
-      MkAssignment{i0, 1000000000.0, 0n}
-    case 0n +w <> ws:
-      nearer(MkAssignment{i0, perp(f, w), 0n}, nearest_go(f, 0n, ws, 1n+i0))
-    case 1n+p Nil{}:
-      MkAssignment{i0, 1000000000.0, 0n}
-    case 1n+p +w <> Nil{}:
-      MkAssignment{i0, perp(f, w), 0n}
-    case 1n+p h <> t:
-      +all = {h <> t : List<&2, List<&2, F32>>}
-      +mid = Nat.div(Util.list_len(List<&2, F32>, all), 2n)
-      lo hi = nearest_go(f, p, List.take(&2, List<&2, F32>, all, mid), i0) nearest_go(f, p, List.drop(&2, List<&2, F32>, all, mid), Nat.add(i0, mid))
-      nearer(lo, hi)
-
-def nearest_one(f: List<&2, F32>, +dirs: List<&2, List<&2, F32>>) -> Assignment:
-  nearest_go(f, Util.list_len(List<&2, F32>, dirs), dirs, 0n)
+def nearest_one(f: List<&2, F32>, dirs: List<&2, List<&2, F32>>) -> Assignment:
+  nearest_go(f, dirs, 0n, 0n, 1000000000.0)
 
 def associate_head(+dirs: List<&2, List<&2, F32>>, +ind: Ind.Individual, F: List<&2, List<&2, F32>>) -> Assignment:
   match F:
