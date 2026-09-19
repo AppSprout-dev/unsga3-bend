@@ -49,8 +49,10 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 - [x] `Prob.evaluate_all` — mid-split, `a b = evaluate_all(lo) evaluate_all(hi)`
 - [x] `Surv.associate_raw` — nearest-ref per individual (dirs shared); `with_counts` / `gather` same shape
 - [x] `Norm.map_norm` / `gather_objs` — independent given ideal/nadir or the population
-- [ ] Native `bend … -o` dump pipeline (compile a binary; wire A/B dumps later)
-- [ ] Close remaining `PROOF.bend` `?TODO`s
+- [x] Native `bend … -o` dump path — compile `src/run_smoke.bend` (or a generated driver) to a binary; `ab/dump_bend_run.py --native` prefers it and falls back to `bend file.bend` if the build fails
+- [ ] Close remaining `PROOF.bend` `?TODO`s (next)
+
+Hub publish is still later.
 
 ## Hub publish
 

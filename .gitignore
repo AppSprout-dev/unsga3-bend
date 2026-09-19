@@ -2,6 +2,7 @@
 .bend/
 *.o
 *.gpu
+/run_smoke
 
 # A/B dumps (never commit invented or local oracle numbers)
 ab/out/

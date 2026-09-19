@@ -8,12 +8,21 @@ OracleCompare protocol.
 With --problem/--partitions/--pop/--gens/--seed, generate a small Bend
 wrapper and run that (oracle-sized runs are opt-in and can be slow).
 
-Writes CSV under ab/out/. Does not invent IGD / HV numbers.
+Native path (clang 14+; Bend 2.0.10+):
+  bend src/run_smoke.bend -o ab/out/run_smoke
+  ./ab/out/run_smoke --threads 8
+
+This script prefers a native binary when --native is set, when
+UNSGA3_BEND_NATIVE=1, when --bin is given, or when a cached binary for
+the smoke driver is already on disk. If `bend … -o` fails, it prints the
+compiler output and falls back to `bend file.bend` (interpreter/check-run).
+Does not invent IGD / HV / timings.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -21,12 +30,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BEND = ROOT / "src" / "run_smoke.bend"
 OUT_DIR = ROOT / "ab" / "out"
+SMOKE_BIN = OUT_DIR / "run_smoke"
+CUSTOM_BEND = OUT_DIR / "run_custom.bend"
+CUSTOM_BIN = OUT_DIR / "run_custom"
 
 PROBLEMS = {
     "zdt1": ("Prob.zdt1(30n)", 2),
     "zdt2": ("Prob.zdt2(30n)", 2),
     "dtlz2": ("Prob.dtlz2(3n, 10n)", 3),
 }
+
+CHECKER_PREFIXES = ("All terms check",)
 
 
 def generate_bend(problem: str, partitions: int, pop: int, gens: int, seed: int) -> str:
@@ -45,24 +59,116 @@ def main() -> IO(Unit):
 """
 
 
-def run_bend(path: Path) -> str:
-    proc = subprocess.run(
-        ["bend", str(path)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+def extract_front_text(text: str) -> str:
+    """Keep the # header + CSV rows; drop Bend checker banners."""
+    lines: list[str] = []
+    for ln in text.splitlines():
+        s = ln.strip()
+        if not s:
+            continue
+        if any(s.startswith(p) for p in CHECKER_PREFIXES):
+            continue
+        lines.append(s)
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def run_cmd(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(cmd, check=False, capture_output=True, text=True)
+
+
+def run_bend_interpret(path: Path) -> str:
+    proc = run_cmd(["bend", str(path)])
     if proc.returncode != 0:
         sys.stderr.write(proc.stderr or proc.stdout or "bend failed\n")
         raise SystemExit(proc.returncode)
     return proc.stdout
 
 
+def build_native(src: Path, dest: Path) -> tuple[bool, str]:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    proc = run_cmd(["bend", str(src), "-o", str(dest)])
+    log = (proc.stderr or "") + (proc.stdout or "")
+    ok = proc.returncode == 0 and dest.is_file() and os.access(dest, os.X_OK)
+    return ok, log
+
+
+def run_native(bin_path: Path, threads: int | None) -> str:
+    cmd = [str(bin_path)]
+    if threads is not None:
+        cmd.extend(["--threads", str(threads)])
+    proc = run_cmd(cmd)
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stderr or proc.stdout or "native binary failed\n")
+        raise SystemExit(proc.returncode)
+    return proc.stdout
+
+
 def write_csv(text: str, dest: Path) -> int:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    lines = [ln for ln in text.splitlines() if ln.strip()]
-    dest.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
-    return len([ln for ln in lines if not ln.startswith("#")])
+    body = extract_front_text(text)
+    dest.write_text(body, encoding="utf-8")
+    return len([ln for ln in body.splitlines() if ln and not ln.startswith("#")])
+
+
+def env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def want_native(args: argparse.Namespace, cached: Path | None) -> str:
+    """Why we should try a native binary, or empty to interpret."""
+    if args.interpreter:
+        return ""
+    if args.bin is not None:
+        return "bin"
+    if args.native or env_flag("UNSGA3_BEND_NATIVE"):
+        return "native"
+    if cached is not None and cached.is_file() and os.access(cached, os.X_OK):
+        return "cached"
+    return ""
+
+
+def emit_via(
+    src: Path,
+    dest_bin: Path,
+    mode: str,
+    threads: int | None,
+    bin_override: Path | None,
+) -> str:
+    if mode == "bin":
+        assert bin_override is not None
+        print(f"native: using --bin {bin_override}", file=sys.stderr)
+        return run_native(bin_override, threads)
+
+    if mode == "cached":
+        print(f"native: using available binary {dest_bin}", file=sys.stderr)
+        try:
+            return run_native(dest_bin, threads)
+        except SystemExit:
+            print(
+                f"native: available binary failed; falling back to `bend {src}`",
+                file=sys.stderr,
+            )
+            return run_bend_interpret(src)
+
+    if mode == "native":
+        print(f"native: bend {src} -o {dest_bin}", file=sys.stderr)
+        ok, log = build_native(src, dest_bin)
+        if ok:
+            print(f"native: running {dest_bin}", file=sys.stderr)
+            return run_native(dest_bin, threads)
+        print(
+            f"native: build failed; falling back to `bend {src}` "
+            f"(interpreter/check-run)",
+            file=sys.stderr,
+        )
+        if log.strip():
+            sys.stderr.write(log)
+            if not log.endswith("\n"):
+                sys.stderr.write("\n")
+        return run_bend_interpret(src)
+
+    print(f"running `bend {src}` (interpreter/check-run)", file=sys.stderr)
+    return run_bend_interpret(src)
 
 
 def main() -> int:
@@ -78,7 +184,40 @@ def main() -> int:
         default=OUT_DIR / "bend_run_F.csv",
         help="CSV path for the ND front (default ab/out/bend_run_F.csv)",
     )
+    parser.add_argument(
+        "--native",
+        action="store_true",
+        help="build with `bend <driver> -o <bin>` and run the binary "
+        "(fallback to `bend <driver>` if the build fails)",
+    )
+    parser.add_argument(
+        "--interpreter",
+        action="store_true",
+        help="force `bend <driver>` (skip native even if a binary is cached)",
+    )
+    parser.add_argument(
+        "--bin",
+        type=Path,
+        default=None,
+        help="run this already-built native binary instead of compiling",
+    )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=None,
+        help="pass --threads N to the native binary (Bend default: CPU count)",
+    )
     args = parser.parse_args()
+
+    if args.native and args.interpreter:
+        print("choose one of --native or --interpreter", file=sys.stderr)
+        return 2
+    if args.bin is not None and args.interpreter:
+        print("choose one of --bin or --interpreter", file=sys.stderr)
+        return 2
+    if args.bin is not None and not args.bin.is_file():
+        print(f"missing --bin: {args.bin}", file=sys.stderr)
+        return 2
 
     custom = any(
         v is not None
@@ -91,7 +230,7 @@ def main() -> int:
         gens = args.gens if args.gens is not None else 100
         seed = args.seed if args.seed is not None else 1
         OUT_DIR.mkdir(parents=True, exist_ok=True)
-        generated = OUT_DIR / "run_custom.bend"
+        generated = CUSTOM_BEND
         generated.write_text(
             generate_bend(problem, partitions, pop, gens, seed),
             encoding="utf-8",
@@ -102,11 +241,22 @@ def main() -> int:
             f"values match src/run_smoke.bend",
             file=sys.stderr,
         )
-        stdout = run_bend(generated)
+        src = generated
+        dest_bin = CUSTOM_BIN
+        # Generated source changes with flags; do not reuse a stale cache.
+        cached: Path | None = None
     else:
         src = DEFAULT_BEND
-        print(f"running checked-in smoke {src}", file=sys.stderr)
-        stdout = run_bend(src)
+        dest_bin = SMOKE_BIN
+        cached = SMOKE_BIN
+
+    mode = want_native(args, cached)
+    if args.threads is not None and mode == "":
+        print(
+            "--threads applies only to a native binary; ignoring",
+            file=sys.stderr,
+        )
+    stdout = emit_via(src, dest_bin, mode, args.threads, args.bin)
 
     n = write_csv(stdout, args.out)
     print(f"wrote {args.out} ({n} front rows)", file=sys.stderr)
