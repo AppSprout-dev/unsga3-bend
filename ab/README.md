@@ -133,3 +133,8 @@ python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 10
 | `profile_run.bend` | IO.now() phase wrapper around the same Run calls (same RNG / front). No src/ hooks |
 | `profile_smoke.bend` | checked-in smoke driver for the profiler |
 | `profile_bend_run.py` | warm-cache `bend -o` + binary; prints ms/s/% per phase; `compile_s` vs `run_s`. See [docs/PERF_NOTES.md](../docs/PERF_NOTES.md) |
+| `characterize_front.py` | 2-obj front geometry + IGD (pymoo or local mean-NN). Collapse = `n≤10` and `IGD≥0.3` |
+| `zdt2_collapse_probe.py` | dump Bend / C# / pymoo ZDT2 (or ZDT1) over seeds×gens; JSONL summary |
+| `zdt2_geometry.py` | analytic ZDT1/ZDT2 PF vs Das–Dennis rays (no Run) |
+
+ZDT2 multi-seed collapse on **both** stacks: [docs/ZDT2_COLLAPSE.md](../docs/ZDT2_COLLAPSE.md). `dump_bend_run.py --tournament rank_niche` and `dump_csharp_run.py --tournament rank_niche` are diagnostic (A/B default stays `pymoo`).

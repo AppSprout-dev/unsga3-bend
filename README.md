@@ -107,6 +107,7 @@ unsga3-bend/
 ├── ab/                       # core + algorithm dump / optional IGD / optional C#
 ├── docs/ROADMAP.md
 ├── docs/PERF_NOTES.md        # Bend 2 guide audit + warm native phase table
+├── docs/ZDT2_COLLAPSE.md     # ZDT2 messy on both stacks (investigation)
 └── LICENSE                   # MIT
 ```
 

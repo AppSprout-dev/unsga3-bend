@@ -38,6 +38,13 @@ def main() -> int:
     parser.add_argument("--gens", type=int, default=None)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument(
+        "--tournament",
+        choices=("pymoo", "rank_niche"),
+        default="pymoo",
+        help="pymoo → OracleCompare --pymoo-mode (PymooCompatible). "
+        "rank_niche → C# ctor default (omit --pymoo-mode).",
+    )
+    parser.add_argument(
         "--smoke",
         action="store_true",
         help="use Bend smoke settings (zdt1 partitions=4 pop=8 gens=3 seed=1), not oracle",
@@ -88,7 +95,8 @@ def main() -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     # Per-run subdirectory: a shared csharp_oracle/ plus glob[-1] picks the
     # wrong CSV after multi-problem dumps (sorted name, not this invocation).
-    mode = "pymoo"
+    pymoo_mode = args.tournament == "pymoo"
+    mode = "pymoo" if pymoo_mode else "default"
     stem = f"csharp_{problem}_p{partitions}_pop{pop}_g{gens}_s{seed}_{mode}"
     tmp_dir = OUT_DIR / "csharp_oracle" / stem
     tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -112,10 +120,11 @@ def main() -> int:
         str(gens),
         "--seed",
         str(seed),
-        "--pymoo-mode",
         "--out-dir",
         str(tmp_dir.resolve()),
     ]
+    if pymoo_mode:
+        cmd.append("--pymoo-mode")
     try:
         proc = subprocess.run(
             cmd,
