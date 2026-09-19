@@ -255,7 +255,7 @@ NDS wall ms dropped ~43× on DTLZ2 and ~31× on ZDT1. Warm `run_s` dropped ~3.6�
 
 Same pick rules. Same SBX / PM / G12 RNG order. Last-front fill builds `NRow{index, ref, dist}` once and walks that list (no `List.get` of `Assignment` per remaining candidate per pick). SBX and polynomial mutation peel variable lists with the box intervals (no per-index `List.get` / `set_var_at`). G12 is a sequential tail walk; `try_add` hashes once. Tournament / `niche_loop.rng` stay sequential. Arrays still unused (cannot ride a fork tree).
 
-Host for these rows: 4-core Xeon (KVM), clang 18.1.3, Bend **2.0.15**, `--threads 4`, seed=1, `PymooCompatible`. Warm-cache native `ab/profile_bend_run.py` (second invocation; `compile_s` omitted). Fronts vs main @ dc2eccb (#15) seed=1 are **byte-identical** (checked-in smoke, core fixture, oracle ZDT1, oracle DTLZ2, and the profile fronts). No IGD / HV claimed — the dumps matched, so pymoo was not needed (and is not installed here).
+Host for these rows: 4-core Xeon (KVM), clang 18.1.3, Bend **2.0.15**, `--threads 4`, seed=1, `PymooCompatible`. Warm-cache native `ab/profile_bend_run.py` (second invocation; `compile_s` omitted). Fronts vs main @ dc2eccb (#15) seed=1 are **byte-identical** (checked-in smoke, core fixture, oracle ZDT1, oracle DTLZ2, and the profile fronts). Oracle IGD vs C# (seeds 1–15) is recorded in [Oracle A/B vs C#](#oracle-ab-vs-c-this-tree--pr-16) below.
 
 ### Headline before (#15 / main @ dc2eccb) vs after (this tree)
 
@@ -414,3 +414,117 @@ omit ≡ `--threads 4` ≡ `--threads $(nproc)` on this machine whenever the for
 The cached DTLZ2 gens=5 binary is NDS-heavy (sibling calibration: `nds=90%`). On a quiet host, **`--threads 1` was faster than omit / 4** (1.73 s vs 2.41 s vs a noisy 3.0–4.3 s). That is not a claim about the 150-gen oracle table above, which was measured at `--threads 4` and was not re-run here. It is consistent with the guide: the scheduler does not steal; inner `is_dominated` is a sequential OR; each mid-split still pays `take`/`drop` + `List.get`. More workers are not automatically better for this peel.
 
 GPU: no `!` on the Run path, so `./file --gpu 1GB` does not move Unsga3 work. `--gpu off` only matters if a bang exists.
+
+---
+
+## Oracle A/B vs C# (this tree / PR #16)
+
+Honest dumps on this host. **No invented IGD.** Every cell is `ab/dump_bend_run.py --native` + `ab/dump_csharp_run.py` + `ab/igd_vs_pymoo.py` on the written CSVs.
+
+| Knob | Value |
+|------|--------|
+| Protocol | [ab/README.md](../ab/README.md) / C# `docs/EQUIVALENCE.md` |
+| Tournament | `PymooCompatible` |
+| ZDT1 / ZDT2 | n=30, partitions=12, pop=52, gens=100 |
+| DTLZ2 | M=3 k=10, partitions=12, pop=92, gens=150 |
+| Seeds | 1–15 |
+| Bend | 2.0.15, this tree `29cff2d`, `--threads` omitted (`cpu_count()` = 4) |
+| C# | [AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3) `f99fdac`, `OracleCompare` Release / net10.0 |
+| IGD | pymoo **0.6.2** `IGD`; ZDT analytic PF `--pf-points 500`; DTLZ2 `pf_source=pymoo-das-dennis` `--partitions 12` (`pf_rows=91`) |
+| Host | 4-core Xeon (KVM), clang 18.1.3 |
+
+`compile_s` (cold once, first ZDT1 seed=1 native miss): **5.098**. Each later seed rewrites the generated driver (seed is in the source hash) so those compiles are not `run_s`. Bend **`run_s`** is the native binary only. **C# wall_s** is the prebuilt `OracleCompare` binary (same flags). `dump_csharp_run.py` / `dotnet run` wall is ~1.4–1.9 s and is mostly host startup; it is not used as C# wall below.
+
+Seed=1 objective rows vs main @ **dc2eccb** (worktree dumps, same `dump_bend_run.py --native` path) are **byte-identical**: ZDT1 52/52, ZDT2 33/33, DTLZ2 92/92.
+
+C# DTLZ2 IGD on seeds 1–5 matches the published C# `docs/ORACLE-RESULTS.md` PymooCompatible table (0.00403 / 0.00567 / 0.00513 / 0.00478 / 0.00466). That is a yardstick check, not a copied Bend number.
+
+**Collapse** (ZDT only, observational): `front_rows ≤ 10` and `IGD ≥ 0.3`. DTLZ2 had none.
+
+### Summary
+
+| Problem | n | median Bend IGD | median C# IGD | Bend ≤ C# IGD | Bend collapses | C# collapses | median Bend `run_s` | median C# wall_s |
+|---------|--:|----------------:|--------------:|--------------:|---------------:|-------------:|--------------------:|-----------------:|
+| ZDT1 | 5 | 0.083329 | 0.101950 | 4/5 | 0 | 0 | 0.759 | 0.234 |
+| ZDT1 | 15 | 0.071475 | 0.082152 | 9/15 | 0 | 0 | 0.761 | 0.235 |
+| ZDT2 | 5 | 0.549664 | 0.543600 | 2/5 | 3 | 3 | 1.087 | 0.222 |
+| ZDT2 | 15 | 0.528767 | 0.472835 | 5/15 | 10 | 8 | 1.099 | 0.222 |
+| DTLZ2 | 5 | 0.004250 | 0.004777 | 4/5 | 0 | 0 | 5.605 | 0.660 |
+| DTLZ2 | 15 | 0.004243 | 0.004512 | 10/15 | 0 | 0 | 5.592 | 0.646 |
+
+Overall Bend ≤ C# IGD: **24/45**. ZDT2 collapses on **both** sides (known remaining RNG / last-front issue; not a #16 regression — seed=1 matches main). DTLZ2 stays in the published C# band (~0.0036–0.0057). ZDT1 is stable (48–52 ND points).
+
+### ZDT1 (p=12, pop=52, gens=100)
+
+| seed | Bend IGD | C# IGD | Bend run_s | C# wall_s | Bend n | C# n |
+|-----:|---------:|-------:|-----------:|----------:|-------:|-----:|
+| 1 | 0.061603 | 0.097733 | 0.764 | 0.240 | 52 | 52 |
+| 2 | 0.062526 | 0.156085 | 0.793 | 0.229 | 52 | 52 |
+| 3 | 0.114314 | 0.074783 | 0.759 | 0.234 | 52 | 52 |
+| 4 | 0.084756 | 0.130272 | 0.756 | 0.232 | 52 | 41 |
+| 5 | 0.083329 | 0.101950 | 0.752 | 0.241 | 52 | 52 |
+| 6 | 0.045916 | 0.082152 | 0.756 | 0.235 | 52 | 52 |
+| 7 | 0.060659 | 0.060123 | 0.757 | 0.234 | 52 | 52 |
+| 8 | 0.082262 | 0.112883 | 0.756 | 0.234 | 52 | 52 |
+| 9 | 0.061749 | 0.072583 | 0.761 | 0.241 | 52 | 52 |
+| 10 | 0.084640 | 0.072246 | 0.762 | 0.245 | 52 | 52 |
+| 11 | 0.151236 | 0.066878 | 0.755 | 0.234 | 48 | 51 |
+| 12 | 0.126977 | 0.067323 | 0.791 | 0.240 | 52 | 52 |
+| 13 | 0.061183 | 0.051285 | 0.765 | 0.243 | 52 | 52 |
+| 14 | 0.069462 | 0.103394 | 0.772 | 0.232 | 52 | 51 |
+| 15 | 0.071475 | 0.112429 | 0.764 | 0.239 | 52 | 52 |
+
+### ZDT2 (p=12, pop=52, gens=100)
+
+| seed | Bend IGD | C# IGD | Bend run_s | C# wall_s | Bend n | C# n | collapse |
+|-----:|---------:|-------:|-----------:|----------:|-------:|-----:|----------|
+| 1 | 0.147170 | 0.111885 | 0.868 | 0.225 | 33 | 41 | |
+| 2 | 0.592805 | 0.101012 | 1.488 | 0.239 | 3 | 52 | Bend |
+| 3 | 0.549664 | 0.543600 | 1.343 | 0.222 | 8 | 7 | both |
+| 4 | 0.150038 | 0.661220 | 0.849 | 0.219 | 31 | 2 | C# |
+| 5 | 0.641379 | 0.655763 | 1.087 | 0.218 | 4 | 2 | both |
+| 6 | 0.455388 | 0.645855 | 1.077 | 0.217 | 8 | 5 | both |
+| 7 | 0.515859 | 0.472835 | 1.168 | 0.230 | 3 | 10 | both |
+| 8 | 0.680160 | 0.695668 | 1.088 | 0.220 | 4 | 2 | both |
+| 9 | 0.305638 | 0.243734 | 1.099 | 0.233 | 26 | 35 | |
+| 10 | 0.528767 | 0.160180 | 1.177 | 0.232 | 7 | 41 | Bend |
+| 11 | 0.699747 | 0.646897 | 1.081 | 0.217 | 3 | 2 | both |
+| 12 | 0.550622 | 0.143003 | 1.425 | 0.234 | 7 | 25 | Bend |
+| 13 | 0.085241 | 0.652186 | 0.850 | 0.219 | 46 | 2 | C# |
+| 14 | 0.432479 | 0.351300 | 1.388 | 0.222 | 12 | 23 | |
+| 15 | 0.540660 | 0.256799 | 1.267 | 0.252 | 5 | 31 | Bend |
+
+### DTLZ2 (p=12, pop=92, gens=150)
+
+| seed | Bend IGD | C# IGD | Bend run_s | C# wall_s | Bend n | C# n |
+|-----:|---------:|-------:|-----------:|----------:|-------:|-----:|
+| 1 | 0.003914 | 0.004032 | 5.522 | 0.660 | 92 | 92 |
+| 2 | 0.004250 | 0.005666 | 5.605 | 0.708 | 92 | 92 |
+| 3 | 0.003777 | 0.005130 | 5.580 | 0.654 | 92 | 92 |
+| 4 | 0.004369 | 0.004777 | 5.654 | 0.674 | 92 | 92 |
+| 5 | 0.004848 | 0.004663 | 5.622 | 0.543 | 92 | 92 |
+| 6 | 0.004026 | 0.005460 | 5.678 | 0.566 | 92 | 92 |
+| 7 | 0.003603 | 0.003610 | 5.702 | 0.557 | 92 | 92 |
+| 8 | 0.004243 | 0.005111 | 5.563 | 0.540 | 92 | 92 |
+| 9 | 0.004004 | 0.004670 | 5.575 | 0.682 | 92 | 92 |
+| 10 | 0.004882 | 0.003816 | 5.721 | 0.551 | 92 | 92 |
+| 11 | 0.003727 | 0.003974 | 5.533 | 0.552 | 92 | 92 |
+| 12 | 0.004901 | 0.004512 | 5.592 | 0.585 | 92 | 92 |
+| 13 | 0.004502 | 0.003984 | 5.540 | 0.649 | 92 | 92 |
+| 14 | 0.004066 | 0.004172 | 5.547 | 0.670 | 92 | 92 |
+| 15 | 0.004357 | 0.003627 | 5.597 | 0.646 | 92 | 92 |
+
+Reproduce (one cell):
+
+```bash
+export PATH="$HOME/.bend/bin:$PATH"
+export BEND_NO_TELEMETRY=1
+export UNSGA3_CS_ROOT=/path/to/Unsga3   # optional; dump_csharp_run.py skips without it
+
+python3 ab/dump_bend_run.py --native --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 \
+  --out ab/out/bend_dtlz2_F.csv
+python3 ab/dump_csharp_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 \
+  --out ab/out/csharp_dtlz2_F.csv
+python3 ab/igd_vs_pymoo.py --front ab/out/bend_dtlz2_F.csv --problem dtlz2 --partitions 12
+python3 ab/igd_vs_pymoo.py --front ab/out/csharp_dtlz2_F.csv --problem dtlz2 --partitions 12
+```
