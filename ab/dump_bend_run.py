@@ -9,30 +9,33 @@ With --problem/--partitions/--pop/--gens/--seed, generate a small Bend
 wrapper and run that (oracle-sized runs are opt-in and can be slow).
 
 Native path (clang 14+; Bend 2.0.10+):
-  bend src/run_smoke.bend -o ab/out/run_smoke
-  ./ab/out/run_smoke --threads 8
+  bend <driver> -o ab/out/run_cache/<sha256(driver)>
+  ./ab/out/run_cache/<sha256> --threads 8
 
-This script prefers a native binary when --native is set, when
-UNSGA3_BEND_NATIVE=1, when --bin is given, or when a cached binary for
-the smoke driver is already on disk. If `bend … -o` fails, it prints the
-compiler output and falls back to `bend file.bend` (interpreter/check-run).
-Does not invent IGD / HV / timings.
+`--native` skips `bend -o` when that cache path is already executable
+(same driver source bytes). A miss compiles into the cache, then runs.
+Stderr splits compile vs run (`compile_s`, `run_s`) so wall time is not
+mistaken for Bend Run cost. If `bend … -o` fails, it prints the compiler
+output and falls back to `bend file.bend` (interpreter/check-run).
+
+`--bin` and `--interpreter` are unchanged. Does not invent IGD / HV.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BEND = ROOT / "src" / "run_smoke.bend"
 OUT_DIR = ROOT / "ab" / "out"
-SMOKE_BIN = OUT_DIR / "run_smoke"
 CUSTOM_BEND = OUT_DIR / "run_custom.bend"
-CUSTOM_BIN = OUT_DIR / "run_custom"
+CACHE_DIR = OUT_DIR / "run_cache"
 
 PROBLEMS = {
     "zdt1": ("Prob.zdt1(30n)", 2),
@@ -84,11 +87,23 @@ def run_bend_interpret(path: Path) -> str:
     return proc.stdout
 
 
+def source_digest(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def cache_bin_for(src: Path) -> Path:
+    return CACHE_DIR / source_digest(src)
+
+
+def is_executable(path: Path) -> bool:
+    return path.is_file() and os.access(path, os.X_OK)
+
+
 def build_native(src: Path, dest: Path) -> tuple[bool, str]:
     dest.parent.mkdir(parents=True, exist_ok=True)
     proc = run_cmd(["bend", str(src), "-o", str(dest)])
     log = (proc.stderr or "") + (proc.stdout or "")
-    ok = proc.returncode == 0 and dest.is_file() and os.access(dest, os.X_OK)
+    ok = proc.returncode == 0 and is_executable(dest)
     return ok, log
 
 
@@ -114,6 +129,10 @@ def env_flag(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def fmt_secs(seconds: float) -> str:
+    return f"{seconds:.3f}"
+
+
 def want_native(args: argparse.Namespace, cached: Path | None) -> str:
     """Why we should try a native binary, or empty to interpret."""
     if args.interpreter:
@@ -122,9 +141,24 @@ def want_native(args: argparse.Namespace, cached: Path | None) -> str:
         return "bin"
     if args.native or env_flag("UNSGA3_BEND_NATIVE"):
         return "native"
-    if cached is not None and cached.is_file() and os.access(cached, os.X_OK):
+    if cached is not None and is_executable(cached):
         return "cached"
     return ""
+
+
+def emit_compile_s(seconds: float) -> None:
+    print(f"native: compile_s={fmt_secs(seconds)}", file=sys.stderr)
+
+
+def emit_run_s(seconds: float) -> None:
+    print(f"native: run_s={fmt_secs(seconds)}", file=sys.stderr)
+
+
+def run_native_timed(bin_path: Path, threads: int | None) -> str:
+    t0 = time.perf_counter()
+    out = run_native(bin_path, threads)
+    emit_run_s(time.perf_counter() - t0)
+    return out
 
 
 def emit_via(
@@ -137,12 +171,12 @@ def emit_via(
     if mode == "bin":
         assert bin_override is not None
         print(f"native: using --bin {bin_override}", file=sys.stderr)
-        return run_native(bin_override, threads)
+        return run_native_timed(bin_override, threads)
 
     if mode == "cached":
-        print(f"native: using available binary {dest_bin}", file=sys.stderr)
+        print(f"native: cache hit {dest_bin}", file=sys.stderr)
         try:
-            return run_native(dest_bin, threads)
+            return run_native_timed(dest_bin, threads)
         except SystemExit:
             print(
                 f"native: available binary failed; falling back to `bend {src}`",
@@ -151,11 +185,16 @@ def emit_via(
             return run_bend_interpret(src)
 
     if mode == "native":
-        print(f"native: bend {src} -o {dest_bin}", file=sys.stderr)
+        if is_executable(dest_bin):
+            print(f"native: cache hit {dest_bin}", file=sys.stderr)
+            return run_native_timed(dest_bin, threads)
+
+        print(f"native: building {src} -o {dest_bin}", file=sys.stderr)
+        t0 = time.perf_counter()
         ok, log = build_native(src, dest_bin)
+        emit_compile_s(time.perf_counter() - t0)
         if ok:
-            print(f"native: running {dest_bin}", file=sys.stderr)
-            return run_native(dest_bin, threads)
+            return run_native_timed(dest_bin, threads)
         print(
             f"native: build failed; falling back to `bend {src}` "
             f"(interpreter/check-run)",
@@ -187,8 +226,9 @@ def main() -> int:
     parser.add_argument(
         "--native",
         action="store_true",
-        help="build with `bend <driver> -o <bin>` and run the binary "
-        "(fallback to `bend <driver>` if the build fails)",
+        help="build with `bend <driver> -o <cache-bin>` when the driver "
+        "source hash misses, then run the binary (fallback to "
+        "`bend <driver>` if the build fails)",
     )
     parser.add_argument(
         "--interpreter",
@@ -242,13 +282,11 @@ def main() -> int:
             file=sys.stderr,
         )
         src = generated
-        dest_bin = CUSTOM_BIN
-        # Generated source changes with flags; do not reuse a stale cache.
-        cached: Path | None = None
     else:
         src = DEFAULT_BEND
-        dest_bin = SMOKE_BIN
-        cached = SMOKE_BIN
+
+    dest_bin = cache_bin_for(src)
+    cached: Path | None = dest_bin
 
     mode = want_native(args, cached)
     if args.threads is not None and mode == "":

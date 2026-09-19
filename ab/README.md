@@ -101,7 +101,9 @@ bend src/run_smoke.bend -o ab/out/run_smoke
 ./ab/out/run_smoke --threads 8
 ```
 
-`dump_bend_run.py` prefers a native binary when `--native` / `UNSGA3_BEND_NATIVE=1` is set, when `--bin PATH` is given, or when `ab/out/run_smoke` is already executable (checked-in smoke only). If `bend … -o` fails, it prints the compiler output and falls back to `bend file.bend`. `--interpreter` skips native. `--threads N` is passed only to the binary. Generated custom drivers (`--problem` / `--pop` / …) compile to `ab/out/run_custom` under `--native` and are not reused from a stale cache. Dumps write the `#` header plus objective rows so interpreter and native CSVs match; they do not invent timings.
+`dump_bend_run.py` prefers a native binary when `--native` / `UNSGA3_BEND_NATIVE=1` is set, when `--bin PATH` is given, or when a hash-matching cache binary is already executable. Cache key is sha256 of the driver `.bend` bytes (checked-in smoke or regenerated `ab/out/run_custom.bend`). Changing `--problem` / `--pop` / … rewrites that source (correct) and misses; an unchanged driver reuses `ab/out/run_cache/<hash>` and skips `bend -o`. If `bend … -o` fails, it prints the compiler output and falls back to `bend file.bend`. `--interpreter` skips native. `--threads N` is passed only to the binary.
+
+Stderr on `--native`: `native: building …` plus `native: compile_s=…` on a miss; `native: cache hit …` on a warm reuse (`compile_s` omitted). `native: run_s=…` is the binary only — do not treat a cold dump’s wall time as Bend Run cost. Dumps write the `#` header plus objective rows so interpreter and native CSVs match; they do not invent IGD / HV.
 
 Dumps go under `ab/out/` (gitignored).
 
@@ -110,7 +112,7 @@ Dumps go under `ab/out/` (gitignored).
 | Script | Role |
 |--------|------|
 | `dump_bend_front.py` | v0 `Survival.select`, writes `ab/out/bend_F.csv` |
-| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` builds `bend <driver> -o` and runs the binary; falls back to `bend <driver>` if the build fails |
+| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` compiles to `ab/out/run_cache/<sha256>` on miss and reuses that binary on hit; falls back to `bend <driver>` if the build fails. Stderr `compile_s` vs `run_s` splits those costs |
 | `dump_csharp_front.py` | optional C# `Select` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing |
 | `dump_csharp_run.py` | optional C# `OracleCompare` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing. Writes to a per-run `ab/out/csharp_oracle/<stem>/` so a leftover CSV from another problem is not picked (old shared-dir `glob[-1]` was wrong after multi-problem runs). |
 | `csharp_core_dump/` | one-shot `dotnet` helper for layer-1 `Select` |
