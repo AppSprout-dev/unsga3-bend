@@ -120,18 +120,85 @@ Two NDS peels per generation is real Run behavior (`select_st` then `prepare`), 
 
 ## Measured warm native (this machine)
 
-Fill-in after the warm native runs below. Host: 4-core Xeon (KVM), clang 18.1.3, Bend 2.0.13. Seed=1, PymooCompatible, `--threads` = CPU count unless noted.
+Host: 4-core Xeon (KVM), clang 18.1.3, Bend **2.0.13**, `--threads 4` (CPU count). Seed=1, `PymooCompatible`. `compile_s` is the first `bend … -o` of that hashed driver; tables below are the **second** invocation (`compile_s` omitted, cache hit). `pct` is of `profile_sum_ms` (`IO.now` buckets), not of Python `run_s`. Do not treat interpreter `bend file.bend` milliseconds as native `run_s`. No IGD / HV is claimed here.
 
-See the PR body / table produced by the profile script. Do not treat interpreter `bend file.bend` milliseconds as native `run_s`.
+Calibration first (DTLZ2 pop=92 gens=5) so the full oracle sizes were not a blind wait: cold `compile_s=7.818`, warm `run_s=2.391`, `nds=90%`. Linear scale said ~70 s for 150 gens; the full DTLZ2 warm run was 55.948 s.
+
+### DTLZ2 M=3 k=10, partitions=12, pop=92, gens=150, seed=1
+
+- cold: `compile_s=8.470`, first-binary `run_s=63.580` (92 front rows)
+- warm: `compile_s` omitted, `run_s=55.948`, `profile_sum_ms=55708`, `profile_wall_ms=55943` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 36 | 0.036 | 0 |
+| nds_select | 34529 | 34.529 | 61 |
+| nds_prepare | 4662 | 4.662 | 8 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **39191** | **39.191** | **70** |
+| normalize_select | 408 | 0.408 | 0 |
+| normalize_prepare | 328 | 0.328 | 0 |
+| normalize | 736 | 0.736 | 1 |
+| associate_select | 891 | 0.891 | 1 |
+| associate_prepare | 602 | 0.602 | 1 |
+| associate | 1493 | 1.493 | 2 |
+| niche | 9536 | 9.536 | 17 |
+| tournament | 79 | 0.079 | 0 |
+| offspring_sbx_pm_g12 | 4637 | 4.637 | 8 |
+| unaccounted | 235 | 0.235 | |
+
+### ZDT1 n=30, partitions=12, pop=52, gens=100, seed=1
+
+- cold: `compile_s=8.053`, first-binary `run_s=11.125` (52 front rows)
+- warm: `compile_s` omitted, `run_s=10.964`, `profile_sum_ms=10901`, `profile_wall_ms=10961` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 1 | 0.001 | 0 |
+| evaluate | 15 | 0.015 | 0 |
+| nds_select | 7444 | 7.444 | 68 |
+| nds_prepare | 838 | 0.838 | 7 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **8282** | **8.282** | **75** |
+| normalize_select | 81 | 0.081 | 0 |
+| normalize_prepare | 69 | 0.069 | 0 |
+| normalize | 150 | 0.150 | 1 |
+| associate_select | 85 | 0.085 | 0 |
+| associate_prepare | 70 | 0.070 | 0 |
+| associate | 155 | 0.155 | 1 |
+| niche | 371 | 0.371 | 3 |
+| tournament | 22 | 0.022 | 0 |
+| offspring_sbx_pm_g12 | 1905 | 1.905 | 17 |
+| unaccounted | 60 | 0.060 | |
+
+Checked-in smoke (ZDT1 pop=8 gens=3 partitions=4) warm `run_s=0.023`; most buckets are 0–2 ms, so `%` there is quantization, not a ranking.
+
+### Findings (top bottlenecks)
+
+**Hypothesis: NDS rank peel dominates DTLZ2 — confirmed**, not discarded.
+
+1. **`nds` (rank peel)** is the top bucket on both oracles: **70%** DTLZ2, **75%** ZDT1. Almost all of that is `nds_select` (survival on the combined parent+offspring pool: ~184 on DTLZ2, ~104 on ZDT1). `nds_prepare` is the second peel on the surviving pop (`Tour.prepare`): 8% / 7%. `nds_final` is one `nd_front` after the last gen and rounds to 0 ms. Two peels per generation is real `Run` behavior.
+2. **DTLZ2 #2 = `niche` (17%)**. Last-front fill grows with gens: calibration gens=5 had niche at 1%; gens=150 is 17%. **DTLZ2 #3 = `offspring_sbx_pm_g12` (8%)**.
+3. **ZDT1 #2 = `offspring_sbx_pm_g12` (17%)**; niche is only 3% (2-obj last front is cheaper than 3-obj DTLZ2 crowding). **ZDT1 #3 = `nds_prepare` (7%)** if you split the NDS sum, else niche.
+
+`evaluate` is ~0% — analytic ZDT1 / DTLZ2. `normalize` + `associate` together stay ~3%. `tournament` is a sequential pair walk and is still cheap next to the peels.
+
+Why the peel is expensive on this tree (guide-backed, not a silent rewrite): `NDS.sort` = `peel` of remaining indices; each peel `split_walk`s every leftover candidate; `is_dominated` is a sequential OR so a first hit skips; each compare is `List.get` on a cons list (Base). Mid-split `a b = f(lo) f(hi)` parallelizes candidates, but each fork still pays `take`/`drop` and `List.get` into the shared pop. `bend guide shaders`: an `Array` cannot ride a fork tree. That is the measured cost, not a missed `-O` flag (Bend 2.0.13 has none).
 
 ## How to reproduce
 
 ```bash
+export PATH="$HOME/.bend/bin:$PATH"
+export BEND_NO_TELEMETRY=1
+
 # smoke (checked-in driver)
 python3 ab/profile_bend_run.py
 python3 ab/profile_bend_run.py   # second call is warm (compile_s omitted)
 
 # oracle-sized (generated driver; hash-cached)
-python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1
-python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 --threads 4
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 --threads 4
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 --threads 4
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 --threads 4
 ```
