@@ -70,6 +70,13 @@ def binomial(+n: Nat, +k: Nat) -> Nat:
 def in_nats(+x: Nat, xs: List<&2, Nat>) -> Bool:
   List.contains(~Nat, ~Nat.is_eq, xs, x)
 
+def keep_if(-A: Data, +h: A, rest: List<&2, A>, keep: Bool) -> List<&2, A>:
+  match keep:
+    case True{}:
+      h <> rest
+    case False{}:
+      rest
+
 def minus.put(h: Nat, rest: List<&2, Nat>, drop: Bool) -> List<&2, Nat>:
   match drop:
     case True{}:
@@ -92,6 +99,17 @@ def inc_at(+xs: List<&2, Nat>, +i: Nat) -> List<&2, Nat>:
 
 def zeros_nat(n: Nat) -> List<&2, Nat>:
   List.replicate(Nat, n, 0n)
+
+def nats_add(a: List<&2, Nat>, b: List<&2, Nat>) -> List<&2, Nat>:
+  match a b:
+    case Nil{} Nil{}:
+      Nil{}
+    case x <> xs y <> ys:
+      Nat.add(x, y) <> nats_add(xs, ys)
+    case Nil{} ys:
+      ys
+    case xs Nil{}:
+      xs
 
 def vec_min(a: List<&2, F32>, b: List<&2, F32>) -> List<&2, F32>:
   match a b:
@@ -231,13 +249,6 @@ def g12_one.signed(+x: F32, neg: Bool) -> F32:
 def g12_one(+x: F32) -> F32:
   g12_one.signed(x, F32.is_lt(x, 0.0))
 
-def g12_vec(xs: List<&2, F32>) -> List<&2, F32>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case x <> rest:
-      g12_one(x) <> g12_vec(rest)
-
 # Balanced fork-join map. Singleton / empty stay sequential. Fuel 0 is a
 # total fallback (public callers pass |xs|). `~f` is a closed top-level.
 # Mid take/drop is inlined: a computed pair cannot be matched.
@@ -267,3 +278,37 @@ def map_halves.go(
 
 def map_halves(~A: Data, ~B: Data, ~C: Data, ~f: @+c:C -> @+x:A -> B, +ctx: C, +xs: List<&2, A>) -> List<&2, B>:
   map_halves.go(~A, ~B, ~C, ~f, ctx, list_len(A, xs), xs)
+
+# Independent keep/drop. Mid-split; `take ++ drop` matches the old
+# tail-first cons_if walk (original relative order).
+def filter_halves.go(
+  ~A: Data,
+  ~C: Data,
+  ~p: @+c:C -> @+x:A -> Bool,
+  +ctx: C,
+  +fuel: Nat,
+  xs: List<&2, A>
+) -> List<&2, A>:
+  match fuel xs:
+    case 0n Nil{}:
+      Nil{}
+    case 0n +h <> t:
+      keep_if(A, h, filter_halves.go(~A, ~C, ~p, ctx, 0n, t), p(ctx, h))
+    case 1n+p0 Nil{}:
+      Nil{}
+    case 1n+p0 +h <> Nil{}:
+      keep_if(A, h, Nil{}, p(ctx, h))
+    case 1n+p0 h <> t:
+      +all = {h <> t : List<&2, A>}
+      +mid = Nat.div(list_len(A, all), 2n)
+      a b = filter_halves.go(~A, ~C, ~p, ctx, p0, List.take(&2, A, all, mid)) filter_halves.go(~A, ~C, ~p, ctx, p0, List.drop(&2, A, all, mid))
+      List.append(&2, A, a, b)
+
+def filter_halves(~A: Data, ~C: Data, ~p: @+c:C -> @+x:A -> Bool, +ctx: C, +xs: List<&2, A>) -> List<&2, A>:
+  filter_halves.go(~A, ~C, ~p, ctx, list_len(A, xs), xs)
+
+def g12_one_u(+u: Unit, +x: F32) -> F32:
+  g12_one(x)
+
+def g12_vec(xs: List<&2, F32>) -> List<&2, F32>:
+  map_halves(~F32, ~F32, ~Unit, ~g12_one_u, Unit{}, xs)

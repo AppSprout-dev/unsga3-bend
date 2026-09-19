@@ -1,6 +1,9 @@
 # NonDominatedSort — C# Unsga3.Core.NonDominatedSort.
 # Fast non-dominated sorting by peeling (Deb et al.). v0: Pareto on
 # objectives only (no constraint-domination until constraints exist).
+# Per-candidate split / first_scan uses mid-split `a b = f(lo) f(hi)`
+# (same front/leftover order as the tail-first walk). Inner is_dominated
+# stays a sequential OR so a first hit skips the rest.
 
 import Base
 import ./individual.bend as Ind
@@ -81,6 +84,8 @@ def first_put(i: Nat, rest: List<&2, Nat>, dominated: Bool) -> List<&2, Nat>:
     case False{}:
       i <> rest
 
+# Sequential OR so a first hit can skip the rest. Candidate-level
+# parallelism lives in split_walk / first_scan (coarse mid-split).
 def is_dominated(+pop: List<&2, Ind.Individual>, others: List<&2, Nat>, +i: Nat) -> Bool:
   match others:
     case Nil{}:
@@ -91,12 +96,26 @@ def is_dominated(+pop: List<&2, Ind.Individual>, others: List<&2, Nat>, +i: Nat)
         is_dominated(pop, js, i)
       )
 
-def first_scan(+pop: List<&2, Ind.Individual>, +all: List<&2, Nat>, cand: List<&2, Nat>) -> List<&2, Nat>:
-  match cand:
-    case Nil{}:
+# Per-candidate domination is independent given `all`. Mid-split;
+# `take ++ drop` matches the old tail-first first_put order.
+def first_scan.go(+pop: List<&2, Ind.Individual>, +all: List<&2, Nat>, +fuel: Nat, cand: List<&2, Nat>) -> List<&2, Nat>:
+  match fuel cand:
+    case 0n Nil{}:
       Nil{}
-    case +i <> rest:
-      first_put(i, first_scan(pop, all, rest), is_dominated(pop, all, i))
+    case 0n +i <> rest:
+      first_put(i, first_scan.go(pop, all, 0n, rest), is_dominated(pop, all, i))
+    case 1n+p Nil{}:
+      Nil{}
+    case 1n+p +i <> Nil{}:
+      first_put(i, Nil{}, is_dominated(pop, all, i))
+    case 1n+p h <> t:
+      +xs = {h <> t : List<&2, Nat>}
+      +mid = Nat.div(Util.list_len(Nat, xs), 2n)
+      lo hi = first_scan.go(pop, all, p, List.take(&2, Nat, xs, mid)) first_scan.go(pop, all, p, List.drop(&2, Nat, xs, mid))
+      List.append(&2, Nat, lo, hi)
+
+def first_scan(+pop: List<&2, Ind.Individual>, +all: List<&2, Nat>, +cand: List<&2, Nat>) -> List<&2, Nat>:
+  first_scan.go(pop, all, Util.list_len(Nat, cand), cand)
 
 def first_front(+pop: List<&2, Ind.Individual>, +remaining: List<&2, Nat>) -> List<&2, Nat>:
   first_scan(pop, remaining, remaining)
@@ -118,12 +137,31 @@ def split_put(+i: Nat, s: Split, dominated: Bool) -> Split:
         case False{}:
           Split{i <> ff, ot}
 
-def split_walk(+pop: List<&2, Ind.Individual>, +all: List<&2, Nat>, cand: List<&2, Nat>) -> Split:
-  match cand:
-    case Nil{}:
+def split_cat(a: Split, b: Split) -> Split:
+  match a b:
+    case Split{ff1, ot1} Split{ff2, ot2}:
+      Split{List.append(&2, Nat, ff1, ff2), List.append(&2, Nat, ot1, ot2)}
+
+# Per-candidate split is independent given `all`. Mid-split then
+# concatenate fronts / leftovers so order matches the tail-first walk.
+def split_walk.go(+pop: List<&2, Ind.Individual>, +all: List<&2, Nat>, +fuel: Nat, cand: List<&2, Nat>) -> Split:
+  match fuel cand:
+    case 0n Nil{}:
       Split{Nil{}, Nil{}}
-    case +i <> rest:
-      split_put(i, split_walk(pop, all, rest), is_dominated(pop, all, i))
+    case 0n +i <> rest:
+      split_put(i, split_walk.go(pop, all, 0n, rest), is_dominated(pop, all, i))
+    case 1n+p Nil{}:
+      Split{Nil{}, Nil{}}
+    case 1n+p +i <> Nil{}:
+      split_put(i, Split{Nil{}, Nil{}}, is_dominated(pop, all, i))
+    case 1n+p h <> t:
+      +xs = {h <> t : List<&2, Nat>}
+      +mid = Nat.div(Util.list_len(Nat, xs), 2n)
+      lo hi = split_walk.go(pop, all, p, List.take(&2, Nat, xs, mid)) split_walk.go(pop, all, p, List.drop(&2, Nat, xs, mid))
+      split_cat(lo, hi)
+
+def split_walk(+pop: List<&2, Ind.Individual>, +all: List<&2, Nat>, +cand: List<&2, Nat>) -> Split:
+  split_walk.go(pop, all, Util.list_len(Nat, cand), cand)
 
 # Empty first_scan (unreachable on a finite Pareto set) keeps the head so
 # peel stays a partition. Observationally first_front + minus when the
