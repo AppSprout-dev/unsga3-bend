@@ -53,3 +53,5 @@ Language docs: https://bend-lang.com/ and https://github.com/bendlang/bend
 | `src/algorithm.bend` | `Unsga3Algorithm.Run` |
 
 `src/lib.bend` imports the graph. `src/run_smoke.bend` is the checked-in short ZDT1 Run driver.
+
+How to check the tree: [CONTRIBUTING.md](CONTRIBUTING.md). Public protocol: [docs/EQUIVALENCE.md](docs/EQUIVALENCE.md).

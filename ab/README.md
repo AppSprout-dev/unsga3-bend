@@ -1,6 +1,6 @@
 # A/B
 
-Compare **unsga3-bend** to C# [Unsga3](https://github.com/AppSprout-dev/Unsga3) and, when installed, a pymoo IGD. Same public protocol as the C# docs (`docs/EQUIVALENCE.md`): Das–Dennis partitions, pop, gens, seed, IGD as mean nearest-neighbor distance.
+Compare **unsga3-bend** to C# [Unsga3](https://github.com/AppSprout-dev/Unsga3) and, when installed, a pymoo IGD. Same public protocol as [docs/EQUIVALENCE.md](../docs/EQUIVALENCE.md) and C# `docs/EQUIVALENCE.md`: Das–Dennis partitions, pop, gens, seed, IGD as mean nearest-neighbor distance. Dump defaults: [`protocol.py`](protocol.py).
 
 This repo is not a NuGet package and is not a drop-in into C# consumers. PackageId `Unsga3` stays C# / NuGet / GitHub Packages; Bend is the hub package beside it (planned **0.1.0**, hash filled at publish). Do not invent IGD / HV / Wilcoxon numbers.
 
@@ -129,6 +129,7 @@ Dumps go under `ab/out/` (gitignored).
 python3 ab/profile_bend_run.py
 python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1
 python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1
+python3 ab/profile_bend_run.py --problem zdt2 --partitions 12 --pop 52 --gens 250 --seed 1
 ```
 
 `--rebuild` forces `bend -o` and prints `compile_s`. `--threads N` is passed only to the binary.
@@ -139,7 +140,7 @@ python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 10
 |--------|------|
 | `dump_bend_front.py` | v0 `Survival.select`, writes `ab/out/bend_F.csv` |
 | `protocol.py` | A/B defaults: ZDT2 gens=250, ZDT1=100, DTLZ2=150 (C# path / `ORACLE_GENS_*`). RankNicheDistance is not the default |
-| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` compiles to `ab/out/run_cache/<sha256>` on miss and reuses that binary on hit; falls back to `bend <driver>` if the build fails. Stderr `compile_s` vs `run_s` splits those costs. Omitted `--gens` on `--problem zdt2` is 250. Omitted `--gens` on `--problem dtlz2` stays the historical generated-driver **100** — pass `--gens 150` for oracle DTLZ2 |
+| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` compiles to `ab/out/run_cache/<sha256>` on miss and reuses that binary on hit; falls back to `bend <driver>` if the build fails. Stderr `compile_s` vs `run_s` splits those costs. Omitted `--gens` on `--problem zdt2` is 250. **Trap:** omitted `--gens` on `--problem dtlz2` stays historical **100**, and omitted `--pop` stays **52** — pass `--pop 92 --gens 150` for oracle DTLZ2. `dump_csharp_run.py` uses `protocol.py` (`pop=92`, `gens=150`) |
 | `dump_csharp_front.py` | optional C# `Select` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing |
 | `dump_csharp_run.py` | optional C# `OracleCompare` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing. Writes to a per-run `ab/out/csharp_oracle/<stem>/` so a leftover CSV from another problem is not picked (old shared-dir `glob[-1]` was wrong after multi-problem runs). |
 | `csharp_core_dump/` | one-shot `dotnet` helper for layer-1 `Select` |

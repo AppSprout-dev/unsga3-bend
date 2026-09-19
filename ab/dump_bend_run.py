@@ -8,8 +8,9 @@ OracleCompare protocol.
 With --problem/--partitions/--pop/--gens/--seed, generate a small Bend
 wrapper and run that (oracle-sized runs are opt-in and can be slow).
 Omitted --gens uses ab/protocol.py: ZDT2=250, ZDT1=100, DTLZ2=100
-(historical generated-driver default; pass --gens 150 for oracle DTLZ2).
-Explicit --gens always wins. Tournament default stays PymooCompatible.
+(historical generated-driver default; pass --gens 150 --pop 92 for
+oracle DTLZ2). Omitted --pop is 52 even on dtlz2. Explicit flags win.
+Tournament default stays PymooCompatible.
 
 Native path (clang 14+; Bend 2.0.10+):
   bend <driver> -o ab/out/run_cache/<sha256(driver)>

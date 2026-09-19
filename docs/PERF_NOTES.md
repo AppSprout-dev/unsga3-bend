@@ -1,5 +1,9 @@
 # Bend 2 performance notes (unsga3-bend)
 
+Measured warm-native phase audit. **Not** an IGD claim and **not** unfinished WIP.
+
+**Protocol:** quality A/B defaults are in [`ab/protocol.py`](../ab/protocol.py) — ZDT2 **gens=250**, ZDT1 100, DTLZ2 150. Any ZDT2 **gens=100** table below is the **early-stress snapshot** (PR #16); see [ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md). Reproduce: [EQUIVALENCE.md](EQUIVALENCE.md).
+
 Toolchain used for this note: **`bend` 2.0.13** (`bend --version`).
 Language text: `bend guide` (621 lines, same as `~/.bend/guide/GUIDE.md`).
 Extra: `bend guide shaders`, `bend guide effects`, https://bend-lang.com, https://github.com/bendlang/bend README.

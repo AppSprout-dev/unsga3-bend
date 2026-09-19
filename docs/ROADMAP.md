@@ -2,6 +2,12 @@
 
 Living plan for **unsga3-bend**. This is a Bend rewrite, not a NuGet package. PackageId `Unsga3` stays the C# / NuGet / GitHub Packages stack. This tree is the Bend hub package beside it. Planned first hub version: **0.1.0**.
 
+Public protocol: [EQUIVALENCE.md](EQUIVALENCE.md). How to check the tree: [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+## 0.1.0 scope (planned hub)
+
+Treat as **shipped** for a first hub visitor: v0 core, Pass 2 `Run` + samples, parallel maps, native `-o` dumps, closed `PROOF.bend`, ZDT2 quality protocol gens=250. Open boxes below (C# fixture bit-match, bit-for-bit IGD, hub hash) are remaining work — only the paused `--publish` hash fill is the 0.1.0 publish gate.
+
 ## v0 — core (implemented)
 
 Enough to A/B a front when a population of **objectives** is provided.
@@ -43,7 +49,7 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] Laws for operator defaults (closed) + ZDT/DTLZ dimensions / zero-pop Run (closed) + `|Run|==pop` (take-pad lock; identity when the inner Run already has `pop_size`) + SBX/poly p=0 copy (bit-zero branch before any `NextDouble`)
 - [ ] Bit-for-bit / IGD match vs C# + pymoo on oracle-sized ZDT/DTLZ (needs a real C# checkout + pymoo; do not invent numbers)
 
-## Pass 3 — Bend-shaped speed (started)
+## Pass 3 — Bend-shaped speed (in tree)
 
 CPU parallel calls on independent per-individual work. Not a better-IGD bet. No fabricated timings.
 
@@ -61,10 +67,11 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 
 ## Hub publish — planned 0.1.0
 
-**0.1.0** is the first planned content-hash hub version. This public-docs review is the gate. **Do not** run `bend … --publish` or create a `v0.1.0` tag until after that review merges.
+**0.1.0** is the first planned content-hash hub version. **Paused:** do not run `bend … --publish` or create a `v0.1.0` tag until maintainers fill the README import hash.
 
 - [x] Public docs: not NuGet; PackageId `Unsga3` stays C# / NuGet + GitHub Packages; Bend is the hub package beside it
 - [x] Consumer import placeholder (`import 0x…` — hash filled at publish)
 - [x] ZDT2 quality protocol gens=250; gens=100 = early stress ([ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md), [`ab/protocol.py`](../ab/protocol.py))
-- [ ] `bend src/lib.bend --publish` (after the docs review merges; fills the README hash)
+- [ ] `bend src/lib.bend --publish` (fills the README hash — after this docs review)
 - [ ] Still not NuGet; PackageId `Unsga3` remains the C# package only
+- [ ] GitHub About description / topics (exact strings in [CHANGELOG.md](../CHANGELOG.md); `gh repo edit` needs org permission)
