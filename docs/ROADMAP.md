@@ -12,7 +12,7 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] Das–Dennis reference directions + count (`ReferenceDirections`)
 - [x] Niching / reference-point association
 - [x] Environmental survival selection (deterministic / C# `rng == null`)
-- [x] `LAWS.bend` v0 claims: empty-input / M=1 / `binomial(n,0)` / `das_dennis_count` proven; quantified size laws remain `?TODO`
+- [x] `LAWS.bend` v0 claims: empty-input / M=1 / `binomial(n,0)` / `das_dennis_count` proven; `dominates_irreflexive`, `|Normalize|`, `|associate|` closed; sort partition / `|DasDennis|` for M≥2 / `|select|` remain `?TODO`
 - [x] Core A/B: Bend dump of a selected front from an objective fixture (`ab/dump_bend_front.py`)
 
 ## Pass A/B — core match
@@ -39,7 +39,7 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] `Unsga3Algorithm.Run` generational loop (persistent Normalization, rng niching)
 - [x] Samples: `src/run_smoke.bend` + `ab/dump_bend_run.py` dump a real front under `ab/out/`
 - [x] Algorithm A/B scripts: Bend Run dump; optional C# `OracleCompare` when `UNSGA3_CS_ROOT` is set; `igd_vs_pymoo.py` vs analytic / pymoo PF or `skip:`
-- [x] Laws for operator defaults (closed) + ZDT/DTLZ dimensions / zero-pop Run (closed) + `|Run|==pop` (`?TODO`)
+- [x] Laws for operator defaults (closed) + ZDT/DTLZ dimensions / zero-pop Run (closed) + `|Run|==pop` (`?TODO`; F32/RNG / `@unsafe` gen loop)
 - [ ] Bit-for-bit / IGD match vs C# + pymoo on oracle-sized ZDT/DTLZ (needs a real C# checkout + pymoo; do not invent numbers)
 
 ## Pass 3 — Bend-shaped speed (started)
@@ -50,7 +50,8 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 - [x] `Surv.associate_raw` — nearest-ref per individual (dirs shared); `with_counts` / `gather` same shape
 - [x] `Norm.map_norm` / `gather_objs` — independent given ideal/nadir or the population
 - [x] Native `bend … -o` dump path — compile `src/run_smoke.bend` (or a generated driver) to a binary; `ab/dump_bend_run.py --native` prefers it and falls back to `bend file.bend` if the build fails
-- [ ] Close remaining `PROOF.bend` `?TODO`s (next)
+- [x] Close `dominates_irreflexive`, `normalize_len`, `associate_len` (same-list verdict / mid-split map length)
+- [ ] Remaining `PROOF.bend` `?TODO`s: `sort_index_count` (peel partition needs a non-empty first front), `das_dennis_len` (M≥2 job expansion vs binomial), `select_size` (niching `fill`), F32-opaque p=0 copy, `|Run|==pop`
 
 Hub publish is still later.
 
