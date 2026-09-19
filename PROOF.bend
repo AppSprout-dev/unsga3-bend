@@ -4,7 +4,7 @@
 # zero-parent tournament / zero-pop Run, plus dominates_irreflexive
 # (same-list flags → verdict 0) and |normalize| / |associate| via
 # mid-split map length. Remaining quantified laws use fuel induction,
-# Split partition, Das–Dennis by construction, p=0 bit-zero copy, and
+# Row-peel Split partition, Das–Dennis by construction, p=0 bit-zero copy, and
 # take-pad length locks for |select| / |Run|.
 
 import Base
@@ -598,46 +598,46 @@ def gather_len(+pop: List<&2, Ind.Individual>, +idxs: List<&2, Nat>) -> {Util.li
 def split_len(s: NDS.Split) -> Nat:
   match s:
     case NDS.Split{ff, ot}:
-      Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot))
+      Nat.add(Util.list_len(Nat, ff), Util.list_len(NDS.Row, ot))
 
 def split_put_len.t(
   +ff: List<&2, Nat>,
-  +ot: List<&2, Nat>,
+  +ot: List<&2, NDS.Row>,
   +n: Nat,
-  e: {Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)) == n : Nat}
-) -> {Nat.add(Util.list_len(Nat, ff), 1n+Util.list_len(Nat, ot)) == 1n+n : Nat}:
+  e: {Nat.add(Util.list_len(Nat, ff), Util.list_len(NDS.Row, ot)) == n : Nat}
+) -> {Nat.add(Util.list_len(Nat, ff), 1n+Util.list_len(NDS.Row, ot)) == 1n+n : Nat}:
   Equal.trans(
     Nat,
-    Nat.add(Util.list_len(Nat, ff), 1n+Util.list_len(Nat, ot)),
-    1n+Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)),
+    Nat.add(Util.list_len(Nat, ff), 1n+Util.list_len(NDS.Row, ot)),
+    1n+Nat.add(Util.list_len(Nat, ff), Util.list_len(NDS.Row, ot)),
     1n+n,
-    add_succ_r(Util.list_len(Nat, ff), Util.list_len(Nat, ot)),
-    succ_eq(Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)), n, e)
+    add_succ_r(Util.list_len(Nat, ff), Util.list_len(NDS.Row, ot)),
+    succ_eq(Nat.add(Util.list_len(Nat, ff), Util.list_len(NDS.Row, ot)), n, e)
   )
 
 def split_put_len.f(
   +ff: List<&2, Nat>,
-  +ot: List<&2, Nat>,
+  +ot: List<&2, NDS.Row>,
   +n: Nat,
-  e: {Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)) == n : Nat}
-) -> {Nat.add(1n+Util.list_len(Nat, ff), Util.list_len(Nat, ot)) == 1n+n : Nat}:
-  %e : {1n+Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)) == 1n+_ : Nat}
+  e: {Nat.add(Util.list_len(Nat, ff), Util.list_len(NDS.Row, ot)) == n : Nat}
+) -> {Nat.add(1n+Util.list_len(Nat, ff), Util.list_len(NDS.Row, ot)) == 1n+n : Nat}:
+  %e : {1n+Nat.add(Util.list_len(Nat, ff), Util.list_len(NDS.Row, ot)) == 1n+_ : Nat}
   {==}
 
 def split_walk_len.cons(
-  +i: Nat,
-  +rest: List<&2, Nat>,
+  +r: NDS.Row,
+  +rest: List<&2, NDS.Row>,
   s: NDS.Split,
   dominated: Bool,
-  e: {split_len(s) == Util.list_len(Nat, rest) : Nat}
-) -> {split_len(NDS.split_put(i, s, dominated)) == 1n+Util.list_len(Nat, rest) : Nat}:
+  e: {split_len(s) == Util.list_len(NDS.Row, rest) : Nat}
+) -> {split_len(NDS.split_put(r, s, dominated)) == 1n+Util.list_len(NDS.Row, rest) : Nat}:
   match s:
     case NDS.Split{ff, ot}:
       match dominated:
         case True{}:
-          split_put_len.t(ff, ot, Util.list_len(Nat, rest), e)
+          split_put_len.t(ff, ot, Util.list_len(NDS.Row, rest), e)
         case False{}:
-          split_put_len.f(ff, ot, Util.list_len(Nat, rest), e)
+          split_put_len.f(ff, ot, Util.list_len(NDS.Row, rest), e)
 
 def add_comm(a: Nat, +b: Nat) -> {Nat.add(a, b) == Nat.add(b, a) : Nat}:
   match a:
@@ -693,24 +693,24 @@ def add4_rearr(+a: Nat, +b: Nat, +c: Nat, +d: Nat) -> {Nat.add(Nat.add(a, b), Na
 
 def split_cat_len.body(
   +ff1: List<&2, Nat>,
-  +ot1: List<&2, Nat>,
+  +ot1: List<&2, NDS.Row>,
   +ff2: List<&2, Nat>,
-  +ot2: List<&2, Nat>
-) -> {Nat.add(Util.list_len(Nat, List.append(&2, Nat, ff1, ff2)), Util.list_len(Nat, List.append(&2, Nat, ot1, ot2))) == Nat.add(Nat.add(Util.list_len(Nat, ff1), Util.list_len(Nat, ot1)), Nat.add(Util.list_len(Nat, ff2), Util.list_len(Nat, ot2))) : Nat}:
+  +ot2: List<&2, NDS.Row>
+) -> {Nat.add(Util.list_len(Nat, List.append(&2, Nat, ff1, ff2)), Util.list_len(NDS.Row, List.append(&2, NDS.Row, ot1, ot2))) == Nat.add(Nat.add(Util.list_len(Nat, ff1), Util.list_len(NDS.Row, ot1)), Nat.add(Util.list_len(Nat, ff2), Util.list_len(NDS.Row, ot2))) : Nat}:
   Equal.trans(
     Nat,
-    Nat.add(Util.list_len(Nat, List.append(&2, Nat, ff1, ff2)), Util.list_len(Nat, List.append(&2, Nat, ot1, ot2))),
-    Nat.add(Nat.add(Util.list_len(Nat, ff1), Util.list_len(Nat, ff2)), Nat.add(Util.list_len(Nat, ot1), Util.list_len(Nat, ot2))),
-    Nat.add(Nat.add(Util.list_len(Nat, ff1), Util.list_len(Nat, ot1)), Nat.add(Util.list_len(Nat, ff2), Util.list_len(Nat, ot2))),
+    Nat.add(Util.list_len(Nat, List.append(&2, Nat, ff1, ff2)), Util.list_len(NDS.Row, List.append(&2, NDS.Row, ot1, ot2))),
+    Nat.add(Nat.add(Util.list_len(Nat, ff1), Util.list_len(Nat, ff2)), Nat.add(Util.list_len(NDS.Row, ot1), Util.list_len(NDS.Row, ot2))),
+    Nat.add(Nat.add(Util.list_len(Nat, ff1), Util.list_len(NDS.Row, ot1)), Nat.add(Util.list_len(Nat, ff2), Util.list_len(NDS.Row, ot2))),
     add_both(
       Util.list_len(Nat, List.append(&2, Nat, ff1, ff2)),
-      Util.list_len(Nat, List.append(&2, Nat, ot1, ot2)),
+      Util.list_len(NDS.Row, List.append(&2, NDS.Row, ot1, ot2)),
       Nat.add(Util.list_len(Nat, ff1), Util.list_len(Nat, ff2)),
-      Nat.add(Util.list_len(Nat, ot1), Util.list_len(Nat, ot2)),
+      Nat.add(Util.list_len(NDS.Row, ot1), Util.list_len(NDS.Row, ot2)),
       len_append(Nat, ff1, ff2),
-      len_append(Nat, ot1, ot2)
+      len_append(NDS.Row, ot1, ot2)
     ),
-    add4_rearr(Util.list_len(Nat, ff1), Util.list_len(Nat, ff2), Util.list_len(Nat, ot1), Util.list_len(Nat, ot2))
+    add4_rearr(Util.list_len(Nat, ff1), Util.list_len(Nat, ff2), Util.list_len(NDS.Row, ot1), Util.list_len(NDS.Row, ot2))
   )
 
 def split_cat_len(a: NDS.Split, b: NDS.Split) -> {split_len(NDS.split_cat(a, b)) == Nat.add(split_len(a), split_len(b)) : Nat}:
@@ -719,89 +719,84 @@ def split_cat_len(a: NDS.Split, b: NDS.Split) -> {split_len(NDS.split_cat(a, b))
       split_cat_len.body(ff1, ot1, ff2, ot2)
 
 def split_walk_go_len.mid(
-  +pop: List<&2, Ind.Individual>,
-  +all: List<&2, Nat>,
+  +all: List<&2, NDS.Row>,
   +p: Nat,
-  +xs: List<&2, Nat>,
+  +xs: List<&2, NDS.Row>,
   +mid: Nat,
-  e_lo: {split_len(NDS.split_walk.go(pop, all, p, List.take(&2, Nat, xs, mid))) == Util.list_len(Nat, List.take(&2, Nat, xs, mid)) : Nat},
-  e_hi: {split_len(NDS.split_walk.go(pop, all, p, List.drop(&2, Nat, xs, mid))) == Util.list_len(Nat, List.drop(&2, Nat, xs, mid)) : Nat}
-) -> {split_len(NDS.split_cat(NDS.split_walk.go(pop, all, p, List.take(&2, Nat, xs, mid)), NDS.split_walk.go(pop, all, p, List.drop(&2, Nat, xs, mid)))) == Nat.add(Util.list_len(Nat, List.take(&2, Nat, xs, mid)), Util.list_len(Nat, List.drop(&2, Nat, xs, mid))) : Nat}:
+  e_lo: {split_len(NDS.split_walk.go(all, p, List.take(&2, NDS.Row, xs, mid))) == Util.list_len(NDS.Row, List.take(&2, NDS.Row, xs, mid)) : Nat},
+  e_hi: {split_len(NDS.split_walk.go(all, p, List.drop(&2, NDS.Row, xs, mid))) == Util.list_len(NDS.Row, List.drop(&2, NDS.Row, xs, mid)) : Nat}
+) -> {split_len(NDS.split_cat(NDS.split_walk.go(all, p, List.take(&2, NDS.Row, xs, mid)), NDS.split_walk.go(all, p, List.drop(&2, NDS.Row, xs, mid)))) == Nat.add(Util.list_len(NDS.Row, List.take(&2, NDS.Row, xs, mid)), Util.list_len(NDS.Row, List.drop(&2, NDS.Row, xs, mid))) : Nat}:
   Equal.trans(
     Nat,
-    split_len(NDS.split_cat(NDS.split_walk.go(pop, all, p, List.take(&2, Nat, xs, mid)), NDS.split_walk.go(pop, all, p, List.drop(&2, Nat, xs, mid)))),
-    Nat.add(split_len(NDS.split_walk.go(pop, all, p, List.take(&2, Nat, xs, mid))), split_len(NDS.split_walk.go(pop, all, p, List.drop(&2, Nat, xs, mid)))),
-    Nat.add(Util.list_len(Nat, List.take(&2, Nat, xs, mid)), Util.list_len(Nat, List.drop(&2, Nat, xs, mid))),
-    split_cat_len(NDS.split_walk.go(pop, all, p, List.take(&2, Nat, xs, mid)), NDS.split_walk.go(pop, all, p, List.drop(&2, Nat, xs, mid))),
+    split_len(NDS.split_cat(NDS.split_walk.go(all, p, List.take(&2, NDS.Row, xs, mid)), NDS.split_walk.go(all, p, List.drop(&2, NDS.Row, xs, mid)))),
+    Nat.add(split_len(NDS.split_walk.go(all, p, List.take(&2, NDS.Row, xs, mid))), split_len(NDS.split_walk.go(all, p, List.drop(&2, NDS.Row, xs, mid)))),
+    Nat.add(Util.list_len(NDS.Row, List.take(&2, NDS.Row, xs, mid)), Util.list_len(NDS.Row, List.drop(&2, NDS.Row, xs, mid))),
+    split_cat_len(NDS.split_walk.go(all, p, List.take(&2, NDS.Row, xs, mid)), NDS.split_walk.go(all, p, List.drop(&2, NDS.Row, xs, mid))),
     add_both(
-      split_len(NDS.split_walk.go(pop, all, p, List.take(&2, Nat, xs, mid))),
-      split_len(NDS.split_walk.go(pop, all, p, List.drop(&2, Nat, xs, mid))),
-      Util.list_len(Nat, List.take(&2, Nat, xs, mid)),
-      Util.list_len(Nat, List.drop(&2, Nat, xs, mid)),
+      split_len(NDS.split_walk.go(all, p, List.take(&2, NDS.Row, xs, mid))),
+      split_len(NDS.split_walk.go(all, p, List.drop(&2, NDS.Row, xs, mid))),
+      Util.list_len(NDS.Row, List.take(&2, NDS.Row, xs, mid)),
+      Util.list_len(NDS.Row, List.drop(&2, NDS.Row, xs, mid)),
       e_lo,
       e_hi
     )
   )
 
 def split_walk_go_len.finish(
-  +pop: List<&2, Ind.Individual>,
-  +all: List<&2, Nat>,
+  +all: List<&2, NDS.Row>,
   +p: Nat,
-  +xs: List<&2, Nat>,
+  +xs: List<&2, NDS.Row>,
   +mid: Nat,
-  e_lo: {split_len(NDS.split_walk.go(pop, all, p, List.take(&2, Nat, xs, mid))) == Util.list_len(Nat, List.take(&2, Nat, xs, mid)) : Nat},
-  e_hi: {split_len(NDS.split_walk.go(pop, all, p, List.drop(&2, Nat, xs, mid))) == Util.list_len(Nat, List.drop(&2, Nat, xs, mid)) : Nat}
-) -> {split_len(NDS.split_cat(NDS.split_walk.go(pop, all, p, List.take(&2, Nat, xs, mid)), NDS.split_walk.go(pop, all, p, List.drop(&2, Nat, xs, mid)))) == Util.list_len(Nat, xs) : Nat}:
+  e_lo: {split_len(NDS.split_walk.go(all, p, List.take(&2, NDS.Row, xs, mid))) == Util.list_len(NDS.Row, List.take(&2, NDS.Row, xs, mid)) : Nat},
+  e_hi: {split_len(NDS.split_walk.go(all, p, List.drop(&2, NDS.Row, xs, mid))) == Util.list_len(NDS.Row, List.drop(&2, NDS.Row, xs, mid)) : Nat}
+) -> {split_len(NDS.split_cat(NDS.split_walk.go(all, p, List.take(&2, NDS.Row, xs, mid)), NDS.split_walk.go(all, p, List.drop(&2, NDS.Row, xs, mid)))) == Util.list_len(NDS.Row, xs) : Nat}:
   Equal.trans(
     Nat,
-    split_len(NDS.split_cat(NDS.split_walk.go(pop, all, p, List.take(&2, Nat, xs, mid)), NDS.split_walk.go(pop, all, p, List.drop(&2, Nat, xs, mid)))),
-    Nat.add(Util.list_len(Nat, List.take(&2, Nat, xs, mid)), Util.list_len(Nat, List.drop(&2, Nat, xs, mid))),
-    Util.list_len(Nat, xs),
-    split_walk_go_len.mid(pop, all, p, xs, mid, e_lo, e_hi),
-    take_drop_len(Nat, xs, mid)
+    split_len(NDS.split_cat(NDS.split_walk.go(all, p, List.take(&2, NDS.Row, xs, mid)), NDS.split_walk.go(all, p, List.drop(&2, NDS.Row, xs, mid)))),
+    Nat.add(Util.list_len(NDS.Row, List.take(&2, NDS.Row, xs, mid)), Util.list_len(NDS.Row, List.drop(&2, NDS.Row, xs, mid))),
+    Util.list_len(NDS.Row, xs),
+    split_walk_go_len.mid(all, p, xs, mid, e_lo, e_hi),
+    take_drop_len(NDS.Row, xs, mid)
   )
 
 def split_walk_go_len(
-  +pop: List<&2, Ind.Individual>,
-  +all: List<&2, Nat>,
+  +all: List<&2, NDS.Row>,
   +fuel: Nat,
-  cand: List<&2, Nat>
-) -> {split_len(NDS.split_walk.go(pop, all, fuel, cand)) == Util.list_len(Nat, cand) : Nat}:
+  cand: List<&2, NDS.Row>
+) -> {split_len(NDS.split_walk.go(all, fuel, cand)) == Util.list_len(NDS.Row, cand) : Nat}:
   match fuel cand:
     case 0n Nil{}:
       {==}
-    case 0n +i <> +rest:
-      split_walk_len.cons(i, rest, NDS.split_walk.go(pop, all, 0n, rest), NDS.is_dominated(pop, all, i), split_walk_go_len(pop, all, 0n, rest))
+    case 0n +r <> +rest:
+      split_walk_len.cons(r, rest, NDS.split_walk.go(all, 0n, rest), NDS.row_dom(all, r), split_walk_go_len(all, 0n, rest))
     case 1n+p Nil{}:
       {==}
-    case 1n+p +i <> Nil{}:
-      split_walk_len.cons(i, Nil{}, NDS.Split{Nil{}, Nil{}}, NDS.is_dominated(pop, all, i), {==})
+    case 1n+p +r <> Nil{}:
+      split_walk_len.cons(r, Nil{}, NDS.Split{Nil{}, Nil{}}, NDS.row_dom(all, r), {==})
     case 1n+p +h <> +k <> +rest:
-      +xs = {h <> k <> rest : List<&2, Nat>}
-      +mid = Nat.div(Util.list_len(Nat, xs), 2n)
+      +xs = {h <> k <> rest : List<&2, NDS.Row>}
+      +mid = Nat.div(Util.list_len(NDS.Row, xs), 2n)
       split_walk_go_len.finish(
-        pop,
         all,
         p,
         xs,
         mid,
-        split_walk_go_len(pop, all, p, List.take(&2, Nat, xs, mid)),
-        split_walk_go_len(pop, all, p, List.drop(&2, Nat, xs, mid))
+        split_walk_go_len(all, p, List.take(&2, NDS.Row, xs, mid)),
+        split_walk_go_len(all, p, List.drop(&2, NDS.Row, xs, mid))
       )
 
 def split_walk_len(
-  +pop: List<&2, Ind.Individual>,
-  +all: List<&2, Nat>,
-  +cand: List<&2, Nat>
-) -> {split_len(NDS.split_walk(pop, all, cand)) == Util.list_len(Nat, cand) : Nat}:
-  split_walk_go_len(pop, all, Util.list_len(Nat, cand), cand)
+  +all: List<&2, NDS.Row>,
+  +cand: List<&2, NDS.Row>
+) -> {split_len(NDS.split_walk(all, cand)) == Util.list_len(NDS.Row, cand) : Nat}:
+  split_walk_go_len(all, Util.list_len(NDS.Row, cand), cand)
 
 def split_ne_len(
-  +i: Nat,
-  +rest: List<&2, Nat>,
+  +r: NDS.Row,
+  +rest: List<&2, NDS.Row>,
   s: NDS.Split,
-  e: {split_len(s) == 1n+Util.list_len(Nat, rest) : Nat}
-) -> {split_len(NDS.split_ne(i, rest, s)) == 1n+Util.list_len(Nat, rest) : Nat}:
+  e: {split_len(s) == 1n+Util.list_len(NDS.Row, rest) : Nat}
+) -> {split_len(NDS.split_ne(r, rest, s)) == 1n+Util.list_len(NDS.Row, rest) : Nat}:
   match s:
     case NDS.Split{ff, ot}:
       match ff:
@@ -811,71 +806,100 @@ def split_ne_len(
           e
 
 def split_front_len(
-  +pop: List<&2, Ind.Individual>,
-  +i: Nat,
-  +rest: List<&2, Nat>
-) -> {split_len(NDS.split_front(pop, i <> rest)) == 1n+Util.list_len(Nat, rest) : Nat}:
-  split_ne_len(i, rest, NDS.split_walk(pop, i <> rest, i <> rest), split_walk_len(pop, i <> rest, i <> rest))
+  +r: NDS.Row,
+  +rest: List<&2, NDS.Row>
+) -> {split_len(NDS.split_front(r <> rest)) == 1n+Util.list_len(NDS.Row, rest) : Nat}:
+  split_ne_len(r, rest, NDS.split_walk(r <> rest, r <> rest), split_walk_len(r <> rest, r <> rest))
+
+def row_idxs_len(rs: List<&2, NDS.Row>) -> {Util.list_len(Nat, NDS.row_idxs(rs)) == Util.list_len(NDS.Row, rs) : Nat}:
+  match rs:
+    case Nil{}:
+      {==}
+    case +r <> +t:
+      %row_idxs_len(t) : {1n+Util.list_len(Nat, NDS.row_idxs(t)) == 1n+_ : Nat}
+      {==}
 
 def peel_count.fin(
-  +pop: List<&2, Ind.Individual>,
   +f: Nat,
   s: NDS.Split,
   +n: Nat,
   e_part: {split_len(s) == n : Nat},
-  e_ih: {NDS.front_index_count(NDS.peel(pop, f, NDS.split_snd(s))) == Util.list_len(Nat, NDS.split_snd(s)) : Nat}
-) -> {Nat.add(Util.list_len(Nat, NDS.split_fst(s)), NDS.front_index_count(NDS.peel(pop, f, NDS.split_snd(s)))) == n : Nat}:
+  e_ih: {NDS.front_index_count(NDS.peel(f, NDS.split_snd(s))) == Util.list_len(NDS.Row, NDS.split_snd(s)) : Nat}
+) -> {Nat.add(Util.list_len(Nat, NDS.split_fst(s)), NDS.front_index_count(NDS.peel(f, NDS.split_snd(s)))) == n : Nat}:
   match s:
     case NDS.Split{+ff, +ot}:
       Equal.trans(
         Nat,
-        Nat.add(Util.list_len(Nat, ff), NDS.front_index_count(NDS.peel(pop, f, ot))),
-        Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)),
+        Nat.add(Util.list_len(Nat, ff), NDS.front_index_count(NDS.peel(f, ot))),
+        Nat.add(Util.list_len(Nat, ff), Util.list_len(NDS.Row, ot)),
         n,
         add_both(
           Util.list_len(Nat, ff),
-          NDS.front_index_count(NDS.peel(pop, f, ot)),
+          NDS.front_index_count(NDS.peel(f, ot)),
           Util.list_len(Nat, ff),
-          Util.list_len(Nat, ot),
+          Util.list_len(NDS.Row, ot),
           {==},
           e_ih
         ),
         e_part
       )
 
+def peel_count.fuel0(
+  +r: NDS.Row,
+  +rest: List<&2, NDS.Row>
+) -> {NDS.front_index_count(NDS.row_idxs({r <> rest : List<&2, NDS.Row>}) <> Nil{}) == Util.list_len(NDS.Row, {r <> rest : List<&2, NDS.Row>}) : Nat}:
+  Equal.trans(
+    Nat,
+    Nat.add(Util.list_len(Nat, NDS.row_idxs({r <> rest : List<&2, NDS.Row>})), 0n),
+    Util.list_len(Nat, NDS.row_idxs({r <> rest : List<&2, NDS.Row>})),
+    Util.list_len(NDS.Row, {r <> rest : List<&2, NDS.Row>}),
+    add_zero_r(Util.list_len(Nat, NDS.row_idxs({r <> rest : List<&2, NDS.Row>}))),
+    row_idxs_len({r <> rest : List<&2, NDS.Row>})
+  )
+
 def peel_count(
-  +pop: List<&2, Ind.Individual>,
   fuel: Nat,
-  remaining: List<&2, Nat>
-) -> {NDS.front_index_count(NDS.peel(pop, fuel, remaining)) == Util.list_len(Nat, remaining) : Nat}:
+  remaining: List<&2, NDS.Row>
+) -> {NDS.front_index_count(NDS.peel(fuel, remaining)) == Util.list_len(NDS.Row, remaining) : Nat}:
   match fuel remaining:
     case 0n Nil{}:
       {==}
     case 1n+f Nil{}:
       {==}
-    case 0n +i <> +rest:
-      add_zero_r(1n+Util.list_len(Nat, rest))
-    case 1n++f +i <> +rest:
-      +s = NDS.split_front(pop, i <> rest)
+    case 0n +r <> +rest:
+      peel_count.fuel0(r, rest)
+    case 1n++f +r <> +rest:
+      +s = NDS.split_front({r <> rest : List<&2, NDS.Row>})
       peel_count.fin(
-        pop,
         f,
         s,
-        1n+Util.list_len(Nat, rest),
-        split_front_len(pop, i, rest),
-        peel_count(pop, f, NDS.split_snd(s))
+        1n+Util.list_len(NDS.Row, rest),
+        split_front_len(r, rest),
+        peel_count(f, NDS.split_snd(s))
       )
 
+def rows_of_len.go(pop: List<&2, Ind.Individual>, +i: Nat) -> {Util.list_len(NDS.Row, NDS.rows_of.go(pop, i)) == Util.list_len(Ind.Individual, pop) : Nat}:
+  match pop:
+    case Nil{}:
+      {==}
+    case +h <> +t:
+      %rows_of_len.go(t, 1n+i) : {1n+Util.list_len(NDS.Row, NDS.rows_of.go(t, 1n+i)) == 1n+_ : Nat}
+      {==}
+
 def Laws.sort_index_count(pop):
-  +n = Util.list_len(Ind.Individual, pop)
-  Equal.trans(
-    Nat,
-    NDS.front_index_count(NDS.peel(pop, n, List.range(n))),
-    Util.list_len(Nat, List.range(n)),
-    n,
-    peel_count(pop, n, List.range(n)),
-    range_len(n)
-  )
+  match pop:
+    case Nil{}:
+      {==}
+    case +h <> +t:
+      +rs = NDS.rows_of.go({h <> t : List<&2, Ind.Individual>}, 0n)
+      Equal.trans(
+        Nat,
+        NDS.front_index_count(NDS.peel(Util.list_len(NDS.Row, rs), rs)),
+        Util.list_len(NDS.Row, rs),
+        Util.list_len(Ind.Individual, {h <> t : List<&2, Ind.Individual>}),
+        peel_count(Util.list_len(NDS.Row, rs), rs),
+        rows_of_len.go({h <> t : List<&2, Ind.Individual>}, 0n)
+      )
 
 def Laws.dominates_irreflexive(ind):
   +xs = Ind.objectives(ind)

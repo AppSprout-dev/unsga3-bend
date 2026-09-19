@@ -55,6 +55,7 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 - [x] Remaining independent Run-path maps — NDS `split_walk` / `first_scan` (inner `is_dominated` stays sequential for OR short-circuit), niche `cand_refs` / `in_ref` / `near_members` / `refs_at` / count histograms, `col_min`/`col_max`/`col_max_idx`/`pick_extremes`, `stamp_asgs`, `g12_vec` / `vars_of`. Same fronts given the same RNG (tournament / SBX / mutation / `niche_loop.rng` stay sequential)
 
 - [x] Warm-cache native phase profile (`ab/profile_bend_run.py`, `docs/PERF_NOTES.md`) — wall `IO.now()` buckets; no fabricated IGD
+- [x] NDS peel on pre-materialized `Row{index, objectives}` (no `List.get` of `Individual` during the rank walk). Same Pareto definition; same Split partition law. Mid-split on candidates kept; inner `is_dominated` still sequential OR
 
 Hub publish is still later.
 
