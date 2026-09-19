@@ -245,7 +245,9 @@ def main() -> int:
         "--threads",
         type=int,
         default=None,
-        help="pass --threads N to the native binary (Bend default: CPU count)",
+        help="native binary --threads N (1–128). Default None omits the flag; "
+        "Bend then uses cpu_count() (online CPUs ∩ affinity ∩ cgroup quota; "
+        "binary --help: “default: the CPU count”). Not a Python nproc() inject.",
     )
     args = parser.parse_args()
 

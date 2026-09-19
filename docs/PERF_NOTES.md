@@ -202,3 +202,85 @@ python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 1
 python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 --threads 4
 python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 --threads 4
 ```
+
+---
+
+## Threads (no-flag vs `--threads N`)
+
+This section is the `--threads` verification + bend2.dev citations. It does **not** replace the phase tables above. Those DTLZ2-150 / ZDT1-100 numbers were warm `--threads 4` runs of `ab/profile_bend_run.py`. This section only re-ran already-built binaries (smoke, a `/tmp` `pow2(26n)`, ZDT1 pop=20 gens=5, and the cached DTLZ2 pop=92 gens=5 calibration binary). No second 150-gen DTLZ2 compile.
+
+Host for these rows: **4-core Xeon (KVM)**, `nproc=4`, `getconf _NPROCESSORS_ONLN=4`, affinity `0-3`, no cgroup `cpu.max` quota. Bend **2.0.13**. The binary does **not** print the chosen worker count on a normal run; `--help` and `/proc/<pid>/status` `Threads:` are the observables.
+
+### What the docs say (Bend 2, not HVM2)
+
+`bend guide` § Tooling (also `~/.bend/guide/GUIDE.md`):
+
+```
+./file --threads 8        # run a native binary on 8 CPU threads
+./file --gpu off          # run ! calls on the CPU (the GPU is on by default)
+./file --gpu 4GB          # cap the GPU's heap at 4GB
+```
+
+https://bend2.dev/learn/parallelism/ (updated 2026-09-17, compiler `e6676b0`):
+
+> The native fork/join scheduler assigns these calls to CPU threads. Keep their workloads roughly equal: the scheduler does not move a slow branch to idle workers.
+
+> Bend's native compilation example uses `bend file.bend -o file`, followed by running the executable. Run `./file --threads 8` to use eight CPU threads. […] Use `pow2!(12n)` and `./file --gpu 1GB` to send that call and its nested parallel calls to the GPU.
+
+https://bend2.dev/learn/measuring-speedup/ (same date / revision):
+
+> Measure Bend speedup by running the same native program on one CPU thread and several threads, checking that both produce the same result. Divide the one-thread time by the parallel time […]
+
+```
+bend main.bend -o main
+./main --threads 1 --gpu off
+./main --threads 16 --gpu off
+```
+
+https://bend2.dev/learn/gpu/: `./pow2 --gpu 1GB` after `bend pow2.bend -o pow2`; bangs (`f!(x)`) are unused on this Run path. https://bend2.dev/learn/concurrency/: `IO.fork` / `IO.join` is the event-loop path; “Parallel pure calls use the separate fork notation shown in parallelism.” There is no HVM2 `--profile-json` on Bend 2.0.13 (`bend --help` / native `--help`).
+
+The native binary’s own `--help` (emitted C, Bend 2.0.13):
+
+```
+--threads N       worker threads, 1 to 128 (default: the CPU count)
+```
+
+That default is real. `bend file.bend -o file.c` shows `thr` starting at `0`, then:
+
+```
+Corpus H = corpus_setup(dev, thr > 0 ? thr : cpu_count(), mem);
+```
+
+`cpu_count()` is `sysconf(_SC_NPROCESSORS_ONLN)`, then `sched_getaffinity` `CPU_COUNT`, then a cgroup quota ceiling (`/sys/fs/cgroup/cpu.max` or the v1 `cfs_quota_us` / `cfs_period_us` pair). `pool_size` is clamped to `[1, CUBE_T]` with `CUBE_T = 128`. Omitting `--threads` is therefore **not** “one thread” and **not** a Python `nproc()` inject — it is Bend’s `cpu_count()`. On this host that equals `nproc` (4). `--threads 4` and `--threads $(nproc)` are the same request here.
+
+`ab/dump_bend_run.py --threads` defaults to `None` and **omits** the flag, which is the correct way to get that Bend default. The previous help line (“Bend default: CPU count”) was right about the binary and easy to misread as “the Python flag defaults to `nproc` and we pass it.” The help now says omit-means-`cpu_count()`.
+
+### `/proc` thread count (max `Threads:` while the child lived)
+
+`/proc` counts the main thread plus worker pthreads. `--threads 1` takes the solo `work_loop` path and stays at 1. When the pool opens, observed max is **1 + N**.
+
+| `--threads` | smoke ZDT1 (pop=8 gens=3) | `pow2(26n)` | ZDT1 pop=20 gens=5 | DTLZ2 pop=92 gens=5 |
+|-------------|--------------------------:|------------:|-------------------:|--------------------:|
+| omit (Bend default) | 1 (exits before the pool is visible) | **5** | **5** | **5** |
+| `1` | 1 | **1** | **1** | **1** |
+| `2` | 3 | **3** | **3** | **3** |
+| `4` (`$(nproc)`) | 1 (too short) | **5** | **5** | **5** |
+
+omit ≡ `--threads 4` ≡ `--threads $(nproc)` on this machine whenever the fork/join pool actually starts.
+
+### Warm `run_s` (quiet host; median of 3 after one discarded warm)
+
+`pow2(26n)` is the balanced tree the guide / bend2.dev page use. Same checksum (`2^26 = 67108864`) at every thread count.
+
+| `--threads` | `pow2(26n)` median `run_s` | vs `--threads 1` | ZDT1 smoke median `run_s` | ZDT1 pop=20 gens=5 | DTLZ2 pop=92 gens=5 median `profile_wall_ms` |
+|-------------|---------------------------:|-----------------:|--------------------------:|-------------------:|---------------------------------------------:|
+| omit | 0.061 | 3.7× | 0.006 | 0.032 | 2412 |
+| `1` | 0.226 | 1.0× | 0.004 | 0.030 | **1726** |
+| `2` | 0.124 | 1.8× | 0.005 | 0.033 | 2917 |
+| `4` | 0.061 | 3.7× | 0.005 | 0.032 | 4299 (spread 2978 / 4323 / 4299) |
+
+`pow2` scales almost linearly to four cores, matching https://bend2.dev/learn/measuring-speedup/ (“divide the one-thread time by the parallel time”). Smoke and the 20×5 ZDT1 Run are too small: all ~4–33 ms, `--threads 1` is equal or slightly faster (guide shaders: “a 0.3 ms job loses to the pool wake-up”).
+
+The cached DTLZ2 gens=5 binary is NDS-heavy (sibling calibration: `nds=90%`). On a quiet host, **`--threads 1` was faster than omit / 4** (1.73 s vs 2.41 s vs a noisy 3.0–4.3 s). That is not a claim about the 150-gen oracle table above, which was measured at `--threads 4` and was not re-run here. It is consistent with the guide: the scheduler does not steal; inner `is_dominated` is a sequential OR; each mid-split still pays `take`/`drop` + `List.get`. More workers are not automatically better for this peel.
+
+GPU: no `!` on the Run path, so `./file --gpu 1GB` does not move Unsga3 work. `--gpu off` only matters if a bang exists.
