@@ -81,7 +81,7 @@ Official README limitations:
 | Mid-split `a b = f(lo) f(hi)` | required parallel form | used on eval / associate / NDS candidate split / maps |
 | `f!(x)` GPU bang | native CPU vs GPU | unused (divergent NDS/niching is a bad GPU fit per shaders: “divergent work like n-queens stays faster on the CPU”) |
 | Checker-normalize a value `main` | “slow for big work” | Run drivers are `IO` |
-| `List.get` in a hot index loop | cons walk (Base) | NDS peel + tournament indexing |
+| `List.get` in a hot index loop | cons walk (Base) | NDS peel walks `Row` cons (no `Individual` get); tournament still indexes |
 | `take`/`drop` at every fork | O(n) spine copy | `map_halves` / `split_walk` |
 | Generic `Bool.pick` on words | shaders: boxes words | used for F32/Nat picks (not the shader U32 path) |
 | Non-tail recursion | shaders: frame per call | NDS `is_dominated` is a sequential OR (intentional: first hit skips); peel is fuel-bounded |
@@ -184,7 +184,72 @@ Checked-in smoke (ZDT1 pop=8 gens=3 partitions=4) warm `run_s=0.023`; most bucke
 
 `evaluate` is ~0% — analytic ZDT1 / DTLZ2. `normalize` + `associate` together stay ~3%. `tournament` is a sequential pair walk and is still cheap next to the peels.
 
-Why the peel is expensive on this tree (guide-backed, not a silent rewrite): `NDS.sort` = `peel` of remaining indices; each peel `split_walk`s every leftover candidate; `is_dominated` is a sequential OR so a first hit skips; each compare is `List.get` on a cons list (Base). Mid-split `a b = f(lo) f(hi)` parallelizes candidates, but each fork still pays `take`/`drop` and `List.get` into the shared pop. `bend guide shaders`: an `Array` cannot ride a fork tree. That is the measured cost, not a missed `-O` flag (Bend 2.0.13 has none).
+Why the peel was expensive on main @ a6ebf2d (guide-backed): `NDS.sort` = `peel` of remaining **indices**; each peel `split_walk`s every leftover candidate; `is_dominated` is a sequential OR so a first hit skips; each compare was `List.get` of a fat `Individual` on a cons list (Base). Mid-split `a b = f(lo) f(hi)` parallelizes candidates, but each fork still paid `take`/`drop` and `List.get` into the shared pop. `bend guide shaders`: an `Array` cannot ride a fork tree.
+
+## After NDS row peel
+
+Same dominance definition. Same mid-split front/leftover **index order**. One sequential pass builds `Row{index, objectives}`; leftover peels reuse those rows. `is_dominated` walks the row list (no `List.get` of `Individual`). Arrays still unused (cannot ride a fork tree). Nested dominate-parallel still unused.
+
+Host for these rows: 4-core Xeon (KVM), clang 18.1.3, Bend **2.0.15**, `--threads 4`, seed=1, `PymooCompatible`. Warm-cache native `ab/profile_bend_run.py` (second invocation; `compile_s` omitted). Fronts vs main @ a6ebf2d seed=1 are **byte-identical** (checked-in smoke, core fixture, oracle ZDT1, oracle DTLZ2). No IGD / HV claimed — the dumps matched, so pymoo was not needed (and is not installed here).
+
+### Headline before (PERF_NOTES main) vs after (this tree)
+
+`pct` is of that run’s `profile_sum_ms`. Niche / offspring **absolute** ms stay in the same band; their % rose because the peel shrank.
+
+| run | | run_s | nds ms (%) | niche ms (%) | offspring ms (%) |
+|-----|--|------:|-----------:|-------------:|-----------------:|
+| DTLZ2 92×150 | before | 55.948 | 39191 (70%) | 9536 (17%) | 4637 (8%) |
+| DTLZ2 92×150 | after | 15.736 | 901 (5%) | 8987 (57%) | 3876 (24%) |
+| ZDT1 52×100 | before | 10.964 | 8282 (75%) | 371 (3%) | 1905 (17%) |
+| ZDT1 52×100 | after | 2.920 | 270 (9%) | 376 (13%) | 1898 (66%) |
+
+NDS wall ms dropped ~43× on DTLZ2 and ~31× on ZDT1. Warm `run_s` dropped ~3.6× / ~3.8×. New DTLZ2 #1 is `niche`; new ZDT1 #1 is `offspring_sbx_pm_g12`.
+
+### DTLZ2 M=3 k=10, partitions=12, pop=92, gens=150, seed=1 (after)
+
+- warm: `compile_s` omitted, `run_s=15.736`, `profile_sum_ms=15574`, `profile_wall_ms=15732` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 31 | 0.031 | 0 |
+| nds_select | 699 | 0.699 | 4 |
+| nds_prepare | 202 | 0.202 | 1 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **901** | **0.901** | **5** |
+| normalize_select | 298 | 0.298 | 1 |
+| normalize_prepare | 205 | 0.205 | 1 |
+| normalize | 503 | 0.503 | 3 |
+| associate_select | 720 | 0.720 | 4 |
+| associate_prepare | 465 | 0.465 | 2 |
+| associate | 1185 | 1.185 | 7 |
+| niche | 8987 | 8.987 | 57 |
+| tournament | 91 | 0.091 | 0 |
+| offspring_sbx_pm_g12 | 3876 | 3.876 | 24 |
+| unaccounted | 158 | 0.158 | |
+
+### ZDT1 n=30, partitions=12, pop=52, gens=100, seed=1 (after)
+
+- warm: `compile_s` omitted, `run_s=2.920`, `profile_sum_ms=2855`, `profile_wall_ms=2917` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 17 | 0.017 | 0 |
+| nds_select | 216 | 0.216 | 7 |
+| nds_prepare | 54 | 0.054 | 1 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **270** | **0.270** | **9** |
+| normalize_select | 67 | 0.067 | 2 |
+| normalize_prepare | 53 | 0.053 | 1 |
+| normalize | 120 | 0.120 | 4 |
+| associate_select | 81 | 0.081 | 2 |
+| associate_prepare | 72 | 0.072 | 2 |
+| associate | 153 | 0.153 | 5 |
+| niche | 376 | 0.376 | 13 |
+| tournament | 21 | 0.021 | 0 |
+| offspring_sbx_pm_g12 | 1898 | 1.898 | 66 |
+| unaccounted | 62 | 0.062 | |
 
 ## How to reproduce
 

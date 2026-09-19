@@ -27,6 +27,8 @@ Bend artifacts publish later via `bend … --publish` (content-hash hub). They d
 
 **Parallel maps (landed)** — `evaluate_all`, reference-point association, per-individual normalization, non-dominated front/leftover splits, niche filters / histograms, column min-max, and assignment stamping use Bend parallel calls (`a b = f(lo) f(hi)`), mid-split fork-join. Inner domination and nearest-ref walks stay sequential. Observationally the same fronts as the sequential maps. Mating tournament, SBX, polynomial mutation, and last-front niching stay sequential so a fixed seed still consumes RNG in the same order.
 
+**NDS row peel (landed)** — `NonDominatedSort` materializes `Row{index, objectives}` once per sort and peels those rows (no `List.get` of `Individual` on the pair walk). Same Pareto definition; seed=1 smoke and oracle fronts match main @ a6ebf2d. Warm native phase numbers: [docs/PERF_NOTES.md](docs/PERF_NOTES.md).
+
 **Native `-o` dump path (landed)** — compile a Run driver with `bend src/….bend -o …` and execute the binary for the same CSV front. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails. `bend PROOF.bend` is 0 `?TODO`. Hub publish is later.
 
 | Module | C# surface it mirrors |
