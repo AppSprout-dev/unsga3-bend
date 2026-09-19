@@ -58,11 +58,11 @@ Protocol (same as C# `docs/EQUIVALENCE.md` / `tools/OracleCompare`):
 | Label | Problem | Partitions | Pop | Gens | Seed | Tournament |
 |-------|---------|------------|-----|------|------|------------|
 | **oracle ZDT1** | ZDT1 n=30 | 12 | 52 | 100 | 1 | PymooCompatible |
-| **oracle ZDT2** | ZDT2 n=30 | 12 | 52 | 100 | 1 | PymooCompatible |
+| **oracle ZDT2** | ZDT2 n=30 | 12 | 52 | **250** | 1 | PymooCompatible |
 | **oracle DTLZ2** | DTLZ2 M=3 k=10 | 12 | 92 | 150 | 1 | PymooCompatible |
 | **smoke ZDT1** (checked-in) | ZDT1 n=30 | 4 | 8 | 3 | 1 | PymooCompatible |
 
-Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Smoke is labeled smoke and is **not** an oracle claim.
+Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Smoke is labeled smoke and is **not** an oracle claim. ZDT2 **gens=100** is an early-stress snapshot (PR #16: Bend 10/15 and C# 8/15 collapse), not the A/B default — see [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md). RankNicheDistance is an optional dump flag (`--tournament rank_niche`), not the new default.
 
 **Intentional deltas vs C#:** Bend RNG is a portable LCG (not `System.Random`), so fronts will not match bit-for-bit. `Run` survival niching threads rng for min-count niche ties (C# `Select(..., rng)`); last-front extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` (that LCG path collapsed oracle ZDT2). v0 `select` stays deterministic. Duplicate keys use C# G12-style 12-decimal rounding. C# ctor default tournament is `RankNicheDistance`; Bend A/B / smoke uses `PymooCompatible`. DTLZ2 IGD uses a Das–Dennis-density PF (see [ab/README.md](ab/README.md)); pymoo’s default ~136-pt PF is a different yardstick.
 
@@ -107,6 +107,7 @@ unsga3-bend/
 ├── ab/                       # core + algorithm dump / optional IGD / optional C#
 ├── docs/ROADMAP.md
 ├── docs/PERF_NOTES.md        # Bend 2 guide audit + warm native phase table
+├── docs/ZDT2_COLLAPSE.md     # ZDT2 messy on both stacks (investigation)
 └── LICENSE                   # MIT
 ```
 

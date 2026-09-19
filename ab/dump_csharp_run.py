@@ -5,8 +5,10 @@ This repo does not vendor or clone AppSprout-dev/Unsga3. When
 UNSGA3_CS_ROOT is unset, the script skips (exit 0).
 
 When set, it runs tools/OracleCompare with the same flags the C# docs
-use (or the smoke defaults if --smoke). Missing dotnet / project / a
-build failure prints `skip: …` and exits 0. No invented fronts.
+use (or the smoke defaults if --smoke). This tree’s ZDT2 A/B default is
+gens=250 (C# EQUIVALENCE.md still says 100 — that budget is an early-stress
+snapshot here). Missing dotnet / project / a build failure prints
+`skip: …` and exits 0. No invented fronts.
 
 OracleCompare also prints IGD on its stdout; this script only copies the
 front CSV. It does not invent or rewrite metrics.
@@ -20,6 +22,8 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+from protocol import default_gens, default_pop
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "ab" / "out"
@@ -35,8 +39,21 @@ def main() -> int:
     parser.add_argument("--problem", default="zdt1")
     parser.add_argument("--partitions", type=int, default=None)
     parser.add_argument("--pop", type=int, default=None)
-    parser.add_argument("--gens", type=int, default=None)
+    parser.add_argument(
+        "--gens",
+        type=int,
+        default=None,
+        help="generations (default: zdt2=250, dtlz2=150, else 100; "
+        "explicit value always wins)",
+    )
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument(
+        "--tournament",
+        choices=("pymoo", "rank_niche"),
+        default="pymoo",
+        help="pymoo → OracleCompare --pymoo-mode (PymooCompatible). "
+        "rank_niche → C# ctor default (omit --pymoo-mode).",
+    )
     parser.add_argument(
         "--smoke",
         action="store_true",
@@ -66,7 +83,8 @@ def main() -> int:
                 f"UNSGA3_CS_ROOT={root} has no tools/OracleCompare. "
                 "Refusing to invent a front. Documented invocation: "
                 "dotnet run --project tools/OracleCompare -- --problem zdt1 "
-                "--partitions 12 --pop 52 --gens 100 --seed 1 --pymoo-mode"
+                "--partitions 12 --pop 52 --gens 100 --seed 1 --pymoo-mode "
+                "(ZDT2 A/B default in this tree is --gens 250)"
             )
 
     dotnet = shutil.which("dotnet")
@@ -81,14 +99,15 @@ def main() -> int:
     else:
         problem = args.problem
         partitions = args.partitions if args.partitions is not None else 12
-        pop = args.pop if args.pop is not None else (92 if problem == "dtlz2" else 52)
-        gens = args.gens if args.gens is not None else (150 if problem == "dtlz2" else 100)
+        pop = args.pop if args.pop is not None else default_pop(problem)
+        gens = args.gens if args.gens is not None else default_gens(problem)
         seed = args.seed
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     # Per-run subdirectory: a shared csharp_oracle/ plus glob[-1] picks the
     # wrong CSV after multi-problem dumps (sorted name, not this invocation).
-    mode = "pymoo"
+    pymoo_mode = args.tournament == "pymoo"
+    mode = "pymoo" if pymoo_mode else "default"
     stem = f"csharp_{problem}_p{partitions}_pop{pop}_g{gens}_s{seed}_{mode}"
     tmp_dir = OUT_DIR / "csharp_oracle" / stem
     tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -112,10 +131,11 @@ def main() -> int:
         str(gens),
         "--seed",
         str(seed),
-        "--pymoo-mode",
         "--out-dir",
         str(tmp_dir.resolve()),
     ]
+    if pymoo_mode:
+        cmd.append("--pymoo-mode")
     try:
         proc = subprocess.run(
             cmd,

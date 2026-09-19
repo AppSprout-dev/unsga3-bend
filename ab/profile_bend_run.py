@@ -26,6 +26,8 @@ import sys
 import time
 from pathlib import Path
 
+from protocol import default_gens
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "ab" / "out"
 CACHE_DIR = OUT_DIR / "profile_cache"
@@ -221,7 +223,11 @@ def main() -> int:
         problem = args.problem or "zdt1"
         partitions = args.partitions if args.partitions is not None else 12
         pop = args.pop if args.pop is not None else 52
-        gens = args.gens if args.gens is not None else 100
+        gens = (
+            args.gens
+            if args.gens is not None
+            else default_gens(problem, dtlz2_gens=100)
+        )
         OUT_DIR.mkdir(parents=True, exist_ok=True)
         CUSTOM_BEND.write_text(
             generate_bend(problem, partitions, pop, gens, args.seed),

@@ -39,6 +39,7 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] `Unsga3Algorithm.Run` generational loop (persistent Normalization, rng niching)
 - [x] Samples: `src/run_smoke.bend` + `ab/dump_bend_run.py` dump a real front under `ab/out/`
 - [x] Algorithm A/B scripts: Bend Run dump; optional C# `OracleCompare` when `UNSGA3_CS_ROOT` is set; `igd_vs_pymoo.py` vs analytic / pymoo PF or `skip:`
+- [x] ZDT2 A/B / oracle default gens=**250** (PymooCompatible, p=12, pop=52). gens=100 kept as an early-stress snapshot — [ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md). ZDT1 100 / DTLZ2 150 unchanged. RankNicheDistance stays optional.
 - [x] Laws for operator defaults (closed) + ZDT/DTLZ dimensions / zero-pop Run (closed) + `|Run|==pop` (take-pad lock; identity when the inner Run already has `pop_size`) + SBX/poly p=0 copy (bit-zero branch before any `NextDouble`)
 - [ ] Bit-for-bit / IGD match vs C# + pymoo on oracle-sized ZDT/DTLZ (needs a real C# checkout + pymoo; do not invent numbers)
 
