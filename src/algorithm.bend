@@ -125,21 +125,26 @@ def init_loop(fuel: Nat, hold: IHold, +box: Bounds.Box, +n_obj: Nat) -> Rng.Stat
 def init_pop(+prob: Prob.Problem, n: Nat, rng: Rng.State) -> Rng.State & List<&2, Ind.Individual>:
   init_loop(n, IH{rng, Nil{}}, Prob.box_of(prob), Prob.n_obj(prob))
 
-def vars_one(+u: Unit, +ind: Ind.Individual) -> List<&2, F32>:
-  Util.g12_vec(Ind.variables(ind))
+def vars_of.go(xs: List<&2, Ind.Individual>, acc: List<&2, List<&2, F32>>) -> List<&2, List<&2, F32>>:
+  match xs:
+    case Nil{}:
+      List.reverse(&2, List<&2, F32>, acc)
+    case +ind <> rest:
+      vars_of.go(rest, Util.g12_vec(Ind.variables(ind)) <> acc)
 
 def vars_of(xs: List<&2, Ind.Individual>) -> List<&2, List<&2, F32>>:
-  Util.map_halves(~Ind.Individual, ~List<&2, F32>, ~Unit, ~vars_one, Unit{}, xs)
+  vars_of.go(xs, Nil{})
 
-def try_add.go(+acc: List<&2, Ind.Individual>, +child: Ind.Individual, +seen: List<&2, List<&2, F32>>, skip: Bool) -> List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool:
+def try_add.go(+acc: List<&2, Ind.Individual>, +child: Ind.Individual, +seen: List<&2, List<&2, F32>>, +key: List<&2, F32>, skip: Bool) -> List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool:
   match skip:
     case True{}:
       (acc, seen, False{})
     case False{}:
-      (List.append(&2, Ind.Individual, acc, [child]), Util.g12_vec(Ind.variables(child)) <> seen, True{})
+      (List.append(&2, Ind.Individual, acc, [child]), key <> seen, True{})
 
 def try_add(+acc: List<&2, Ind.Individual>, +child: Ind.Individual, +seen: List<&2, List<&2, F32>>, elim: Bool) -> List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool:
-  try_add.go(acc, child, seen, Bool.and(elim, Util.has_f32s(Util.g12_vec(Ind.variables(child)), seen)))
+  +key = Util.g12_vec(Ind.variables(child))
+  try_add.go(acc, child, seen, key, Bool.and(elim, Util.has_f32s(key, seen)))
 
 def pred_or_zero(n: Nat) -> Nat:
   match n:

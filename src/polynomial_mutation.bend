@@ -1,5 +1,7 @@
 # Polynomial mutation — C# Unsga3.Operators.Mutation.PolynomialMutation.
 # Default η = 20. Probability per variable is an argument (C# Run uses 1/n).
+# Walks the decision vector and box intervals together (no List.get /
+# set_var_at per index). Same RNG order as the old indexed loop.
 
 import Base
 import ./individual.bend as Ind
@@ -61,12 +63,12 @@ def deltaq.pick(+eta: F32, +mut_pow: F32, +delta1: F32, +delta2: F32, +rand: F32
 def deltaq(+eta: F32, +mut_pow: F32, +delta1: F32, +delta2: F32, +rand: F32) -> F32:
   deltaq.pick(eta, mut_pow, delta1, delta2, rand, F32.is_lt(rand, 0.5))
 
-def span_at(+box: Bounds.Box, i: Nat) -> F32:
-  +iv = Bounds.at(box, i)
-  F32.sub(Bounds.hi(iv), Bounds.lo(iv))
-
-def tiny_at(+box: Bounds.Box, i: Nat) -> Bool:
-  F32.is_lt(span_at(box, i), 1.0e-14)
+def tiny_head(ivs: List<&2, Bounds.Interval>) -> Bool:
+  match ivs:
+    case Nil{}:
+      False{}
+    case +iv <> rest:
+      F32.is_lt(F32.sub(Bounds.hi(iv), Bounds.lo(iv)), 1.0e-14)
 
 def advance(rng: Rng.State, rest: Nat) -> Rng.State:
   match rest:
@@ -75,63 +77,70 @@ def advance(rng: Rng.State, rest: Nat) -> Rng.State:
     case 1n+g:
       Rng.next_double(rng)
 
-# fuel is remaining variables including `i`.
-# skip = last per-var coin > p. tiny = (hi-lo) < 1e-14 at `i`.
-def loop(
+def skip_kind(skip: Bool, tiny: Bool) -> Nat:
+  match skip:
+    case True{}:
+      0n
+    case False{}:
+      match tiny:
+        case True{}:
+          0n
+        case False{}:
+          1n
+
+def finish(+m: Nat, pair: Rng.State & List<&2, F32>) -> Rng.State & Ind.Individual:
+  (rng, xs) = pair
+  (rng, Ind.from_variables(xs, m))
+
+def done(rng: Rng.State, acc: List<&2, F32>) -> Rng.State & List<&2, F32>:
+  (rng, List.reverse(&2, F32, acc))
+
+# Kind: 0n = copy the head (skip or tiny span), 1n = mutate the head.
+def loop.go(
   fuel: Nat,
-  +i: Nat,
-  skip: Bool,
-  tiny: Bool,
+  kind: Nat,
+  xs: List<&2, F32>,
+  ivs: List<&2, Bounds.Interval>,
   +eta: F32,
-  +box: Bounds.Box,
   rng: Rng.State,
-  +ind: Ind.Individual,
+  acc: List<&2, F32>,
   +p: F32
-) -> Rng.State & Ind.Individual:
-  match fuel skip tiny:
-    case 0n s t:
-      (rng, ind)
-    case 1n++f True{} t:
+) -> Rng.State & List<&2, F32>:
+  match fuel kind xs ivs:
+    case 0n k a b:
+      done(rng, acc)
+    case 1n++f 0n +x <> rest +iv <> +ivrest:
       +rng2 = advance(rng, f)
-      loop(
-        f, 1n+i,
-        F32.is_gt(Rng.last_double(rng2), p),
-        tiny_at(box, 1n+i),
-        eta, box, rng2, ind, p
+      loop.go(
+        f,
+        skip_kind(F32.is_gt(Rng.last_double(rng2), p), tiny_head(ivrest)),
+        rest, ivrest, eta, rng2, x <> acc, p
       )
-    case 1n++f False{} True{}:
-      +rng2 = advance(rng, f)
-      loop(
-        f, 1n+i,
-        F32.is_gt(Rng.last_double(rng2), p),
-        tiny_at(box, 1n+i),
-        eta, box, rng2, ind, p
-      )
-    case 1n++f False{} False{}:
-      +iv = Bounds.at(box, i)
+    case 1n++f 1n+q +x <> rest +iv <> +ivrest:
       +lo = Bounds.lo(iv)
       +hi = Bounds.hi(iv)
-      +x = Ind.var_at(ind, i)
       +dmax = F32.sub(hi, lo)
       +rng_a = Rng.next_double(rng)
       +rand = Rng.last_double(rng_a)
       +mut_pow = F32.div(1.0, F32.add(eta, 1.0))
       +dq = deltaq(eta, mut_pow, F32.div(F32.sub(x, lo), dmax), F32.div(F32.sub(hi, x), dmax), rand)
       +y = F32.clamp(F32.add(x, F32.mul(dq, dmax)), lo, hi)
-      +nind = Ind.set_evaluated(Ind.set_var_at(ind, i, y), False{})
       +rng_b = advance(rng_a, f)
-      loop(
-        f, 1n+i,
-        F32.is_gt(Rng.last_double(rng_b), p),
-        tiny_at(box, 1n+i),
-        eta, box, rng_b, nind, p
+      loop.go(
+        f,
+        skip_kind(F32.is_gt(Rng.last_double(rng_b), p), tiny_head(ivrest)),
+        rest, ivrest, eta, rng_b, y <> acc, p
       )
+    case 1n++f k Nil{} b:
+      done(rng, acc)
+    case 1n++f k a <> as Nil{}:
+      done(rng, acc)
 
 def start(
   +eta: F32,
   +box: Bounds.Box,
   rng: Rng.State,
-  ind: Ind.Individual,
+  +ind: Ind.Individual,
   +p: F32,
   n: Nat
 ) -> Rng.State & Ind.Individual:
@@ -140,11 +149,15 @@ def start(
       (rng, ind)
     case 1n+f:
       +rng2 = Rng.next_double(rng)
-      loop(
-        1n+f, 0n,
-        F32.is_gt(Rng.last_double(rng2), p),
-        tiny_at(box, 0n),
-        eta, box, rng2, ind, p
+      +xs = Ind.variables(ind)
+      +ivs = Bounds.intervals_of(box)
+      finish(
+        Ind.n_obj(ind),
+        loop.go(
+          1n+f,
+          skip_kind(F32.is_gt(Rng.last_double(rng2), p), tiny_head(ivs)),
+          xs, ivs, eta, rng2, Nil{}, p
+        )
       )
 
 # p=0 leaves the decision vector unchanged before any NextDouble.

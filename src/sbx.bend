@@ -1,5 +1,8 @@
 # Simulated Binary Crossover — C# Unsga3.Operators.Crossover.SimulatedBinaryCrossover.
 # Defaults match C#: η = 30, pair probability = 1.0 (Deb & Agrawal).
+# Per-variable walk peels x1 / x2 / box intervals together (guide: the
+# list is the shape a flat loop walks). Same RNG order as the old
+# index + List.get / set_var_at loop; children are built once at the end.
 
 import Base
 import ./individual.bend as Ind
@@ -51,8 +54,14 @@ def beta.pick(+rand: F32, +alpha: F32, +inv: F32, lo: Bool) -> F32:
 def beta(+rand: F32, +alpha: F32, +inv: F32) -> F32:
   beta.pick(rand, alpha, inv, F32.is_le(rand, F32.div(1.0, alpha)))
 
-def close_at(+xs: List<&2, F32>, +ys: List<&2, F32>, +i: Nat) -> Bool:
-  near(Util.get_f32(xs, i), Util.get_f32(ys, i))
+def close_heads(xs: List<&2, F32>, ys: List<&2, F32>) -> Bool:
+  match xs ys:
+    case +x <> xr +y <> yr:
+      near(x, y)
+    case Nil{} ys:
+      False{}
+    case x <> xs Nil{}:
+      False{}
 
 # Draw the next per-var coin only when more variables remain.
 def advance(rng: Rng.State, rest: Nat) -> Rng.State:
@@ -62,46 +71,50 @@ def advance(rng: Rng.State, rest: Nat) -> Rng.State:
     case 1n+g:
       Rng.next_double(rng)
 
-# fuel is remaining variables including the current index `i`.
-# skip = last per-var coin > 0.5. close = |x1-x2| < 1e-14 at `i`.
-def loop(
+def finish(+m: Nat, trip: Rng.State & List<&2, F32> & List<&2, F32>) -> Rng.State & Ind.Individual & Ind.Individual:
+  (rng, xs, ys) = trip
+  (rng, Ind.from_variables(xs, m), Ind.from_variables(ys, m))
+
+def done(rng: Rng.State, acc1: List<&2, F32>, acc2: List<&2, F32>) -> Rng.State & List<&2, F32> & List<&2, F32>:
+  (rng, List.reverse(&2, F32, acc1), List.reverse(&2, F32, acc2))
+
+def skip_kind(skip: Bool, close: Bool) -> Nat:
+  match skip:
+    case True{}:
+      0n
+    case False{}:
+      match close:
+        case True{}:
+          0n
+        case False{}:
+          1n
+
+# Kind: 0n = copy heads (skip or close), 1n = SBX the heads.
+# One def so skip/cross are not mutually recursive with `loop`.
+def loop.go(
   fuel: Nat,
-  +i: Nat,
-  skip: Bool,
-  close: Bool,
+  kind: Nat,
+  xs1: List<&2, F32>,
+  xs2: List<&2, F32>,
+  ivs: List<&2, Bounds.Interval>,
   +eta: F32,
-  +x1s: List<&2, F32>,
-  +x2s: List<&2, F32>,
-  +box: Bounds.Box,
   rng: Rng.State,
-  c1: Ind.Individual,
-  c2: Ind.Individual
-) -> Rng.State & Ind.Individual & Ind.Individual:
-  match fuel skip close:
-    case 0n s c:
-      (rng, c1, c2)
-    case 1n++f True{} c:
+  acc1: List<&2, F32>,
+  acc2: List<&2, F32>
+) -> Rng.State & List<&2, F32> & List<&2, F32>:
+  match fuel kind xs1 xs2 ivs:
+    case 0n k a b c:
+      done(rng, acc1, acc2)
+    case 1n++f 0n +x1 <> +rest1 +x2 <> +rest2 +iv <> ivrest:
       +rng2 = advance(rng, f)
-      loop(
-        f, 1n+i,
-        F32.is_gt(Rng.last_double(rng2), 0.5),
-        close_at(x1s, x2s, 1n+i),
-        eta, x1s, x2s, box, rng2, c1, c2
+      loop.go(
+        f,
+        skip_kind(F32.is_gt(Rng.last_double(rng2), 0.5), close_heads(rest1, rest2)),
+        rest1, rest2, ivrest, eta, rng2, x1 <> acc1, x2 <> acc2
       )
-    case 1n++f False{} True{}:
-      +rng2 = advance(rng, f)
-      loop(
-        f, 1n+i,
-        F32.is_gt(Rng.last_double(rng2), 0.5),
-        close_at(x1s, x2s, 1n+i),
-        eta, x1s, x2s, box, rng2, c1, c2
-      )
-    case 1n++f False{} False{}:
-      +iv = Bounds.at(box, i)
+    case 1n++f 1n+p +x1 <> +rest1 +x2 <> +rest2 +iv <> ivrest:
       +lo = Bounds.lo(iv)
       +hi = Bounds.hi(iv)
-      +x1 = Util.get_f32(x1s, i)
-      +x2 = Util.get_f32(x2s, i)
       +gt = F32.is_gt(x1, x2)
       +a = Bool.pick(F32, gt, x2, x1)
       +b = Bool.pick(F32, gt, x1, x2)
@@ -116,15 +129,34 @@ def loop(
       +c2v = F32.clamp(F32.mul(0.5, F32.add(F32.add(a, b), F32.mul(beta(rand, alpha2, inv), delta))), lo, hi)
       +rng_b = Rng.next_double(rng_a)
       +sw = F32.is_gt(Rng.last_double(rng_b), 0.5)
-      +n1 = Ind.set_var_at(c1, i, Bool.pick(F32, sw, c2v, c1v))
-      +n2 = Ind.set_var_at(c2, i, Bool.pick(F32, sw, c1v, c2v))
+      +n1 = Bool.pick(F32, sw, c2v, c1v)
+      +n2 = Bool.pick(F32, sw, c1v, c2v)
       +rng_c = advance(rng_b, f)
-      loop(
-        f, 1n+i,
-        F32.is_gt(Rng.last_double(rng_c), 0.5),
-        close_at(x1s, x2s, 1n+i),
-        eta, x1s, x2s, box, rng_c, n1, n2
+      loop.go(
+        f,
+        skip_kind(F32.is_gt(Rng.last_double(rng_c), 0.5), close_heads(rest1, rest2)),
+        rest1, rest2, ivrest, eta, rng_c, n1 <> acc1, n2 <> acc2
       )
+    case 1n++f k Nil{} b c:
+      done(rng, acc1, acc2)
+    case 1n++f k a <> as Nil{} c:
+      done(rng, acc1, acc2)
+    case 1n++f k a <> as b <> bs Nil{}:
+      done(rng, acc1, acc2)
+
+def loop(
+  fuel: Nat,
+  skip: Bool,
+  close: Bool,
+  +eta: F32,
+  xs1: List<&2, F32>,
+  xs2: List<&2, F32>,
+  ivs: List<&2, Bounds.Interval>,
+  rng: Rng.State,
+  acc1: List<&2, F32>,
+  acc2: List<&2, F32>
+) -> Rng.State & List<&2, F32> & List<&2, F32>:
+  loop.go(fuel, skip_kind(skip, close), xs1, xs2, ivs, eta, rng, acc1, acc2)
 
 def start(
   +eta: F32,
@@ -132,20 +164,22 @@ def start(
   +x2s: List<&2, F32>,
   +box: Bounds.Box,
   rng: Rng.State,
-  c1: Ind.Individual,
-  c2: Ind.Individual,
+  +m: Nat,
   n: Nat
 ) -> Rng.State & Ind.Individual & Ind.Individual:
   match n:
     case 0n:
-      (rng, c1, c2)
+      (rng, Ind.from_variables(x1s, m), Ind.from_variables(x2s, m))
     case 1n+f:
       +rng2 = Rng.next_double(rng)
-      loop(
-        1n+f, 0n,
-        F32.is_gt(Rng.last_double(rng2), 0.5),
-        close_at(x1s, x2s, 0n),
-        eta, x1s, x2s, box, rng2, c1, c2
+      finish(
+        m,
+        loop(
+          1n+f,
+          F32.is_gt(Rng.last_double(rng2), 0.5),
+          close_heads(x1s, x2s),
+          eta, x1s, x2s, Bounds.intervals_of(box), rng2, Nil{}, Nil{}
+        )
       )
 
 def maybe(
@@ -154,16 +188,15 @@ def maybe(
   +x2s: List<&2, F32>,
   +box: Bounds.Box,
   rng: Rng.State,
-  c1: Ind.Individual,
-  c2: Ind.Individual,
+  +m: Nat,
   +n: Nat,
   skip: Bool
 ) -> Rng.State & Ind.Individual & Ind.Individual:
   match skip:
     case True{}:
-      (rng, c1, c2)
+      (rng, Ind.from_variables(x1s, m), Ind.from_variables(x2s, m))
     case False{}:
-      start(eta, x1s, x2s, box, rng, c1, c2, n)
+      start(eta, x1s, x2s, box, rng, m, n)
 
 def draw(
   +eta: F32,
@@ -172,12 +205,11 @@ def draw(
   +x2s: List<&2, F32>,
   +box: Bounds.Box,
   rng: Rng.State,
-  c1: Ind.Individual,
-  c2: Ind.Individual,
+  +m: Nat,
   +n: Nat
 ) -> Rng.State & Ind.Individual & Ind.Individual:
   +rng2 = Rng.next_double(rng)
-  maybe(eta, x1s, x2s, box, rng2, c1, c2, n, F32.is_gt(Rng.last_double(rng2), prob))
+  maybe(eta, x1s, x2s, box, rng2, m, n, F32.is_gt(Rng.last_double(rng2), prob))
 
 # p=0 copies parents before any NextDouble. Matches C# children when
 # pair probability is 0 (every draw is > 0). Bit-zero is definitional
@@ -189,16 +221,15 @@ def draw_or_copy(
   +x2s: List<&2, F32>,
   +box: Bounds.Box,
   rng: Rng.State,
-  c1: Ind.Individual,
-  c2: Ind.Individual,
+  +m: Nat,
   +n: Nat,
   zero: Bool
 ) -> Rng.State & Ind.Individual & Ind.Individual:
   match zero:
     case True{}:
-      (rng, c1, c2)
+      (rng, Ind.from_variables(x1s, m), Ind.from_variables(x2s, m))
     case False{}:
-      draw(eta, prob, x1s, x2s, box, rng, c1, c2, n)
+      draw(eta, prob, x1s, x2s, box, rng, m, n)
 
 def crossover(
   +op: Sbx,
@@ -218,8 +249,7 @@ def crossover(
     x2s,
     box,
     rng,
-    Ind.from_variables(x1s, m),
-    Ind.from_variables(x2s, m),
+    m,
     Bounds.n_var(box),
     Util.f32_is_zero(prob)
   )
