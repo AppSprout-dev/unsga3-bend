@@ -2,7 +2,7 @@
 
 Greenfield [Bend](https://bend-lang.com/) rewrite of **U-NSGA-III** (Seada & Deb, 2016).
 
-This repository is **standalone public OSS**. It is **not** a NuGet package, **not** a drop-in replacement for C# consumers, and **not** a dependency of any private product. Consumers that already use the C# library keep using that library; this repo does not know about those applications.
+This repository is **standalone public OSS**. It is **not** a NuGet package, **not** PackageId `Unsga3`, **not** a drop-in replacement for C# consumers, and **not** a dependency of any private product. Consumers that already use the C# library keep using that library; this repo does not know about those applications.
 
 ```text
 https://github.com/AppSprout-dev/unsga3-bend
@@ -13,11 +13,32 @@ https://github.com/AppSprout-dev/unsga3-bend
 The reference implementation is the existing C# library:
 
 - Source: [AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)
-- **PackageId `Unsga3` stays C# / NuGet only**
+- **PackageId `Unsga3` stays C# only** — NuGet / [GitHub Packages](https://github.com/AppSprout-dev/Unsga3#install)
 
-`unsga3-bend` is a from-scratch Bend 2 port of the algorithm core, not a binding and not a republish of that package. The shared validation plan is the same public protocol the C# docs use: ZDT / DTLZ problems and IGD against a [pymoo](https://pymoo.org/) `UNSGA3` oracle ([C# `docs/EQUIVALENCE.md`](https://github.com/AppSprout-dev/Unsga3/blob/main/docs/EQUIVALENCE.md)).
+`unsga3-bend` is a from-scratch Bend 2 port of the algorithm core, not a binding and not a republish of that package. The two stacks sit **beside** each other: C# remains the .NET package; this tree is the Bend **hub** package. The shared validation plan is the same public protocol the C# docs use: ZDT / DTLZ problems and IGD against a [pymoo](https://pymoo.org/) `UNSGA3` oracle ([C# `docs/EQUIVALENCE.md`](https://github.com/AppSprout-dev/Unsga3/blob/main/docs/EQUIVALENCE.md)).
 
-Bend artifacts publish later via `bend … --publish` (content-hash hub). They do **not** go to NuGet.
+## Hub package (planned 0.1.0)
+
+**0.1.0** is the planned first hub version. Publish is `bend … --publish` (content-hash). Artifacts do **not** go to nuget.org or GitHub Packages.
+
+**Paused:** do not run `--publish` or tag `v0.1.0` until maintainers fill the import hash below. Until then, develop against `src/` in this checkout.
+
+### How consumers will import
+
+Bend fetches a published package by content hash (`bend guide` § Modules):
+
+```bend
+# Hash filled at publish (`bend src/lib.bend --publish` prints the real line).
+import 0x…/src/lib.bend as Unsga3
+```
+
+Until that hash exists, there is nothing to `import 0x…`. Use a local path instead:
+
+```bend
+import ./src/lib.bend as Unsga3
+```
+
+`src/lib.bend` is the module-graph facade (core + variation + problems + `Run`). See [CHANGELOG.md](CHANGELOG.md).
 
 ## What is in this tree
 
@@ -31,7 +52,7 @@ Bend artifacts publish later via `bend … --publish` (content-hash hub). They d
 
 **Niching / offspring walks (landed)** — last-front fill uses `NRow{index, ref, dist}` so the sequential niche loop does not `List.get` assignments per remaining candidate. SBX and polynomial mutation peel variable lists with the box intervals (no per-index `List.get` / `set_var_at`). G12 keys are a sequential walk. Same RNG order. Warm native phase numbers: [docs/PERF_NOTES.md](docs/PERF_NOTES.md).
 
-**Native `-o` dump path (landed)** — compile a Run driver with `bend src/….bend -o …` and execute the binary for the same CSV front. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails. `bend PROOF.bend` is 0 `?TODO`. Hub publish is later.
+**Native `-o` dump path (landed)** — compile a Run driver with `bend src/….bend -o …` and execute the binary for the same CSV front. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails. `bend PROOF.bend` is 0 `?TODO`.
 
 | Module | C# surface it mirrors |
 |--------|------------------------|
@@ -44,8 +65,6 @@ Bend artifacts publish later via `bend … --publish` (content-hash hub). They d
 | `tournament` | `TournamentSelection` / `TournamentMode` |
 | `algorithm` | `Unsga3Algorithm.Run` |
 
-Hub publish is still later.
-
 ## How A/B works
 
 Two layers; do not invent IGD numbers in this repo.
@@ -53,7 +72,7 @@ Two layers; do not invent IGD numbers in this repo.
 1. **v0 core A/B** — feed the **same objective population** to C# and Bend sort / normalize / associate / select. Compare ranks, associations, and the selected index set.
 2. **Algorithm A/B** — dump ND fronts from Bend `Run` (and optionally C# `OracleCompare` when `UNSGA3_CS_ROOT` is set) on shared ZDT/DTLZ settings; IGD vs pymoo when installed.
 
-Protocol (same as C# `docs/EQUIVALENCE.md` / `tools/OracleCompare`):
+Protocol (same as C# `docs/EQUIVALENCE.md` / `tools/OracleCompare`; dump defaults in [`ab/protocol.py`](ab/protocol.py)):
 
 | Label | Problem | Partitions | Pop | Gens | Seed | Tournament |
 |-------|---------|------------|-----|------|------|------------|
@@ -62,7 +81,7 @@ Protocol (same as C# `docs/EQUIVALENCE.md` / `tools/OracleCompare`):
 | **oracle DTLZ2** | DTLZ2 M=3 k=10 | 12 | 92 | 150 | 1 | PymooCompatible |
 | **smoke ZDT1** (checked-in) | ZDT1 n=30 | 4 | 8 | 3 | 1 | PymooCompatible |
 
-Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Smoke is labeled smoke and is **not** an oracle claim. ZDT2 **gens=100** is an early-stress snapshot (PR #16: Bend 10/15 and C# 8/15 collapse), not the A/B default — see [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md). RankNicheDistance is an optional dump flag (`--tournament rank_niche`), not the new default.
+Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Smoke is labeled smoke and is **not** an oracle claim. ZDT2 **quality protocol is gens=250**; **gens=100 is an early-stress snapshot** (PR #16: Bend 10/15 and C# 8/15 collapse), not the A/B default — see [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md) and [`ab/protocol.py`](ab/protocol.py). RankNicheDistance is an optional dump flag (`--tournament rank_niche`), not the new default.
 
 **Intentional deltas vs C#:** Bend RNG is a portable LCG (not `System.Random`), so fronts will not match bit-for-bit. `Run` survival niching threads rng for min-count niche ties (C# `Select(..., rng)`); last-front extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` (that LCG path collapsed oracle ZDT2). v0 `select` stays deterministic. Duplicate keys use C# G12-style 12-decimal rounding. C# ctor default tournament is `RankNicheDistance`; Bend A/B / smoke uses `PymooCompatible`. DTLZ2 IGD uses a Das–Dennis-density PF (see [ab/README.md](ab/README.md)); pymoo’s default ~136-pt PF is a different yardstick.
 
@@ -101,13 +120,15 @@ Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `
 ```
 unsga3-bend/
 ├── AGENTS.md                 # Bend agent rules + product locks
+├── CHANGELOG.md              # planned 0.1.0 hub notes (not a release)
 ├── LAWS.bend                 # core + operator + Run/ZDT claims (human-owned)
-├── PROOF.bend                # imports LAWS; open / stub proofs
+├── PROOF.bend                # imports LAWS; closed proofs
 ├── src/                      # core + variation + problems + Run + smokes
 ├── ab/                       # core + algorithm dump / optional IGD / optional C#
+├── ab/protocol.py            # A/B defaults (ZDT2 gens=250)
 ├── docs/ROADMAP.md
 ├── docs/PERF_NOTES.md        # Bend 2 guide audit + warm native phase table
-├── docs/ZDT2_COLLAPSE.md     # ZDT2 messy on both stacks (investigation)
+├── docs/ZDT2_COLLAPSE.md     # ZDT2 gens=100 early-stress vs gens=250 quality
 └── LICENSE                   # MIT
 ```
 
@@ -115,4 +136,4 @@ unsga3-bend/
 
 MIT — see [LICENSE](LICENSE).
 
-**Not affiliated with pymoo.** The planned oracle compares against pymoo as an external tool; this repo does not vendor pymoo.
+**Not affiliated with pymoo.** A/B scripts compare against pymoo as an external tool when it is installed; this repo does not vendor pymoo.

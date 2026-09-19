@@ -1,6 +1,6 @@
 # Roadmap
 
-Living plan for **unsga3-bend**. This is a Bend rewrite, not a NuGet package.
+Living plan for **unsga3-bend**. This is a Bend rewrite, not a NuGet package. PackageId `Unsga3` stays the C# / NuGet / GitHub Packages stack. This tree is the Bend hub package beside it. Planned first hub version: **0.1.0**.
 
 ## v0 — core (implemented)
 
@@ -59,10 +59,12 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 - [x] NDS peel on pre-materialized `Row{index, objectives}` (no `List.get` of `Individual` during the rank walk). Same Pareto definition; same Split partition law. Mid-split on candidates kept; inner `is_dominated` still sequential OR
 - [x] Last-front niching on `NRow{index, ref, dist}` + SBX/PM/G12 list walks (no repeated `List.get` / `set_var_at` on fat Individuals). Same pick rules and RNG order; tournament / `niche_loop.rng` stay sequential
 
-Hub publish is still later.
+## Hub publish — planned 0.1.0
 
-## Hub publish
+**0.1.0** is the first planned content-hash hub version. This public-docs review is the gate. **Do not** run `bend … --publish` or create a `v0.1.0` tag until after that review merges.
 
-- [ ] `bend … --publish` content-hash hub
-- [ ] README install line for the published hash
+- [x] Public docs: not NuGet; PackageId `Unsga3` stays C# / NuGet + GitHub Packages; Bend is the hub package beside it
+- [x] Consumer import placeholder (`import 0x…` — hash filled at publish)
+- [x] ZDT2 quality protocol gens=250; gens=100 = early stress ([ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md), [`ab/protocol.py`](../ab/protocol.py))
+- [ ] `bend src/lib.bend --publish` (after the docs review merges; fills the README hash)
 - [ ] Still not NuGet; PackageId `Unsga3` remains the C# package only
