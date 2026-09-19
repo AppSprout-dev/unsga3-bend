@@ -107,6 +107,18 @@ Stderr on `--native`: `native: building …` plus `native: compile_s=…` on a m
 
 Dumps go under `ab/out/` (gitignored).
 
+## Phase profile (warm native)
+
+`ab/profile_bend_run.py` builds a native binary (same hash cache idea as `dump_bend_run.py`) and runs it. Buckets are `IO.now()` milliseconds around evaluate / NDS / normalize / associate / niche / tournament / offspring (SBX+PM+G12 interleaved). Bend 2.0.13 has no sampling profiler. Citations and the measured table: [docs/PERF_NOTES.md](../docs/PERF_NOTES.md).
+
+```bash
+python3 ab/profile_bend_run.py
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1
+```
+
+`--rebuild` forces `bend -o` and prints `compile_s`. `--threads N` is passed only to the binary.
+
 ## Scripts
 
 | Script | Role |
@@ -118,3 +130,6 @@ Dumps go under `ab/out/` (gitignored).
 | `csharp_core_dump/` | one-shot `dotnet` helper for layer-1 `Select` |
 | `igd_vs_pymoo.py` | IGD vs pymoo when installed (`--problem simplex\|zdt1\|zdt2\|dtlz2`); DTLZ2 PF is Das–Dennis `--partitions` (prints `pf_rows` / `pf_source`); otherwise skip |
 | `compare.py` | prints Bend rows; compares to C# CSV when present |
+| `profile_run.bend` | IO.now() phase wrapper around the same Run calls (same RNG / front). No src/ hooks |
+| `profile_smoke.bend` | checked-in smoke driver for the profiler |
+| `profile_bend_run.py` | warm-cache `bend -o` + binary; prints ms/s/% per phase; `compile_s` vs `run_s`. See [docs/PERF_NOTES.md](../docs/PERF_NOTES.md) |

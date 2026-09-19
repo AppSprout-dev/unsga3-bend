@@ -102,6 +102,7 @@ unsga3-bend/
 ├── src/                      # core + variation + problems + Run + smokes
 ├── ab/                       # core + algorithm dump / optional IGD / optional C#
 ├── docs/ROADMAP.md
+├── docs/PERF_NOTES.md        # Bend 2 guide audit + warm native phase table
 └── LICENSE                   # MIT
 ```
 
