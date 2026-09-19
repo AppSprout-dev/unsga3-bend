@@ -27,7 +27,7 @@ Language docs: https://bend-lang.com/ and https://github.com/bendlang/bend
 - **v0 core (done):** non-dominated sort, normalization, Das–Dennis reference directions, niching / reference-point association, survival selection.
 - **Pass 2 (in tree):** `Individual` variables, SBX, polynomial mutation, ZDT1 / ZDT2 / DTLZ2 (3-obj), PymooCompatible mating tournament, `Unsga3Algorithm.Run`, smoke + algorithm A/B scripts. Hub publish is still later.
 - **Parallel hot loops (landed):** `evaluate_all`, association (`associate_raw` / `with_counts` / `gather`), and `map_norm` / `gather_objs` use balanced `a b = f(lo) f(hi)` mid-splits. Same fronts given the same RNG.
-- **Native `-o` dump path (in tree):** `bend src/run_smoke.bend -o …` (or a generated driver) then run the binary; `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails. Remaining `PROOF` `?TODO`s are still next. Hub publish is later.
+- **Native `-o` dump path (in tree):** `bend src/run_smoke.bend -o …` (or a generated driver) then run the binary; `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails. `bend PROOF.bend` is 0 `?TODO`. Hub publish is later.
 - **Standalone OSS:** no mentions of private product repos or internal application names. Consumers wire their own Unsga3 usage; this repo does not know about them.
 - **No fabricated benchmark numbers.** A/B scripts dump a real Bend front or print `skip: …` when an oracle is missing. Do not invent IGD, HV, or Wilcoxon results.
 

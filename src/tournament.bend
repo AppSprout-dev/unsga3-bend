@@ -94,33 +94,30 @@ def one(+mode: Mode, +pop: List<&2, Ind.Individual>, rng: Rng.State) -> Rng.Stat
   +ib = Rng.last_nat(rng_b)
   winner(mode, get_ind(pop, ia), get_ind(pop, ib), rng_b)
 
-type PPack is Data:
-  PPack{
-    fuel: Nat
+type PHold is Data:
+  PH{
     rng: Rng.State
-    w: Ind.Individual
+    acc: List<&2, Ind.Individual>
   }
 
-def pack_one(fuel: Nat, pair: Rng.State & Ind.Individual) -> PPack:
+def parents_next.w(acc: List<&2, Ind.Individual>, pair: Rng.State & Ind.Individual) -> PHold:
   (rng, w) = pair
-  PPack{fuel, rng, w}
+  PH{rng, w <> acc}
 
-@unsafe def parents_go(+mode: Mode, +pop: List<&2, Ind.Individual>, acc: List<&2, Ind.Individual>, pack: PPack) -> Rng.State & List<&2, Ind.Individual>:
-  match pack:
-    case PPack{0n, rng, w}:
-      (rng, List.reverse(&2, Ind.Individual, w <> acc))
-    case PPack{1n+f, rng, w}:
-      parents_go(mode, pop, w <> acc, pack_one(f, one(mode, pop, rng)))
+def parents_next(+mode: Mode, +pop: List<&2, Ind.Individual>, hold: PHold) -> PHold:
+  match hold:
+    case PH{rng, acc}:
+      parents_next.w(acc, one(mode, pop, rng))
 
-def parents_loop(fuel: Nat, +mode: Mode, +pop: List<&2, Ind.Individual>, rng: Rng.State, acc: List<&2, Ind.Individual>) -> Rng.State & List<&2, Ind.Individual>:
-  match fuel:
-    case 0n:
+def parents_loop(fuel: Nat, hold: PHold, +mode: Mode, +pop: List<&2, Ind.Individual>) -> Rng.State & List<&2, Ind.Individual>:
+  match fuel hold:
+    case 0n PH{rng, acc}:
       (rng, List.reverse(&2, Ind.Individual, acc))
-    case 1n+f:
-      parents_go(mode, pop, acc, pack_one(f, one(mode, pop, rng)))
+    case 1n+f h:
+      parents_loop(f, parents_next(mode, pop, h), mode, pop)
 
 def select_parents(+mode: Mode, +pop: List<&2, Ind.Individual>, count: Nat, rng: Rng.State) -> Rng.State & List<&2, Ind.Individual>:
-  parents_loop(count, mode, pop, rng, Nil{})
+  parents_loop(count, PH{rng, Nil{}}, mode, pop)
 
 def parents_of(pair: Rng.State & List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
   (rng, xs) = pair

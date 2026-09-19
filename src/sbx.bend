@@ -179,6 +179,27 @@ def draw(
   +rng2 = Rng.next_double(rng)
   maybe(eta, x1s, x2s, box, rng2, c1, c2, n, F32.is_gt(Rng.last_double(rng2), prob))
 
+# p=0 copies parents before any NextDouble. Matches C# children when
+# pair probability is 0 (every draw is > 0). Bit-zero is definitional
+# on the 0.0 literal; F32.is_gt stays off this path.
+def draw_or_copy(
+  +eta: F32,
+  +prob: F32,
+  +x1s: List<&2, F32>,
+  +x2s: List<&2, F32>,
+  +box: Bounds.Box,
+  rng: Rng.State,
+  c1: Ind.Individual,
+  c2: Ind.Individual,
+  +n: Nat,
+  zero: Bool
+) -> Rng.State & Ind.Individual & Ind.Individual:
+  match zero:
+    case True{}:
+      (rng, c1, c2)
+    case False{}:
+      draw(eta, prob, x1s, x2s, box, rng, c1, c2, n)
+
 def crossover(
   +op: Sbx,
   +p1: Ind.Individual,
@@ -189,14 +210,16 @@ def crossover(
   +x1s = Ind.variables(p1)
   +x2s = Ind.variables(p2)
   +m = Bounds.n_obj(box)
-  draw(
+  +prob = probability(op)
+  draw_or_copy(
     eta(op),
-    probability(op),
+    prob,
     x1s,
     x2s,
     box,
     rng,
     Ind.from_variables(x1s, m),
     Ind.from_variables(x2s, m),
-    Bounds.n_var(box)
+    Bounds.n_var(box),
+    Util.f32_is_zero(prob)
   )

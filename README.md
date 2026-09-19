@@ -27,7 +27,7 @@ Bend artifacts publish later via `bend … --publish` (content-hash hub). They d
 
 **Parallel maps (landed)** — `evaluate_all`, reference-point association, and per-individual normalization use Bend parallel calls (`a b = f(lo) f(hi)`), mid-split fork-join. Observationally the same fronts as the sequential maps.
 
-**Native `-o` dump path (landed)** — compile a Run driver with `bend src/….bend -o …` and execute the binary for the same CSV front. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails. Proofs are still next. Hub publish is later.
+**Native `-o` dump path (landed)** — compile a Run driver with `bend src/….bend -o …` and execute the binary for the same CSV front. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails. `bend PROOF.bend` is 0 `?TODO`. Hub publish is later.
 
 | Module | C# surface it mirrors |
 |--------|------------------------|
@@ -73,7 +73,7 @@ bend src/lib.bend       # module graph: All terms check (Bend 2.0.10+)
 bend src/ab_select.bend # v0 selection smoke (prints CSV front)
 bend src/op_smoke.bend  # SBX + poly mutation on a 2-var box, seed 42
 bend src/run_smoke.bend # short fixed-seed ZDT1 Run; prints ND front CSV
-bend PROOF.bend         # gate: closed length / irreflexivity + remaining ?TODO
+bend PROOF.bend         # gate: all LAWS.bend claims closed (0 ?TODO)
 # Native Run dump (clang 14+). Same CSV front as `bend src/run_smoke.bend`.
 mkdir -p ab/out
 bend src/run_smoke.bend -o ab/out/run_smoke

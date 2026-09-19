@@ -503,9 +503,25 @@ def select_idx.by(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, 
     case False{}:
       select_idx.dirs(pop, target, dirs, List.is_empty(&2, List<&2, F32>, dirs))
 
+def unused_idxs(+used: List<&2, Nat>, +n: Nat) -> List<&2, Nat>:
+  Util.minus(List.range(n), used)
+
+# Length lock: |take(pad(core, want, n), want)| = want when want ≤ n.
+# Identity when core is already a unique subset of 0..n-1 of length want
+# (the fill / range / take paths used in A/B).
+def pad_idxs(+xs: List<&2, Nat>, +want: Nat, +n: Nat) -> List<&2, Nat>:
+  List.append(&2, Nat, xs, List.take(&2, Nat, unused_idxs(xs, n), Nat.sub(want, Util.list_len(Nat, xs))))
+
+def clip_idxs(+xs: List<&2, Nat>, +want: Nat) -> List<&2, Nat>:
+  List.take(&2, Nat, xs, want)
+
+def size_lock(+xs: List<&2, Nat>, +want: Nat, +n: Nat) -> List<&2, Nat>:
+  clip_idxs(List.append(&2, Nat, pad_idxs(xs, want, n), List.range(want)), want)
+
 def select_idx(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Nat>:
   +n = Util.list_len(Ind.Individual, combined)
-  select_idx.by(combined, target_size, dirs, Nat.is_le(n, target_size))
+  +want = Util.nat_min(target_size, n)
+  size_lock(select_idx.by(combined, target_size, dirs, Nat.is_le(n, target_size)), want, n)
 
 def select(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
   gather(combined, select_idx(combined, target_size, dirs))
@@ -514,20 +530,27 @@ def select(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&
 # so last-front niching matches C# Select(..., rng) on min-count niche
 # ties. Empty niches take closest; extras are random among near-best
 # on that ray. v0 `select` stays the `rng == null` path (empty laws).
+def size_lock.rng(+want: Nat, +n: Nat, pair: List<&2, Nat> & Rng.State) -> List<&2, Nat> & Rng.State:
+  (xs, rng) = pair
+  (size_lock(xs, want, n), rng)
+
 def select_st.after(+st: Norm.State, +pop: List<&2, Ind.Individual>, pair: List<&2, Nat> & Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   (idxs, rng2) = pair
   (st, gather(pop, idxs), rng2)
 
 def select_st.with(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, +fronts: List<&2, List<&2, Nat>>, pair: Norm.State & List<&2, List<&2, F32>>, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   (st, F) = pair
-  select_st.after(st, pop, fill.wrap.rng(fronts, target, associate(pop, F, dirs), Util.list_len(List<&2, F32>, dirs), rng))
+  +n = Util.list_len(Ind.Individual, pop)
+  +want = Util.nat_min(target, n)
+  select_st.after(st, pop, size_lock.rng(want, n, fill.wrap.rng(fronts, target, associate(pop, F, dirs), Util.list_len(List<&2, F32>, dirs), rng)))
 
 def select_st.big(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   +fronts = NDS.sort(pop)
   select_st.with(pop, target, dirs, fronts, Norm.normalize_nd(state, pop, front0(fronts)), rng)
 
 def select_st.take(+pop: List<&2, Ind.Individual>, +target: Nat, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
-  (state, gather(pop, List.take(&2, Nat, List.range(Util.list_len(Ind.Individual, pop)), target)), rng)
+  +n = Util.list_len(Ind.Individual, pop)
+  (state, gather(pop, size_lock(List.take(&2, Nat, List.range(n), target), Util.nat_min(target, n), n)), rng)
 
 def select_st.dirs(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State, empty_dirs: Bool) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   match empty_dirs:

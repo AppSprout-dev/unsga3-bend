@@ -100,33 +100,30 @@ def rand_xs.go(+box: Bounds.Box, fuel: Nat, +i: Nat, rng: Rng.State, acc: List<&
 def rand_xs(+box: Bounds.Box, rng: Rng.State) -> Rng.State & List<&2, F32>:
   rand_xs.go(box, Bounds.n_var(box), 0n, rng, Nil{})
 
-type IPack is Data:
-  IPack{
-    fuel: Nat
+type IHold is Data:
+  IH{
     rng: Rng.State
-    xs: List<&2, F32>
+    acc: List<&2, Ind.Individual>
   }
 
-def pack_xs(fuel: Nat, pair: Rng.State & List<&2, F32>) -> IPack:
+def init_next.xs(+n_obj: Nat, acc: List<&2, Ind.Individual>, pair: Rng.State & List<&2, F32>) -> IHold:
   (rng, xs) = pair
-  IPack{fuel, rng, xs}
+  IH{rng, Ind.from_variables(xs, n_obj) <> acc}
 
-@unsafe def init_go(+box: Bounds.Box, +n_obj: Nat, acc: List<&2, Ind.Individual>, pack: IPack) -> Rng.State & List<&2, Ind.Individual>:
-  match pack:
-    case IPack{0n, rng, xs}:
-      (rng, List.reverse(&2, Ind.Individual, Ind.from_variables(xs, n_obj) <> acc))
-    case IPack{1n+f, rng, xs}:
-      init_go(box, n_obj, Ind.from_variables(xs, n_obj) <> acc, pack_xs(f, rand_xs(box, rng)))
+def init_next(+box: Bounds.Box, +n_obj: Nat, hold: IHold) -> IHold:
+  match hold:
+    case IH{rng, acc}:
+      init_next.xs(n_obj, acc, rand_xs(box, rng))
 
-def init_loop(+box: Bounds.Box, +n_obj: Nat, fuel: Nat, rng: Rng.State, acc: List<&2, Ind.Individual>) -> Rng.State & List<&2, Ind.Individual>:
-  match fuel:
-    case 0n:
+def init_loop(fuel: Nat, hold: IHold, +box: Bounds.Box, +n_obj: Nat) -> Rng.State & List<&2, Ind.Individual>:
+  match fuel hold:
+    case 0n IH{rng, acc}:
       (rng, List.reverse(&2, Ind.Individual, acc))
-    case 1n+f:
-      init_go(box, n_obj, acc, pack_xs(f, rand_xs(box, rng)))
+    case 1n+f h:
+      init_loop(f, init_next(box, n_obj, h), box, n_obj)
 
 def init_pop(+prob: Prob.Problem, n: Nat, rng: Rng.State) -> Rng.State & List<&2, Ind.Individual>:
-  init_loop(Prob.box_of(prob), Prob.n_obj(prob), n, rng, Nil{})
+  init_loop(n, IH{rng, Nil{}}, Prob.box_of(prob), Prob.n_obj(prob))
 
 def vars_of(xs: List<&2, Ind.Individual>) -> List<&2, List<&2, F32>>:
   match xs:
@@ -169,47 +166,29 @@ def wrap_pair.go(+pair: Nat, ok: Bool) -> Nat:
 def wrap_pair(+pair: Nat, +n: Nat) -> Nat:
   wrap_pair.go(pair, Nat.is_lt(1n+pair, n))
 
-type FPack is Data:
-  FPack{
-    need: Nat
+type FHold is Data:
+  FH{
     rng: Rng.State
-    extra: Ind.Individual
+    acc: List<&2, Ind.Individual>
   }
 
-def pack_fb(need: Nat, pair: Rng.State & Ind.Individual) -> FPack:
+def fallback_next.m(acc: List<&2, Ind.Individual>, pair: Rng.State & Ind.Individual) -> FHold:
   (rng, extra) = pair
-  FPack{need, rng, extra}
+  FH{rng, List.append(&2, Ind.Individual, acc, [extra])}
 
-@unsafe def fallback_go(+parents: List<&2, Ind.Individual>, acc: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, pack: FPack) -> Rng.State & List<&2, Ind.Individual>:
-  match pack:
-    case FPack{0n, rng, extra}:
-      (rng, List.append(&2, Ind.Individual, acc, [extra]))
-    case FPack{1n+k, rng, extra}:
-      +acc2 = List.append(&2, Ind.Individual, acc, [extra])
+def fallback_next(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, hold: FHold) -> FHold:
+  match hold:
+    case FH{rng, acc}:
       +n = Util.list_len(Ind.Individual, parents)
       +rng_i = Rng.next_nat(rng, n)
-      fallback_go(
-        parents,
-        acc2,
-        prob,
-        mut_p,
-        pack_fb(k, Poly.mutate(Poly.default(), get_ind(parents, Rng.last_nat(rng_i)), Prob.box_of(prob), rng_i, mut_p))
-      )
+      fallback_next.m(acc, Poly.mutate(Poly.default(), get_ind(parents, Rng.last_nat(rng_i)), Prob.box_of(prob), rng_i, mut_p))
 
-def fallback_loop(+parents: List<&2, Ind.Individual>, need: Nat, acc: List<&2, Ind.Individual>, rng: Rng.State, +prob: Prob.Problem, +mut_p: F32) -> Rng.State & List<&2, Ind.Individual>:
-  match need:
-    case 0n:
+def fallback_loop(need: Nat, hold: FHold, +parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32) -> Rng.State & List<&2, Ind.Individual>:
+  match need hold:
+    case 0n FH{rng, acc}:
       (rng, acc)
-    case 1n+k:
-      +n = Util.list_len(Ind.Individual, parents)
-      +rng_i = Rng.next_nat(rng, n)
-      fallback_go(
-        parents,
-        acc,
-        prob,
-        mut_p,
-        pack_fb(k, Poly.mutate(Poly.default(), get_ind(parents, Rng.last_nat(rng_i)), Prob.box_of(prob), rng_i, mut_p))
-      )
+    case 1n+k h:
+      fallback_loop(k, fallback_next(parents, prob, mut_p, h), parents, prob, mut_p)
 
 def offs_add2.hit(+need1: Nat, trip: List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool) -> Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>:
   (acc2, seen2, hit2) = trip
@@ -273,9 +252,8 @@ def offs_pair(
     Sbx.crossover(Sbx.default(), get_ind(parents, p0), get_ind(parents, 1n+p0), Prob.box_of(prob), rng)
   )
 
-type OPack is Data:
-  OPack{
-    fuel: Nat
+type OHold is Data:
+  OH{
     need: Nat
     pair: Nat
     rng: Rng.State
@@ -283,38 +261,40 @@ type OPack is Data:
     seen: List<&2, List<&2, F32>>
   }
 
-def pack_offs(fuel: Nat, pair: Nat, quad: Rng.State & Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>) -> OPack:
+def offs_next.q(+pair0: Nat, quad: Rng.State & Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>) -> OHold:
   (rng, need, acc, seen) = quad
-  OPack{fuel, need, pair, rng, acc, seen}
+  OH{need, Nat.add(pair0, 2n), rng, acc, seen}
 
-@unsafe def offs_go(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, +elim: Bool, pack: OPack) -> Rng.State & List<&2, Ind.Individual>:
-  match pack:
-    case OPack{0n, nrest, pair, rng, acc, seen}:
-      fallback_loop(parents, nrest, acc, rng, prob, mut_p)
-    case OPack{f, 0n, pair, rng, acc, seen}:
+def offs_next(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, +elim: Bool, hold: OHold) -> OHold:
+  match hold:
+    case OH{need, +pair, rng, acc, seen}:
+      offs_next.q(pair, offs_pair(parents, pair, need, acc, seen, rng, prob, mut_p, elim))
+
+def offs_done(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, hold: OHold) -> Rng.State & List<&2, Ind.Individual>:
+  match hold:
+    case OH{nrest, pair, rng, acc, seen}:
+      fallback_loop(nrest, FH{rng, acc}, parents, prob, mut_p)
+
+def offs_have(hold: OHold) -> Rng.State & List<&2, Ind.Individual>:
+  match hold:
+    case OH{need, pair, rng, acc, seen}:
       (rng, acc)
-    case OPack{1n+f, 1n+k, +pair, rng, acc, seen}:
-      offs_go(parents, prob, mut_p, elim, pack_offs(f, Nat.add(pair, 2n), offs_pair(parents, pair, 1n+k, acc, seen, rng, prob, mut_p, elim)))
 
 def offs_loop(
   fuel: Nat,
+  hold: OHold,
   +parents: List<&2, Ind.Individual>,
-  +pair: Nat,
-  need: Nat,
-  acc: List<&2, Ind.Individual>,
-  seen: List<&2, List<&2, F32>>,
-  rng: Rng.State,
   +prob: Prob.Problem,
   +mut_p: F32,
   +elim: Bool
 ) -> Rng.State & List<&2, Ind.Individual>:
-  match fuel need:
-    case 0n nrest:
-      fallback_loop(parents, nrest, acc, rng, prob, mut_p)
-    case f 0n:
-      (rng, acc)
-    case 1n+f 1n+k:
-      offs_go(parents, prob, mut_p, elim, pack_offs(f, Nat.add(pair, 2n), offs_pair(parents, pair, 1n+k, acc, seen, rng, prob, mut_p, elim)))
+  match fuel hold:
+    case 0n h:
+      offs_done(parents, prob, mut_p, h)
+    case 1n+f OH{0n, pair, rng, acc, seen}:
+      offs_have(OH{0n, pair, rng, acc, seen})
+    case 1n+f OH{1n+k, pair, rng, acc, seen}:
+      offs_loop(f, offs_next(parents, prob, mut_p, elim, OH{1n+k, pair, rng, acc, seen}), parents, prob, mut_p, elim)
 
 def seen_start(+parents: List<&2, Ind.Individual>, elim: Bool) -> List<&2, List<&2, F32>>:
   match elim:
@@ -326,12 +306,8 @@ def seen_start(+parents: List<&2, Ind.Individual>, elim: Bool) -> List<&2, List<
 def create_offspring(+prob: Prob.Problem, +parents: List<&2, Ind.Individual>, +n: Nat, rng: Rng.State, +elim: Bool) -> Rng.State & List<&2, Ind.Individual>:
   offs_loop(
     Nat.mul(n, 40n),
+    OH{n, 0n, rng, Nil{}, seen_start(parents, elim)},
     parents,
-    0n,
-    n,
-    Nil{},
-    seen_start(parents, elim),
-    rng,
     prob,
     Poly.typical_probability(Prob.n_var(prob)),
     elim
@@ -351,97 +327,58 @@ def emit_front(xs: List<&2, Ind.Individual>) -> IO(Unit):
         emit_front(rest)
 
 type GHold is Data:
-  HZ{}
-  HP{
-    rng: Rng.State
-    xs: List<&2, Ind.Individual>
-  }
-  HO{
-    rng: Rng.State
-    xs: List<&2, Ind.Individual>
-  }
-  HS{
+  GH{
     st: Norm.State
     xs: List<&2, Ind.Individual>
     rng: Rng.State
   }
 
-def hold_p(pair: Rng.State & List<&2, Ind.Individual>) -> GHold:
-  (rng, xs) = pair
-  HP{rng, xs}
-
-def hold_o(pair: Rng.State & List<&2, Ind.Individual>) -> GHold:
-  (rng, xs) = pair
-  HO{rng, xs}
-
-def hold_s(pair: Norm.State & List<&2, Ind.Individual>, rng: Rng.State) -> GHold:
+def one_gen.prep(+rng: Rng.State, pair: Norm.State & List<&2, Ind.Individual>) -> GHold:
   (st, xs) = pair
-  HS{st, xs, rng}
+  GH{st, xs, rng}
 
-def hold_sr(trip: Norm.State & List<&2, Ind.Individual> & Rng.State) -> GHold:
+def one_gen.s(+prob: Prob.Problem, +cfg: Config, trip: Norm.State & List<&2, Ind.Individual> & Rng.State) -> GHold:
   (st, xs, rng) = trip
-  HS{st, xs, rng}
+  one_gen.prep(rng, Tour.prepare(xs, cfg_dirs(cfg), st))
 
-# tag 0: start a generation (shrink fuel) or return.
-# tags 1–4: parents → offspring → select → prepare → back to tag 0.
-# @unsafe: tag advances without shrinking fuel.
-@unsafe def gen_work(
-  tag: Nat,
-  hold: GHold,
-  fuel: Nat,
-  +pop: List<&2, Ind.Individual>,
-  +state: Norm.State,
-  +rng: Rng.State,
-  +prob: Prob.Problem,
-  +cfg: Config
-) -> List<&2, Ind.Individual>:
-  match tag hold:
+def one_gen.o(+prob: Prob.Problem, +cfg: Config, +pop: List<&2, Ind.Individual>, +state: Norm.State, trip: Rng.State & List<&2, Ind.Individual>) -> GHold:
+  (rng2, offs) = trip
+  one_gen.s(
+    prob,
+    cfg,
+    Surv.select_st(
+      List.append(&2, Ind.Individual, pop, Prob.evaluate_all(prob, offs)),
+      cfg_pop(cfg),
+      cfg_dirs(cfg),
+      state,
+      rng2
+    )
+  )
+
+def one_gen.p(+prob: Prob.Problem, +cfg: Config, +pop: List<&2, Ind.Individual>, +state: Norm.State, trip: Rng.State & List<&2, Ind.Individual>) -> GHold:
+  (rng1, parents) = trip
+  one_gen.o(prob, cfg, pop, state, create_offspring(prob, parents, cfg_pop(cfg), rng1, cfg_elim(cfg)))
+
+def one_gen(+prob: Prob.Problem, +cfg: Config, hold: GHold) -> GHold:
+  match hold:
+    case GH{st, +xs, rng}:
+      one_gen.p(prob, cfg, xs, st, Tour.select_parents(cfg_mode(cfg), xs, cfg_pop(cfg), rng))
+
+def gen_pop(hold: GHold) -> List<&2, Ind.Individual>:
+  match hold:
+    case GH{st, xs, rng}:
+      xs
+
+def gen_loop(fuel: Nat, hold: GHold, +prob: Prob.Problem, +cfg: Config) -> List<&2, Ind.Individual>:
+  match fuel hold:
     case 0n h:
-      match fuel:
-        case 0n:
-          pop
-        case 1n+g:
-          gen_work(
-            1n,
-            hold_p(Tour.select_parents(cfg_mode(cfg), pop, cfg_pop(cfg), rng)),
-            g,
-            pop,
-            state,
-            rng,
-            prob,
-            cfg
-          )
-    case 1n HP{+rng1, parents}:
-      gen_work(1n+1n, hold_o(create_offspring(prob, parents, cfg_pop(cfg), rng1, cfg_elim(cfg))), fuel, pop, state, rng1, prob, cfg)
-    case 1n+1n HO{+rng2, offs}:
-      gen_work(
-        1n+1n+1n,
-        hold_sr(
-          Surv.select_st(
-            List.append(&2, Ind.Individual, pop, Prob.evaluate_all(prob, offs)),
-            cfg_pop(cfg),
-            cfg_dirs(cfg),
-            state,
-            rng2
-          )
-        ),
-        fuel,
-        pop,
-        state,
-        rng2,
-        prob,
-        cfg
-      )
-    case 1n+1n+1n HS{+st2, +next0, +rng2}:
-      gen_work(1n+1n+1n+1n, hold_s(Tour.prepare(next0, cfg_dirs(cfg), st2), rng2), fuel, next0, st2, rng2, prob, cfg)
-    case 1n+1n+1n+1n+p HS{st3, next1, rng2}:
-      gen_work(0n, HZ{}, fuel, next1, st3, rng2, prob, cfg)
-    case t h2:
-      pop
+      gen_pop(h)
+    case 1n+g h:
+      gen_loop(g, one_gen(prob, cfg, h), prob, cfg)
 
 def run.after_prep(+prob: Prob.Problem, +cfg: Config, rng: Rng.State, pair: Norm.State & List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
   (st1, pop1) = pair
-  gen_work(0n, HZ{}, cfg_gens(cfg), pop1, st1, rng, prob, cfg)
+  gen_loop(cfg_gens(cfg), GH{st1, pop1, rng}, prob, cfg)
 
 def run.go(+prob: Prob.Problem, +cfg: Config, pair: Rng.State & List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
   (rng, raw) = pair
@@ -455,7 +392,8 @@ def run.sized(+prob: Prob.Problem, +cfg: Config, n: Nat) -> List<&2, Ind.Individ
       run.go(prob, cfg, init_pop(prob, 1n+p, Rng.from_nat(cfg_seed(cfg))))
 
 def run(+prob: Prob.Problem, +cfg: Config) -> List<&2, Ind.Individual>:
-  run.sized(prob, cfg, cfg_pop(cfg))
+  +n = cfg_pop(cfg)
+  Util.list_take_pad(Ind.Individual, Ind.from_objectives(Nil{}), run.sized(prob, cfg, n), n)
 
 def run_zdt1_smoke() -> List<&2, Ind.Individual>:
   run(Prob.zdt1(30n), smoke_zdt1())
