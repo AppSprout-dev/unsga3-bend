@@ -137,17 +137,36 @@ def stamp_ranks(fronts: List<&2, List<&2, Nat>>, pop: List<&2, Ind.Individual>, 
     case fr <> rest:
       stamp_ranks(rest, stamp_front(fr, pop, r), 1n+r)
 
-def stamp_asgs.go(pop: List<&2, Ind.Individual>, asgs: List<&2, Surv.Assignment>, +i: Nat) -> List<&2, Ind.Individual>:
-  match pop asgs:
-    case Nil{} ys:
-      Nil{}
-    case xs Nil{}:
-      xs
-    case +ind <> rest +a <> as:
-      Ind.stamp(ind, Ind.rank(ind), Surv.asg_count(a), Surv.asg_ref(a), Surv.asg_dist(a)) <> stamp_asgs.go(rest, as, 1n+i)
+def stamp_asgs.one(+a: Surv.Assignment, +ind: Ind.Individual) -> Ind.Individual:
+  Ind.stamp(ind, Ind.rank(ind), Surv.asg_count(a), Surv.asg_ref(a), Surv.asg_dist(a))
 
-def stamp_asgs(pop: List<&2, Ind.Individual>, asgs: List<&2, Surv.Assignment>) -> List<&2, Ind.Individual>:
-  stamp_asgs.go(pop, asgs, 0n)
+# Zip pop with assignments. Mid-split both lists at the same mid.
+def stamp_asgs.go(+fuel: Nat, pop: List<&2, Ind.Individual>, +asgs: List<&2, Surv.Assignment>) -> List<&2, Ind.Individual>:
+  match fuel pop:
+    case 0n Nil{}:
+      Nil{}
+    case 0n +ind <> rest:
+      match asgs:
+        case Nil{}:
+          {ind <> rest : List<&2, Ind.Individual>}
+        case +a <> as:
+          stamp_asgs.one(a, ind) <> stamp_asgs.go(0n, rest, as)
+    case 1n+p Nil{}:
+      Nil{}
+    case 1n+p +ind <> Nil{}:
+      match asgs:
+        case Nil{}:
+          ind <> Nil{}
+        case +a <> as:
+          stamp_asgs.one(a, ind) <> Nil{}
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Ind.Individual>}
+      +mid = Nat.div(Util.list_len(Ind.Individual, all), 2n)
+      lo hi = stamp_asgs.go(p, List.take(&2, Ind.Individual, all, mid), List.take(&2, Surv.Assignment, asgs, mid)) stamp_asgs.go(p, List.drop(&2, Ind.Individual, all, mid), List.drop(&2, Surv.Assignment, asgs, mid))
+      List.append(&2, Ind.Individual, lo, hi)
+
+def stamp_asgs(+pop: List<&2, Ind.Individual>, asgs: List<&2, Surv.Assignment>) -> List<&2, Ind.Individual>:
+  stamp_asgs.go(Util.list_len(Ind.Individual, pop), pop, asgs)
 
 def prepare.with(+dirs: List<&2, List<&2, F32>>, +pop: List<&2, Ind.Individual>, +fronts: List<&2, List<&2, Nat>>, pair: Norm.State & List<&2, List<&2, F32>>) -> Norm.State & List<&2, Ind.Individual>:
   (st, F) = pair

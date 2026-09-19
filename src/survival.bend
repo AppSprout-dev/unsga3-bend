@@ -1,4 +1,7 @@
 # Survival / niching — C# ReferencePointManager + NondominatedSortingSurvival.
+# Independent maps (nearest-ref tree-min, cand_refs / in_ref / near_members /
+# refs_at, count / seed histograms) use mid-split `a b = f(lo) f(hi)`.
+# `niche_loop` / `niche_loop.rng` stay sequential (counts + RNG).
 # Associate normalized individuals to Das–Dennis rays; select `target_size`
 # from a combined pool (fill complete fronts, niche-preserve the last).
 # Deterministic when C# rng is null (`select`): lowest ref among min-count
@@ -65,22 +68,30 @@ def perp(+f: List<&2, F32>, +w: List<&2, F32>) -> F32:
   +ww = Util.vec_sqnorm(w)
   perp.pick(f, w, ww, F32.is_lt(ww, 0.0000000000000001))
 
-def nearest_go(+f: List<&2, F32>, dirs: List<&2, List<&2, F32>>, +i: Nat, +best_i: Nat, +best_d: F32) -> Assignment:
-  match dirs:
-    case Nil{}:
-      MkAssignment{best_i, best_d, 0n}
-    case +w <> ws:
-      +d = perp(f, w)
-      nearest_go(
-        f,
-        ws,
-        1n+i,
-        Bool.pick(Nat, F32.is_lt(d, best_d), i, best_i),
-        Bool.pick(F32, F32.is_lt(d, best_d), d, best_d)
-      )
+# First-min on strict `<` (ties keep the lower index). Mid-split dirs.
+def nearer(a: Assignment, b: Assignment) -> Assignment:
+  match a b:
+    case MkAssignment{+ia, +da, +na} MkAssignment{+ib, +db, +nb}:
+      Bool.pick(Assignment, F32.is_lt(db, da), MkAssignment{ib, db, nb}, MkAssignment{ia, da, na})
 
-def nearest_one(f: List<&2, F32>, dirs: List<&2, List<&2, F32>>) -> Assignment:
-  nearest_go(f, dirs, 0n, 0n, 1000000000.0)
+def nearest_go(+f: List<&2, F32>, +fuel: Nat, dirs: List<&2, List<&2, F32>>, +i0: Nat) -> Assignment:
+  match fuel dirs:
+    case 0n Nil{}:
+      MkAssignment{i0, 1000000000.0, 0n}
+    case 0n +w <> ws:
+      nearer(MkAssignment{i0, perp(f, w), 0n}, nearest_go(f, 0n, ws, 1n+i0))
+    case 1n+p Nil{}:
+      MkAssignment{i0, 1000000000.0, 0n}
+    case 1n+p +w <> Nil{}:
+      MkAssignment{i0, perp(f, w), 0n}
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, List<&2, F32>>}
+      +mid = Nat.div(Util.list_len(List<&2, F32>, all), 2n)
+      lo hi = nearest_go(f, p, List.take(&2, List<&2, F32>, all, mid), i0) nearest_go(f, p, List.drop(&2, List<&2, F32>, all, mid), Nat.add(i0, mid))
+      nearer(lo, hi)
+
+def nearest_one(f: List<&2, F32>, +dirs: List<&2, List<&2, F32>>) -> Assignment:
+  nearest_go(f, Util.list_len(List<&2, F32>, dirs), dirs, 0n)
 
 def associate_head(+dirs: List<&2, List<&2, F32>>, +ind: Ind.Individual, F: List<&2, List<&2, F32>>) -> Assignment:
   match F:
@@ -118,12 +129,25 @@ def associate_raw.go(
 def associate_raw(+pop: List<&2, Ind.Individual>, +F: List<&2, List<&2, F32>>, +dirs: List<&2, List<&2, F32>>) -> List<&2, Assignment>:
   associate_raw.go(dirs, Util.list_len(Ind.Individual, pop), pop, F)
 
-def count_asg(asgs: List<&2, Assignment>, acc: List<&2, Nat>) -> List<&2, Nat>:
-  match asgs:
-    case Nil{}:
-      acc
-    case a <> rest:
-      count_asg(rest, Util.inc_at(acc, asg_ref(a)))
+# Histogram increments commute. Mid-split asgs, then add count vectors.
+def count_raw.go(+n: Nat, +fuel: Nat, asgs: List<&2, Assignment>) -> List<&2, Nat>:
+  match fuel asgs:
+    case 0n Nil{}:
+      Util.zeros_nat(n)
+    case 0n a <> rest:
+      Util.inc_at(count_raw.go(n, 0n, rest), asg_ref(a))
+    case 1n+p Nil{}:
+      Util.zeros_nat(n)
+    case 1n+p a <> Nil{}:
+      Util.inc_at(Util.zeros_nat(n), asg_ref(a))
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Assignment>}
+      +mid = Nat.div(Util.list_len(Assignment, all), 2n)
+      lo hi = count_raw.go(n, p, List.take(&2, Assignment, all, mid)) count_raw.go(n, p, List.drop(&2, Assignment, all, mid))
+      Util.nats_add(lo, hi)
+
+def count_asg(+asgs: List<&2, Assignment>, +acc: List<&2, Nat>) -> List<&2, Nat>:
+  Util.nats_add(acc, count_raw.go(Util.list_len(Nat, acc), Util.list_len(Assignment, asgs), asgs))
 
 def with_counts.one(+counts: List<&2, Nat>, +a: Assignment) -> Assignment:
   match a:
@@ -160,19 +184,35 @@ def gather.one(+pop: List<&2, Ind.Individual>, +i: Nat) -> Ind.Individual:
 def gather(+pop: List<&2, Ind.Individual>, +idxs: List<&2, Nat>) -> List<&2, Ind.Individual>:
   Util.map_halves(~Nat, ~Ind.Individual, ~List<&2, Ind.Individual>, ~gather.one, pop, idxs)
 
+def cand_ref.one(+asgs: List<&2, Assignment>, +i: Nat) -> Nat:
+  asg_ref(get_asg(asgs, i))
+
 def cand_refs(+asgs: List<&2, Assignment>, cand: List<&2, Nat>) -> List<&2, Nat>:
-  match cand:
-    case Nil{}:
-      Nil{}
-    case i <> rest:
-      asg_ref(get_asg(asgs, i)) <> cand_refs(asgs, rest)
+  Util.map_halves(~Nat, ~Nat, ~List<&2, Assignment>, ~cand_ref.one, asgs, cand)
+
+def min_count.go(+counts: List<&2, Nat>, +fuel: Nat, refs: List<&2, Nat>) -> Nat:
+  match fuel refs:
+    case 0n Nil{}:
+      4294967295n
+    case 0n +r <> rs:
+      Util.nat_min(Util.get_nat(counts, r), min_count.go(counts, 0n, rs))
+    case 1n+p Nil{}:
+      4294967295n
+    case 1n+p +r <> Nil{}:
+      Util.get_nat(counts, r)
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Nat>}
+      +mid = Nat.div(Util.list_len(Nat, all), 2n)
+      lo hi = min_count.go(counts, p, List.take(&2, Nat, all, mid)) min_count.go(counts, p, List.drop(&2, Nat, all, mid))
+      Util.nat_min(lo, hi)
 
 def min_count(+counts: List<&2, Nat>, refs: List<&2, Nat>, acc: Nat) -> Nat:
   match refs:
     case Nil{}:
       acc
-    case +r <> rs:
-      min_count(counts, rs, Util.nat_min(acc, Util.get_nat(counts, r)))
+    case +r <> +rs:
+      +xs = {r <> rs : List<&2, Nat>}
+      Util.nat_min(acc, min_count.go(counts, Util.list_len(Nat, xs), xs))
 
 def cons_if(h: Nat, rest: List<&2, Nat>, keep: Bool) -> List<&2, Nat>:
   match keep:
@@ -192,12 +232,19 @@ def uniq_nats.go(xs: List<&2, Nat>, +acc: List<&2, Nat>) -> List<&2, Nat>:
 def uniq_nats(xs: List<&2, Nat>) -> List<&2, Nat>:
   uniq_nats.go(xs, Nil{})
 
+type CntNeed is Data:
+  CN{
+    counts: List<&2, Nat>
+    need: Nat
+  }
+
+def refs_at.ok(+ctx: CntNeed, +r: Nat) -> Bool:
+  match ctx:
+    case CN{counts, need}:
+      Nat.is_eq(Util.get_nat(counts, r), need)
+
 def refs_at(+counts: List<&2, Nat>, +need: Nat, refs: List<&2, Nat>) -> List<&2, Nat>:
-  match refs:
-    case Nil{}:
-      Nil{}
-    case +r <> rs:
-      cons_if(r, refs_at(counts, need, rs), Nat.is_eq(Util.get_nat(counts, r), need))
+  Util.filter_halves(~Nat, ~CntNeed, ~refs_at.ok, CN{counts, need}, refs)
 
 def min_idx(xs: List<&2, Nat>, acc: Nat) -> Nat:
   match xs:
@@ -217,32 +264,48 @@ def pick_ref(+asgs: List<&2, Assignment>, +counts: List<&2, Nat>, +cand: List<&2
   +refs = cand_refs(asgs, cand)
   min_idx_ne(refs_at(counts, min_count(counts, refs, 4294967295n), refs))
 
-def in_ref(+asgs: List<&2, Assignment>, +r: Nat, cand: List<&2, Nat>) -> List<&2, Nat>:
-  match cand:
-    case Nil{}:
-      Nil{}
-    case +i <> rest:
-      cons_if(i, in_ref(asgs, r, rest), Nat.is_eq(asg_ref(get_asg(asgs, i)), r))
+type RefPick is Data:
+  RP{
+    asgs: List<&2, Assignment>
+    r: Nat
+  }
 
-def argmin_dist.go(+asgs: List<&2, Assignment>, cand: List<&2, Nat>, +best_i: Nat, +best_d: F32) -> Nat:
-  match cand:
-    case Nil{}:
-      best_i
-    case +i <> rest:
-      +d = asg_dist(get_asg(asgs, i))
-      argmin_dist.go(
-        asgs,
-        rest,
-        Bool.pick(Nat, F32.is_lt(d, best_d), i, best_i),
-        Bool.pick(F32, F32.is_lt(d, best_d), d, best_d)
-      )
+def in_ref.ok(+ctx: RefPick, +i: Nat) -> Bool:
+  match ctx:
+    case RP{asgs, r}:
+      Nat.is_eq(asg_ref(get_asg(asgs, i)), r)
+
+def in_ref(+asgs: List<&2, Assignment>, +r: Nat, cand: List<&2, Nat>) -> List<&2, Nat>:
+  Util.filter_halves(~Nat, ~RefPick, ~in_ref.ok, RP{asgs, r}, cand)
+
+def argmin_join(+asgs: List<&2, Assignment>, +ia: Nat, +ib: Nat) -> Nat:
+  Bool.pick(Nat, F32.is_lt(asg_dist(get_asg(asgs, ib)), asg_dist(get_asg(asgs, ia))), ib, ia)
+
+def argmin_dist.go(+asgs: List<&2, Assignment>, +fuel: Nat, cand: List<&2, Nat>) -> Nat:
+  match fuel cand:
+    case 0n Nil{}:
+      0n
+    case 0n +i <> Nil{}:
+      i
+    case 0n +i <> +j <> js:
+      argmin_join(asgs, i, argmin_dist.go(asgs, 0n, j <> js))
+    case 1n+p Nil{}:
+      0n
+    case 1n+p +i <> Nil{}:
+      i
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Nat>}
+      +mid = Nat.div(Util.list_len(Nat, all), 2n)
+      lo hi = argmin_dist.go(asgs, p, List.take(&2, Nat, all, mid)) argmin_dist.go(asgs, p, List.drop(&2, Nat, all, mid))
+      argmin_join(asgs, lo, hi)
 
 def argmin_dist(+asgs: List<&2, Assignment>, cand: List<&2, Nat>) -> Nat:
   match cand:
     case Nil{}:
       0n
-    case +i <> rest:
-      argmin_dist.go(asgs, rest, i, asg_dist(get_asg(asgs, i)))
+    case +i <> +rest:
+      +xs = {i <> rest : List<&2, Nat>}
+      argmin_dist.go(asgs, Util.list_len(Nat, xs), xs)
 
 def pick_member.by(+asgs: List<&2, Assignment>, group: List<&2, Nat>, empty_niche: Bool) -> Nat:
   match empty_niche:
@@ -303,12 +366,19 @@ def near_lim(+best: F32) -> F32:
 def near_ok(+asgs: List<&2, Assignment>, +i: Nat, +lim: F32) -> Bool:
   F32.is_le(asg_dist(get_asg(asgs, i)), lim)
 
+type NearPick is Data:
+  NP{
+    asgs: List<&2, Assignment>
+    lim: F32
+  }
+
+def near_members.ok(+ctx: NearPick, +i: Nat) -> Bool:
+  match ctx:
+    case NP{asgs, lim}:
+      near_ok(asgs, i, lim)
+
 def near_members(+asgs: List<&2, Assignment>, group: List<&2, Nat>, +lim: F32) -> List<&2, Nat>:
-  match group:
-    case Nil{}:
-      Nil{}
-    case +i <> rest:
-      cons_if(i, near_members(asgs, rest, lim), near_ok(asgs, i, lim))
+  Util.filter_halves(~Nat, ~NearPick, ~near_members.ok, NP{asgs, lim}, group)
 
 def pick_among.rng(+group: List<&2, Nat>, n: Nat, +fallback: Nat, rng: Rng.State) -> Rng.State:
   match n:
@@ -347,12 +417,24 @@ def pick_member.rng(+asgs: List<&2, Assignment>, +counts: List<&2, Nat>, +cand: 
     rng
   )
 
-def seed_counts(+asgs: List<&2, Assignment>, selected: List<&2, Nat>, acc: List<&2, Nat>) -> List<&2, Nat>:
-  match selected:
-    case Nil{}:
-      acc
-    case i <> rest:
-      seed_counts(asgs, rest, Util.inc_at(acc, asg_ref(get_asg(asgs, i))))
+def seed_raw.go(+asgs: List<&2, Assignment>, +n: Nat, +fuel: Nat, selected: List<&2, Nat>) -> List<&2, Nat>:
+  match fuel selected:
+    case 0n Nil{}:
+      Util.zeros_nat(n)
+    case 0n +i <> rest:
+      Util.inc_at(seed_raw.go(asgs, n, 0n, rest), asg_ref(get_asg(asgs, i)))
+    case 1n+p Nil{}:
+      Util.zeros_nat(n)
+    case 1n+p +i <> Nil{}:
+      Util.inc_at(Util.zeros_nat(n), asg_ref(get_asg(asgs, i)))
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Nat>}
+      +mid = Nat.div(Util.list_len(Nat, all), 2n)
+      lo hi = seed_raw.go(asgs, n, p, List.take(&2, Nat, all, mid)) seed_raw.go(asgs, n, p, List.drop(&2, Nat, all, mid))
+      Util.nats_add(lo, hi)
+
+def seed_counts(+asgs: List<&2, Assignment>, +selected: List<&2, Nat>, +acc: List<&2, Nat>) -> List<&2, Nat>:
+  Util.nats_add(acc, seed_raw.go(asgs, Util.list_len(Nat, acc), Util.list_len(Nat, selected), selected))
 
 # fuel, k, cand first so the match follows binder order and fuel shrinks.
 def niche_loop(fuel: Nat, k: Nat, cand: List<&2, Nat>, +asgs: List<&2, Assignment>, +counts: List<&2, Nat>, selected: List<&2, Nat>) -> List<&2, Nat>:

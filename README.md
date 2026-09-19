@@ -25,7 +25,7 @@ Bend artifacts publish later via `bend … --publish` (content-hash hub). They d
 
 **Pass 2** — decision variables, SBX (η=30, p=1.0), polynomial mutation (η=20, p=1/n), ZDT1 / ZDT2 / DTLZ2 (3-obj), PymooCompatible mating tournament, and `Unsga3Algorithm.Run`.
 
-**Parallel maps (landed)** — `evaluate_all`, reference-point association, and per-individual normalization use Bend parallel calls (`a b = f(lo) f(hi)`), mid-split fork-join. Observationally the same fronts as the sequential maps.
+**Parallel maps (landed)** — `evaluate_all`, reference-point association, per-individual normalization, non-dominated sort scans, nearest-ref / niche filters, column min-max, and assignment stamping use Bend parallel calls (`a b = f(lo) f(hi)`), mid-split fork-join. Observationally the same fronts as the sequential maps. Mating tournament, SBX, polynomial mutation, and last-front niching stay sequential so a fixed seed still consumes RNG in the same order.
 
 **Native `-o` dump path (landed)** — compile a Run driver with `bend src/….bend -o …` and execute the binary for the same CSV front. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails. `bend PROOF.bend` is 0 `?TODO`. Hub publish is later.
 

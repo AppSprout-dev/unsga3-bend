@@ -125,12 +125,11 @@ def init_loop(fuel: Nat, hold: IHold, +box: Bounds.Box, +n_obj: Nat) -> Rng.Stat
 def init_pop(+prob: Prob.Problem, n: Nat, rng: Rng.State) -> Rng.State & List<&2, Ind.Individual>:
   init_loop(n, IH{rng, Nil{}}, Prob.box_of(prob), Prob.n_obj(prob))
 
+def vars_one(+u: Unit, +ind: Ind.Individual) -> List<&2, F32>:
+  Util.g12_vec(Ind.variables(ind))
+
 def vars_of(xs: List<&2, Ind.Individual>) -> List<&2, List<&2, F32>>:
-  match xs:
-    case Nil{}:
-      Nil{}
-    case h <> t:
-      Util.g12_vec(Ind.variables(h)) <> vars_of(t)
+  Util.map_halves(~Ind.Individual, ~List<&2, F32>, ~Unit, ~vars_one, Unit{}, xs)
 
 def try_add.go(+acc: List<&2, Ind.Individual>, +child: Ind.Individual, +seen: List<&2, List<&2, F32>>, skip: Bool) -> List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool:
   match skip:

@@ -32,33 +32,44 @@ def state_ideal(st: State) -> List<&2, F32>:
     case MkState{n_objectives, ideal, worst, nadir, intercepts, extremes}:
       ideal
 
-def col_min.go(rest: List<&2, Ind.Individual>, acc: List<&2, F32>) -> List<&2, F32>:
-  match rest:
-    case Nil{}:
-      acc
-    case ind <> xs:
-      col_min.go(xs, Util.vec_min(acc, Ind.objectives(ind)))
-
-def col_min(pop: List<&2, Ind.Individual>) -> List<&2, F32>:
-  match pop:
-    case Nil{}:
+# Column min/max are associative. Mid-split then vec_min / vec_max.
+def col_min.go(+fuel: Nat, pop: List<&2, Ind.Individual>) -> List<&2, F32>:
+  match fuel pop:
+    case 0n Nil{}:
       Nil{}
-    case ind <> rest:
-      col_min.go(rest, Ind.objectives(ind))
-
-def col_max.go(rest: List<&2, Ind.Individual>, acc: List<&2, F32>) -> List<&2, F32>:
-  match rest:
-    case Nil{}:
-      acc
-    case ind <> xs:
-      col_max.go(xs, Util.vec_max(acc, Ind.objectives(ind)))
-
-def col_max(pop: List<&2, Ind.Individual>) -> List<&2, F32>:
-  match pop:
-    case Nil{}:
+    case 0n ind <> xs:
+      Util.vec_min(Ind.objectives(ind), col_min.go(0n, xs))
+    case 1n+p Nil{}:
       Nil{}
-    case ind <> rest:
-      col_max.go(rest, Ind.objectives(ind))
+    case 1n+p ind <> Nil{}:
+      Ind.objectives(ind)
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Ind.Individual>}
+      +mid = Nat.div(Util.list_len(Ind.Individual, all), 2n)
+      lo hi = col_min.go(p, List.take(&2, Ind.Individual, all, mid)) col_min.go(p, List.drop(&2, Ind.Individual, all, mid))
+      Util.vec_min(lo, hi)
+
+def col_min(+pop: List<&2, Ind.Individual>) -> List<&2, F32>:
+  col_min.go(Util.list_len(Ind.Individual, pop), pop)
+
+def col_max.go(+fuel: Nat, pop: List<&2, Ind.Individual>) -> List<&2, F32>:
+  match fuel pop:
+    case 0n Nil{}:
+      Nil{}
+    case 0n ind <> xs:
+      Util.vec_max(Ind.objectives(ind), col_max.go(0n, xs))
+    case 1n+p Nil{}:
+      Nil{}
+    case 1n+p ind <> Nil{}:
+      Ind.objectives(ind)
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Ind.Individual>}
+      +mid = Nat.div(Util.list_len(Ind.Individual, all), 2n)
+      lo hi = col_max.go(p, List.take(&2, Ind.Individual, all, mid)) col_max.go(p, List.drop(&2, Ind.Individual, all, mid))
+      Util.vec_max(lo, hi)
+
+def col_max(+pop: List<&2, Ind.Individual>) -> List<&2, F32>:
+  col_max.go(Util.list_len(Ind.Individual, pop), pop)
 
 def get_ind(+pop: List<&2, Ind.Individual>, i: Nat) -> Maybe<&2, Ind.Individual>:
   List.get(&2, Ind.Individual, pop, i)
@@ -73,26 +84,29 @@ def max_at.go(acc: List<&2, F32>, m: Maybe<&2, Ind.Individual>) -> List<&2, F32>
 def max_at(+pop: List<&2, Ind.Individual>, acc: List<&2, F32>, i: Nat) -> List<&2, F32>:
   max_at.go(acc, get_ind(pop, i))
 
-def col_max_idx.go(+pop: List<&2, Ind.Individual>, idxs: List<&2, Nat>, acc: List<&2, F32>) -> List<&2, F32>:
-  match idxs:
-    case Nil{}:
-      acc
-    case i <> rest:
-      col_max_idx.go(pop, rest, max_at(pop, acc, i))
-
-def col_max_idx.start(+pop: List<&2, Ind.Individual>, rest: List<&2, Nat>, m: Maybe<&2, Ind.Individual>) -> List<&2, F32>:
-  match m:
-    case None{}:
-      col_max_idx.go(pop, rest, col_max(pop))
-    case Some{ind}:
-      col_max_idx.go(pop, rest, Ind.objectives(ind))
+def col_max_idx.go(+pop: List<&2, Ind.Individual>, +fuel: Nat, idxs: List<&2, Nat>) -> List<&2, F32>:
+  match fuel idxs:
+    case 0n Nil{}:
+      Nil{}
+    case 0n +i <> rest:
+      max_at(pop, col_max_idx.go(pop, 0n, rest), i)
+    case 1n+p Nil{}:
+      Nil{}
+    case 1n+p +i <> Nil{}:
+      max_at(pop, Nil{}, i)
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Nat>}
+      +mid = Nat.div(Util.list_len(Nat, all), 2n)
+      lo hi = col_max_idx.go(pop, p, List.take(&2, Nat, all, mid)) col_max_idx.go(pop, p, List.drop(&2, Nat, all, mid))
+      Util.vec_max(lo, hi)
 
 def col_max_idx(+pop: List<&2, Ind.Individual>, idxs: List<&2, Nat>) -> List<&2, F32>:
   match idxs:
     case Nil{}:
       col_max(pop)
-    case i <> rest:
-      col_max_idx.start(pop, rest, get_ind(pop, i))
+    case +i <> +rest:
+      +xs = {i <> rest : List<&2, Nat>}
+      col_max_idx.go(pop, Util.list_len(Nat, xs), xs)
 
 def merge_ideal(prev: List<&2, F32>, cur: List<&2, F32>) -> List<&2, F32>:
   match prev:
@@ -207,21 +221,20 @@ def pick_axis(cand: List<&2, List<&2, F32>>, +ideal: List<&2, F32>, +axis: Nat) 
     case +h <> t:
       pick_axis.go(t, ideal, axis, h, asf(h, axis, ideal))
 
-def pick_extremes.go(+cand: List<&2, List<&2, F32>>, +ideal: List<&2, F32>, fuel: Nat, +axis: Nat, acc: List<&2, List<&2, F32>>) -> List<&2, List<&2, F32>>:
-  match fuel:
-    case 0n:
-      acc
-    case 1n+f:
-      pick_extremes.go(
-        cand,
-        ideal,
-        f,
-        1n+axis,
-        List.append(&2, List<&2, F32>, acc, [pick_axis(cand, ideal, axis)])
-      )
+type ExtCtx is Data:
+  ExtCtx{
+    cand: List<&2, List<&2, F32>>
+    ideal: List<&2, F32>
+  }
 
+def pick_axis.one(+ctx: ExtCtx, +axis: Nat) -> List<&2, F32>:
+  match ctx:
+    case ExtCtx{cand, ideal}:
+      pick_axis(cand, ideal, axis)
+
+# One ASF extreme per axis; axes are independent.
 def pick_extremes(+cand: List<&2, List<&2, F32>>, +ideal: List<&2, F32>, m: Nat) -> List<&2, List<&2, F32>>:
-  pick_extremes.go(cand, ideal, m, 0n, Nil{})
+  Util.map_halves(~Nat, ~List<&2, F32>, ~ExtCtx, ~pick_axis.one, ExtCtx{cand, ideal}, List.range(m))
 
 def get_row(+mat: List<&2, List<&2, F32>>, i: Nat) -> List<&2, F32>:
   Maybe.default(&2, List<&2, F32>, List.get(&2, List<&2, F32>, mat, i), Nil{})
