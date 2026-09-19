@@ -17,22 +17,27 @@ The reference implementation is the existing C# library:
 
 `unsga3-bend` is a from-scratch Bend 2 port of the algorithm core, not a binding and not a republish of that package. The two stacks sit **beside** each other: C# remains the .NET package; this tree is the Bend **hub** package. The shared validation plan is the same public protocol the C# docs use: ZDT / DTLZ problems and IGD against a [pymoo](https://pymoo.org/) `UNSGA3` oracle ([C# `docs/EQUIVALENCE.md`](https://github.com/AppSprout-dev/Unsga3/blob/main/docs/EQUIVALENCE.md)).
 
-## Hub package (planned 0.1.0)
+## Hub package (0.1.0)
 
-**0.1.0** is the planned first hub version. Publish is `bend … --publish` (content-hash). Artifacts do **not** go to nuget.org or GitHub Packages.
+**0.1.0** is published on the Bend content-hash hub. `bend src/lib.bend --publish` already ran. Artifacts do **not** go to nuget.org or GitHub Packages.
 
-**Paused:** do not run `--publish` or tag `v0.1.0` until maintainers fill the import hash below. Until then, develop against `src/` in this checkout.
+### How consumers import
 
-### How consumers will import
-
-Bend fetches a published package by content hash (`bend guide` § Modules):
+Bend fetches a published package by content hash (`bend guide` § Modules). Consumer-facing import (package alias `Unsga3`):
 
 ```bend
-# Hash filled at publish (`bend src/lib.bend --publish` prints the real line).
-import 0x…/src/lib.bend as Unsga3
+import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3
 ```
 
-Until that hash exists, there is nothing to `import 0x…`. Use a local path instead:
+`bend src/lib.bend --publish` printed this exact line (alias `Lib`):
+
+```bend
+import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Lib
+```
+
+The hub entry path is `/lib.bend` (what bend printed), not `/src/lib.bend`. Content hash: `0xcd07e24a626a62e74603d48f436cd679`.
+
+Develop against `src/` in this checkout with a local path:
 
 ```bend
 import ./src/lib.bend as Unsga3
@@ -42,7 +47,7 @@ import ./src/lib.bend as Unsga3
 
 ## What is in this tree
 
-Shipped for the planned **0.1.0** hub package (algorithm + A/B helpers; hash not published yet):
+Shipped in the **0.1.0** hub package (algorithm + A/B helpers):
 
 - **Core** — non-dominated sort, NSGA-III normalization, Das–Dennis directions, niching / association, survival
 - **Variation + Run** — decision variables, SBX (η=30, p=1.0), polynomial mutation (η=20, p=1/n), ZDT1 / ZDT2 / DTLZ2 (3-obj), `PymooCompatible` tournament, `Unsga3Algorithm.Run`
@@ -132,7 +137,7 @@ Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `
 ```
 unsga3-bend/
 ├── AGENTS.md                 # Bend agent rules + product locks
-├── CHANGELOG.md              # planned 0.1.0 hub notes (not a release)
+├── CHANGELOG.md              # 0.1.0 hub notes
 ├── CONTRIBUTING.md           # install / smoke / proofs / do-nots
 ├── LAWS.bend                 # core + operator + Run/ZDT claims (human-owned)
 ├── PROOF.bend                # imports LAWS; closed proofs

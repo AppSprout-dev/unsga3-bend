@@ -1,6 +1,6 @@
 # Contributing
 
-This repository is **standalone public OSS**. It is **not** a NuGet package and **not** PackageId `Unsga3`. The C# library ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)) stays the NuGet / GitHub Packages stack. Planned first Bend hub version is **0.1.0** (content-hash).
+This repository is **standalone public OSS**. It is **not** a NuGet package and **not** PackageId `Unsga3`. The C# library ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)) stays the NuGet / GitHub Packages stack. First Bend hub version is **0.1.0** (content hash `0xcd07e24a626a62e74603d48f436cd679`; `import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3`).
 
 Read [AGENTS.md](AGENTS.md) for language + product locks. Protocol: [docs/EQUIVALENCE.md](docs/EQUIVALENCE.md). License: [LICENSE](LICENSE) (MIT).
 
@@ -35,6 +35,6 @@ See [ab/README.md](ab/README.md) and [`ab/protocol.py`](ab/protocol.py).
 
 ## Do not
 
-- Run `bend … --publish` or create a `v0.1.0` tag until maintainers fill the README import hash.
 - Mention private product repos or internal application names.
 - Silently weaken, delete, or “pass” a law in `LAWS.bend` by changing the claim to match a stub.
+- Invent IGD / HV / Wilcoxon numbers.
