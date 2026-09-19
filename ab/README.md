@@ -43,7 +43,7 @@ Dump both fronts, then score **both** with this repo’s `igd_vs_pymoo.py` and t
 **DTLZ2** — Das–Dennis `--partitions` (default 12 → 91 pts at M=3). Expect `pf_rows=91` and `pf_source=pymoo-das-dennis` when pymoo is installed (`get_reference_directions` + `pareto_front(ref_dirs=…)`).
 
 ```bash
-python3 ab/dump_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 \
+python3 ab/dump_bend_run.py --native --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 \
   --out ab/out/bend_dtlz2_F.csv
 python3 ab/dump_csharp_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 \
   --out ab/out/csharp_dtlz2_F.csv
@@ -55,7 +55,7 @@ python3 ab/igd_vs_pymoo.py --front ab/out/csharp_dtlz2_F.csv --problem dtlz2 --p
 **ZDT1** — analytic PF; `--pf-points 500` matches C# `ParetoFronts.Zdt1(500)`.
 
 ```bash
-python3 ab/dump_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 \
+python3 ab/dump_bend_run.py --native --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 \
   --out ab/out/bend_zdt1_F.csv
 python3 ab/dump_csharp_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 \
   --out ab/out/csharp_zdt1_F.csv
@@ -81,7 +81,7 @@ From the repo root (Bend 2.0.10 on `PATH`):
 
 ```bash
 python3 ab/dump_bend_front.py
-python3 ab/dump_bend_run.py          # src/run_smoke.bend → ab/out/bend_run_F.csv
+python3 ab/dump_bend_run.py --native # prefer `bend … -o` binary; fallback `bend file.bend`
 python3 ab/dump_csharp_front.py      # optional; skips without UNSGA3_CS_ROOT / dotnet
 python3 ab/dump_csharp_run.py --smoke
 python3 ab/igd_vs_pymoo.py           # v0 simplex; skips if pymoo missing
@@ -95,7 +95,13 @@ Or run the Bend drivers directly:
 ```bash
 bend src/ab_select.bend
 bend src/run_smoke.bend
+# Native (clang 14+). Same CSV front as the check-run (banner stripped in dumps).
+mkdir -p ab/out
+bend src/run_smoke.bend -o ab/out/run_smoke
+./ab/out/run_smoke --threads 8
 ```
+
+`dump_bend_run.py` prefers a native binary when `--native` / `UNSGA3_BEND_NATIVE=1` is set, when `--bin PATH` is given, or when `ab/out/run_smoke` is already executable (checked-in smoke only). If `bend … -o` fails, it prints the compiler output and falls back to `bend file.bend`. `--interpreter` skips native. `--threads N` is passed only to the binary. Generated custom drivers (`--problem` / `--pop` / …) compile to `ab/out/run_custom` under `--native` and are not reused from a stale cache. Dumps write the `#` header plus objective rows so interpreter and native CSVs match; they do not invent timings.
 
 Dumps go under `ab/out/` (gitignored).
 
@@ -104,7 +110,7 @@ Dumps go under `ab/out/` (gitignored).
 | Script | Role |
 |--------|------|
 | `dump_bend_front.py` | v0 `Survival.select`, writes `ab/out/bend_F.csv` |
-| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv` |
+| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` builds `bend <driver> -o` and runs the binary; falls back to `bend <driver>` if the build fails |
 | `dump_csharp_front.py` | optional C# `Select` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing |
 | `dump_csharp_run.py` | optional C# `OracleCompare` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing. Writes to a per-run `ab/out/csharp_oracle/<stem>/` so a leftover CSV from another problem is not picked (old shared-dir `glob[-1]` was wrong after multi-problem runs). |
 | `csharp_core_dump/` | one-shot `dotnet` helper for layer-1 `Select` |
