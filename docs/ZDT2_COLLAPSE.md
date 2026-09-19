@@ -1,8 +1,8 @@
-# ZDT2 collapse on both stacks (investigation)
+# ZDT2 collapse on both stacks
 
-Diagnosis of why ZDT2 looked messy on **both** unsga3-bend and C# [Unsga3](https://github.com/AppSprout-dev/Unsga3) at the old C# `docs/EQUIVALENCE.md` budget (n=30, Das–Dennis **p=12**, **pop=52**, **gens=100**, `PymooCompatible`). This is **not** a Bend-only bug hunt. No algorithm “fix” in this PR.
+Why ZDT2 looked messy on **both** unsga3-bend and C# [Unsga3](https://github.com/AppSprout-dev/Unsga3) at the old **gens=100** budget (n=30, Das–Dennis **p=12**, **pop=52**, `PymooCompatible`). Settled in [PR #17](https://github.com/AppSprout-dev/unsga3-bend/pull/17): **gens=250** is the quality bar; gens=100 is early-stress. No algorithm “fix” shipped — protocol honesty only. See [EQUIVALENCE.md](EQUIVALENCE.md).
 
-**Protocol honesty (this PR):** this tree’s ZDT2 A/B / oracle / dump default is now **gens=250**, still PymooCompatible, p=12, pop=52 (`ab/protocol.py`). **gens=100 is an early-stress snapshot** — cite the 15-seed tables below (PymooCompatible @ 100: Bend 10/15, C# 8/15 collapse; @ 250: **0/15 vs 0/15**). ZDT1 stays 100; DTLZ2 stays 150. RankNicheDistance (`--tournament rank_niche`) stays an optional lever, not the new default.
+**Protocol honesty (PR #17):** this tree’s ZDT2 A/B / oracle / dump default is **gens=250**, still PymooCompatible, p=12, pop=52 (`ab/protocol.py`). **gens=100 is an early-stress snapshot** — cite the 15-seed tables below (PymooCompatible @ 100: Bend 10/15, C# 8/15 collapse; @ 250: **0/15 vs 0/15**). ZDT1 stays 100; DTLZ2 stays 150. RankNicheDistance (`--tournament rank_niche`) stays an optional lever, not the new default.
 
 **Collapse** (same observational rule as [PERF_NOTES.md](PERF_NOTES.md) / PR #16): `front_rows ≤ 10` **and** `IGD ≥ 0.3` vs the analytic 500-pt ZDT2 PF (`f2 = 1 − f1²`).
 
@@ -96,22 +96,22 @@ PR #7 (Bend-only at the time): between gens **5–10**, `f1` max **0.93 → 0.00
 
 ## Prior probes (gens=250, RankNicheDistance)
 
-**Not in repo/docs before this note** (searched `docs/`, `ab/`, PRs, C# `docs/` / smoke). This PR **ran them**.
+**Not in repo/docs before this note** (searched `docs/`, `ab/`, PRs, C# `docs/` / smoke). PR #17 **ran them**.
 
-| Probe | Where / this PR | What it found |
+| Probe | Where | What it found |
 |-------|-----------------|---------------|
 | gens=100, PymooCompatible, seeds 1–15 | PERF_NOTES / PR #16 | Bend 10/15 collapse, C# 8/15; seed 1 healthier |
 | gens ~5–10, Bend uniform extras, seed=1 | PR #7 | Early `x0` death (`f1` max 0.93→0.009) |
-| gens=10, PymooCompatible, seeds 1/2/7/11 | **this PR**, all 3 stacks | **All** piled near `f1≈0` (early, not stack-specific) |
+| gens=10, PymooCompatible, seeds 1/2/7/11 | **PR #17**, all 3 stacks | **All** piled near `f1≈0` (early, not stack-specific) |
 | gens=150, RankNicheDistance, C# seed=2 | `IgdSmokeTests` | Loose `IGD<0.75` only |
-| gens=150, PymooCompatible, seeds 2/7/11 | **this PR** | Mid-recovery (seed 2 often spread; seed 11 still `f1_max≈0.21`) |
-| gens=250, PymooCompatible, seeds 1/2/7/11 | **this PR** | **Recovered on Bend, C#, and pymoo** |
-| gens=250, PymooCompatible, seeds **1–15** | **this PR (Jason both-runs)** | **Bend 0/15 collapse, C# 0/15.** Median IGD Bend 0.025621 / C# 0.018684. All 52 ND pts. |
-| RankNicheDistance, gens=100, seeds 1/2/7/11 | **this PR** | Bend: all 4 spread. C#: mixed (11 saved, 2 worse than PymooCompatible) |
-| RankNicheDistance, gens=100, seeds **1–15** | **this PR (Jason both-runs)** | Bend **4/15**, C# **4/15** (vs PymooCompatible @ 100: 10/15 and 8/15). Median IGD Bend 0.166381 / C# 0.405799. |
+| gens=150, PymooCompatible, seeds 2/7/11 | **PR #17** | Mid-recovery (seed 2 often spread; seed 11 still `f1_max≈0.21`) |
+| gens=250, PymooCompatible, seeds 1/2/7/11 | **PR #17** | **Recovered on Bend, C#, and pymoo** |
+| gens=250, PymooCompatible, seeds **1–15** | **PR #17 (Jason both-runs)** | **Bend 0/15 collapse, C# 0/15.** Median IGD Bend 0.025621 / C# 0.018684. All 52 ND pts. |
+| RankNicheDistance, gens=100, seeds 1/2/7/11 | **PR #17** | Bend: all 4 spread. C#: mixed (11 saved, 2 worse than PymooCompatible) |
+| RankNicheDistance, gens=100, seeds **1–15** | **PR #17 (Jason both-runs)** | Bend **4/15**, C# **4/15** (vs PymooCompatible @ 100: 10/15 and 8/15). Median IGD Bend 0.166381 / C# 0.405799. |
 | C# Wilcoxon ZDT2 | script only, unpublished | Protocol = RankNicheDistance, 100 gens |
 
-## Measured fronts (this PR)
+## Measured fronts (PR #17)
 
 Host: 4-core, Bend **2.0.16** `--native`, C# Unsga3 **`f99fdac`** (`UNSGA3_CS_ROOT` outside this repo), pymoo **0.6.2** `UNSGA3`. IGD = pymoo `IGD` vs analytic ZDT2 **500** pts. Collapse rule: `n≤10` and `IGD≥0.3`.
 
@@ -163,7 +163,7 @@ Host: 4-core, Bend **2.0.16** `--native` (warm-cache `dump_bend_run.py`; each se
 
 Median IGD: **Bend 0.025621**, **C# 0.018684**. Collapse: **Bend 0/15**, **C# 0/15**. Every seed finished with **52** ND points.
 
-The four earlier probe seeds match this revision (Bend 0.024550 / 0.025621 / 0.022320 / 0.033346; C# 0.019230 / 0.017794 / 0.016622 / 0.042790). Slowest Bend recoveries still fail the collapse rule: seed 5 IGD 0.108520, seed 12 0.092069, seed 8 0.075328 — all `n=52`.
+The four earlier probe seeds match PR #17 (Bend 0.024550 / 0.025621 / 0.022320 / 0.033346; C# 0.019230 / 0.017794 / 0.016622 / 0.042790). Slowest Bend recoveries still fail the collapse rule: seed 5 IGD 0.108520, seed 12 0.092069, seed 8 0.075328 — all `n=52`.
 
 | seed | Bend n / IGD | C# n / IGD | collapse |
 |-----:|-------------:|-----------:|----------|
@@ -209,7 +209,7 @@ Versus the published PymooCompatible gens=100 table ([PERF_NOTES.md](PERF_NOTES.
 
 Same four probe seeds as the earlier RankNiche table: Bend 50/0.103, 52/0.079, 52/0.126, 38/0.153; C# 52/0.049, 11/0.517, 16/0.406, 52/0.058.
 
-Per-seed vs PymooCompatible @ 100 (cite #16; RankNiche this revision):
+Per-seed vs PymooCompatible @ 100 (cite #16; RankNiche = PR #17):
 
 | seed | Bend Pymoo | Bend RankNiche | C# Pymoo | C# RankNiche |
 |-----:|-----------:|---------------:|---------:|-------------:|
@@ -231,15 +231,20 @@ Per-seed vs PymooCompatible @ 100 (cite #16; RankNiche this revision):
 
 ### Short conclusion
 
-**gens=250 PymooCompatible recovers the 15-seed table on both stacks (0/15 collapse).** The 10/15 vs 8/15 “collapse” at oracle gens=100 is a premature snapshot, not a Bend-only bug. **RankNicheDistance at 100 gens** (C# Wilcoxon ZDT2 protocol) cuts the rate to **4/15 vs 4/15** but leaves C# median IGD high and moves which seeds die. Tournament is a lever; the early `f1≈0` pile is shared. No niching / extras patch in this PR.
+**gens=250 PymooCompatible recovers the 15-seed table on both stacks (0/15 collapse).** The 10/15 vs 8/15 “collapse” at oracle gens=100 is a premature snapshot, not a Bend-only bug. **RankNicheDistance at 100 gens** (C# Wilcoxon ZDT2 protocol) cuts the rate to **4/15 vs 4/15** but leaves C# median IGD high and moves which seeds die. Tournament is a lever; the early `f1≈0` pile is shared. No niching / extras patch in PR #17.
 
-## Recommended next experiments (no silent “fix”)
+## Settled vs open (no silent “fix”)
 
-1. **Done (this revision).** C# Wilcoxon ZDT2 settings — **RankNicheDistance**, gens=100, seeds 1–15, both stacks. Collapse 4/15 vs 4/15 (not ZDT1-clean).
-2. **Done (this revision).** **15-seed gens=250 PymooCompatible** — collapse rate is **0/15** on Bend and C#. Do not call gens=100 a Bend bug.
-3. **ZDT1 at gens=10** as a control (expect `f1` span stays large). Not run here.
-4. **Do not** ship always-closest extras without re-checking ZDT1 / DTLZ2 (PR #7 tradeoff).
-5. **Done (this revision).** ZDT2 A/B / dump default is gens=250 / PymooCompatible. If a later PR changes niching or the oracle gens, require ZDT1 + DTLZ2 + ZDT2 multi-seed, not seed=1 alone. Do not swap extras from one ugly seed.
+**Settled (PR #17):**
+
+1. C# Wilcoxon ZDT2 settings — **RankNicheDistance**, gens=100, seeds 1–15, both stacks. Collapse 4/15 vs 4/15 (not ZDT1-clean).
+2. **15-seed gens=250 PymooCompatible** — collapse rate is **0/15** on Bend and C#. Do not call gens=100 a Bend bug.
+3. ZDT2 A/B / dump default is gens=250 / PymooCompatible. If a later change touches niching or the oracle gens, require ZDT1 + DTLZ2 + ZDT2 multi-seed, not seed=1 alone. Do not swap extras from one ugly seed.
+
+**Open (not 0.1.0 blockers):**
+
+- ZDT1 at gens=10 as a control (expect `f1` span stays large). Not run here.
+- Do **not** ship always-closest extras without re-checking ZDT1 / DTLZ2 (PR #7 tradeoff).
 
 ## How to reproduce
 
@@ -255,7 +260,7 @@ python3 ab/zdt2_collapse_probe.py --stacks bend csharp pymoo \
   --seeds 1 2 7 11 --gens 10 50 100 250 --tournament pymoo
 python3 ab/zdt2_collapse_probe.py --stacks bend csharp \
   --seeds 1 2 7 11 --gens 100 --tournament rank_niche
-# 15-seed confirmation (this revision)
+# 15-seed confirmation (PR #17)
 python3 ab/zdt2_collapse_probe.py --stacks bend csharp \
   --seeds 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 --gens 250 --tournament pymoo
 python3 ab/zdt2_collapse_probe.py --stacks bend csharp \

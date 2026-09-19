@@ -6,8 +6,8 @@ UNSGA3_CS_ROOT is unset, the script skips (exit 0).
 
 When set, it runs tools/OracleCompare with the same flags the C# docs
 use (or the smoke defaults if --smoke). This tree’s ZDT2 A/B default is
-gens=250 (C# EQUIVALENCE.md still says 100 — that budget is an early-stress
-snapshot here). Missing dotnet / project / a build failure prints
+gens=250 (same quality bar as C# `docs/EQUIVALENCE.md`; gens=100 is an
+early-stress snapshot). Missing dotnet / project / a build failure prints
 `skip: …` and exits 0. No invented fronts.
 
 OracleCompare also prints IGD on its stdout; this script only copies the
