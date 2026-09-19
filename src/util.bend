@@ -307,8 +307,15 @@ def filter_halves.go(
 def filter_halves(~A: Data, ~C: Data, ~p: @+c:C -> @+x:A -> Bool, +ctx: C, +xs: List<&2, A>) -> List<&2, A>:
   filter_halves.go(~A, ~C, ~p, ctx, list_len(A, xs), xs)
 
-def g12_one_u(+u: Unit, +x: F32) -> F32:
-  g12_one(x)
+# Sequential cons walk (guide: the list is the shape a flat loop walks).
+# n_var is 12–30 on the oracles; mid-split take/drop of that spine is
+# more expensive than a tail walk. Same rounding as the old map_halves.
+def g12_vec.go(xs: List<&2, F32>, acc: List<&2, F32>) -> List<&2, F32>:
+  match xs:
+    case Nil{}:
+      List.reverse(&2, F32, acc)
+    case +x <> rest:
+      g12_vec.go(rest, g12_one(x) <> acc)
 
 def g12_vec(xs: List<&2, F32>) -> List<&2, F32>:
-  map_halves(~F32, ~F32, ~Unit, ~g12_one_u, Unit{}, xs)
+  g12_vec.go(xs, Nil{})

@@ -1,8 +1,9 @@
 # Survival / niching — C# ReferencePointManager + NondominatedSortingSurvival.
-# Independent maps (cand_refs / in_ref / near_members / refs_at, count /
-# seed histograms) use mid-split `a b = f(lo) f(hi)`. Nearest-ref stays
-# sequential (associate_raw already splits per individual).
-# `niche_loop` / `niche_loop.rng` stay sequential (counts + RNG).
+# Independent maps (associate / histograms / gather) use mid-split
+# `a b = f(lo) f(hi)`. Nearest-ref stays sequential (associate_raw already
+# splits per individual). Last-front fill builds `NRow{i, ref, dist}` once
+# so the sequential niche loop never `List.get`s an Assignment (or a fat
+# Individual) per remaining candidate. Same pick rules / same RNG order.
 # Associate normalized individuals to Das–Dennis rays; select `target_size`
 # from a combined pool (fill complete fronts, niche-preserve the last).
 # Deterministic when C# rng is null (`select`): lowest ref among min-count
@@ -46,6 +47,167 @@ def get_asg(asgs: List<&2, Assignment>, i: Nat) -> Assignment:
 
 def get_ind(+pop: List<&2, Ind.Individual>, i: Nat) -> Ind.Individual:
   Maybe.default(&2, Ind.Individual, List.get(&2, Ind.Individual, pop, i), Ind.from_objectives(Nil{}))
+
+# Last-front row: population index plus the two fields the fill loop
+# reads. Built once from `asgs` so each pick walks this thin list
+# instead of `List.get` into the combined-pool assignment spine.
+type NRow is Data:
+  NRow{
+    i: Nat
+    r: Nat
+    d: F32
+  }
+
+def nrow_i(row: NRow) -> Nat:
+  match row:
+    case NRow{i, r, d}:
+      i
+
+def nrow_r(row: NRow) -> Nat:
+  match row:
+    case NRow{i, r, d}:
+      r
+
+def nrow_d(row: NRow) -> F32:
+  match row:
+    case NRow{i, r, d}:
+      d
+
+def nrows_of.go(+asgs: List<&2, Assignment>, cand: List<&2, Nat>, acc: List<&2, NRow>) -> List<&2, NRow>:
+  match cand:
+    case Nil{}:
+      List.reverse(&2, NRow, acc)
+    case +i <> rest:
+      +a = get_asg(asgs, i)
+      nrows_of.go(asgs, rest, NRow{i, asg_ref(a), asg_dist(a)} <> acc)
+
+def nrows_of(+asgs: List<&2, Assignment>, +cand: List<&2, Nat>) -> List<&2, NRow>:
+  nrows_of.go(asgs, cand, Nil{})
+
+def first_row_i(rows: List<&2, NRow>) -> Nat:
+  match rows:
+    case Nil{}:
+      0n
+    case +row <> _:
+      nrow_i(row)
+
+def first_row_r(rows: List<&2, NRow>) -> Nat:
+  match rows:
+    case Nil{}:
+      0n
+    case +row <> _:
+      nrow_r(row)
+
+def get_nrow(rows: List<&2, NRow>, i: Nat) -> NRow:
+  Maybe.default(&2, NRow, List.get(&2, NRow, rows, i), NRow{0n, 0n, 0.0})
+
+def drop_nrow.put(+row: NRow, rest: List<&2, NRow>, drop: Bool) -> List<&2, NRow>:
+  match drop:
+    case True{}:
+      rest
+    case False{}:
+      row <> rest
+
+def drop_nrow(rows: List<&2, NRow>, +pick: Nat) -> List<&2, NRow>:
+  match rows:
+    case Nil{}:
+      Nil{}
+    case +row <> rest:
+      drop_nrow.put(row, drop_nrow(rest, pick), Nat.is_eq(nrow_i(row), pick))
+
+def keep_nat(h: Nat, rest: List<&2, Nat>, keep: Bool) -> List<&2, Nat>:
+  match keep:
+    case True{}:
+      h <> rest
+    case False{}:
+      rest
+
+def uniq_refs.go(rows: List<&2, NRow>, +acc: List<&2, Nat>) -> List<&2, Nat>:
+  match rows:
+    case Nil{}:
+      List.reverse(&2, Nat, acc)
+    case +row <> rest:
+      +r = nrow_r(row)
+      uniq_refs.go(rest, keep_nat(r, acc, Bool.not(Util.in_nats(r, acc))))
+
+def uniq_refs(rows: List<&2, NRow>) -> List<&2, Nat>:
+  uniq_refs.go(rows, Nil{})
+
+def min_count_rows.go(+counts: List<&2, Nat>, rows: List<&2, NRow>, +acc: Nat) -> Nat:
+  match rows:
+    case Nil{}:
+      acc
+    case +row <> rest:
+      min_count_rows.go(counts, rest, Util.nat_min(acc, Util.get_nat(counts, nrow_r(row))))
+
+def min_count_rows(+counts: List<&2, Nat>, rows: List<&2, NRow>) -> Nat:
+  min_count_rows.go(counts, rows, 4294967295n)
+
+def refs_at_seq(+counts: List<&2, Nat>, +need: Nat, refs: List<&2, Nat>) -> List<&2, Nat>:
+  match refs:
+    case Nil{}:
+      Nil{}
+    case +r <> rest:
+      keep_nat(r, refs_at_seq(counts, need, rest), Nat.is_eq(Util.get_nat(counts, r), need))
+
+def in_ref_rows(+r: Nat, rows: List<&2, NRow>) -> List<&2, NRow>:
+  match rows:
+    case Nil{}:
+      Nil{}
+    case +row <> rest:
+      Util.keep_if(NRow, row, in_ref_rows(r, rest), Nat.is_eq(nrow_r(row), r))
+
+def argmin_dist_rows.go(rows: List<&2, NRow>, +best_i: Nat, +best_d: F32) -> Nat:
+  match rows:
+    case Nil{}:
+      best_i
+    case +row <> rest:
+      +d = nrow_d(row)
+      +lt = F32.is_lt(d, best_d)
+      argmin_dist_rows.go(rest, Bool.pick(Nat, lt, nrow_i(row), best_i), Bool.pick(F32, lt, d, best_d))
+
+def argmin_dist_rows(rows: List<&2, NRow>) -> Nat:
+  match rows:
+    case Nil{}:
+      0n
+    case +row <> rest:
+      argmin_dist_rows.go(rest, nrow_i(row), nrow_d(row))
+
+def min_dist_rows.go(rows: List<&2, NRow>, +acc: F32) -> F32:
+  match rows:
+    case Nil{}:
+      acc
+    case +row <> rest:
+      +d = nrow_d(row)
+      min_dist_rows.go(rest, Bool.pick(F32, F32.is_lt(d, acc), d, acc))
+
+def min_dist_rows(rows: List<&2, NRow>) -> F32:
+  match rows:
+    case Nil{}:
+      0.0
+    case +row <> rest:
+      min_dist_rows.go(rest, nrow_d(row))
+
+def min_idx_rows.go(rows: List<&2, NRow>, +acc: Nat) -> Nat:
+  match rows:
+    case Nil{}:
+      acc
+    case +row <> rest:
+      min_idx_rows.go(rest, Util.nat_min(acc, nrow_i(row)))
+
+def min_idx_rows(rows: List<&2, NRow>) -> Nat:
+  match rows:
+    case Nil{}:
+      0n
+    case +row <> rest:
+      min_idx_rows.go(rest, nrow_i(row))
+
+def near_rows(+lim: F32, rows: List<&2, NRow>) -> List<&2, NRow>:
+  match rows:
+    case Nil{}:
+      Nil{}
+    case +row <> rest:
+      Util.keep_if(NRow, row, near_rows(lim, rest), F32.is_le(nrow_d(row), lim))
 
 def perp.big(+f: List<&2, F32>, +w: List<&2, F32>, +ww: F32) -> F32:
   +t = F32.div(Util.vec_dot(f, w), ww)
@@ -432,24 +594,88 @@ def seed_counts(+asgs: List<&2, Assignment>, +selected: List<&2, Nat>, +acc: Lis
   Util.nats_add(acc, seed_raw.go(asgs, Util.list_len(Nat, acc), Util.list_len(Nat, selected), selected))
 
 # fuel, k, cand first so the match follows binder order and fuel shrinks.
-def niche_loop(fuel: Nat, k: Nat, cand: List<&2, Nat>, +asgs: List<&2, Assignment>, +counts: List<&2, Nat>, selected: List<&2, Nat>) -> List<&2, Nat>:
-  match fuel k cand:
-    case 0n kk c:
+def pick_ref.rows(+counts: List<&2, Nat>, +rows: List<&2, NRow>) -> Nat:
+  +refs = uniq_refs(rows)
+  min_idx_ne(refs_at_seq(counts, min_count_rows(counts, rows), refs))
+
+def pick_member.by.ne.rows(+group: List<&2, NRow>, empty_niche: Bool) -> Nat:
+  match empty_niche:
+    case True{}:
+      argmin_dist_rows(group)
+    case False{}:
+      min_idx_rows(group)
+
+def pick_member.by.rows(group: List<&2, NRow>, empty_niche: Bool, +fallback: Nat) -> Nat:
+  match group:
+    case Nil{}:
+      fallback
+    case g0 <> gs:
+      pick_member.by.ne.rows({g0 <> gs : List<&2, NRow>}, empty_niche)
+
+def pick_member.rows(+counts: List<&2, Nat>, +rows: List<&2, NRow>, +r: Nat) -> Nat:
+  pick_member.by.rows(in_ref_rows(r, rows), Nat.is_eq(Util.get_nat(counts, r), 0n), first_row_i(rows))
+
+def pick_ref.rng.rows(+counts: List<&2, Nat>, +rows: List<&2, NRow>, rng: Rng.State) -> Rng.State:
+  +refs = uniq_refs(rows)
+  pick_ref.rng.after(
+    refs_at_seq(counts, min_count_rows(counts, rows), refs),
+    first_row_r(rows),
+    rng
+  )
+
+def pick_among.nrows(+rows: List<&2, NRow>, n: Nat, +fallback: Nat, rng: Rng.State) -> Rng.State:
+  match n:
+    case 0n:
+      Rng.with_k(rng, fallback)
+    case 1n:
+      Rng.with_k(rng, first_row_i(rows))
+    case 1n+p:
+      +rng2 = Rng.next_nat(rng, 1n+p)
+      Rng.with_k(rng2, nrow_i(get_nrow(rows, Rng.last_nat(rng2))))
+
+def pick_near.rng.rows(+group: List<&2, NRow>, rng: Rng.State) -> Rng.State:
+  +near = near_rows(near_lim(min_dist_rows(group)), group)
+  pick_among.nrows(near, Util.list_len(NRow, near), first_row_i(group), rng)
+
+def pick_member.rng.empty.rows(+group: List<&2, NRow>, empty_niche: Bool, rng: Rng.State) -> Rng.State:
+  match empty_niche:
+    case True{}:
+      Rng.with_k(rng, argmin_dist_rows(group))
+    case False{}:
+      pick_near.rng.rows(group, rng)
+
+def pick_member.rng.by.rows(group: List<&2, NRow>, empty_niche: Bool, +fallback: Nat, rng: Rng.State) -> Rng.State:
+  match group:
+    case Nil{}:
+      Rng.with_k(rng, fallback)
+    case g0 <> gs:
+      pick_member.rng.empty.rows({g0 <> gs : List<&2, NRow>}, empty_niche, rng)
+
+def pick_member.rng.rows(+counts: List<&2, Nat>, +rows: List<&2, NRow>, +r: Nat, rng: Rng.State) -> Rng.State:
+  pick_member.rng.by.rows(
+    in_ref_rows(r, rows),
+    Nat.is_eq(Util.get_nat(counts, r), 0n),
+    first_row_i(rows),
+    rng
+  )
+
+def niche_loop(fuel: Nat, k: Nat, rows: List<&2, NRow>, +counts: List<&2, Nat>, selected: List<&2, Nat>) -> List<&2, Nat>:
+  match fuel k rows:
+    case 0n kk r:
       selected
-    case f 0n c:
+    case f 0n r:
       selected
     case f kk Nil{}:
       selected
-    case 1n+f 1n+krest +c0 <> +cs:
-      +cand2 = {c0 <> cs : List<&2, Nat>}
-      +r = pick_ref(asgs, counts, cand2)
-      +pick = pick_member(asgs, counts, cand2, r)
+    case 1n+f 1n+krest +r0 <> +rs:
+      +rows2 = {r0 <> rs : List<&2, NRow>}
+      +r = pick_ref.rows(counts, rows2)
+      +pick = pick_member.rows(counts, rows2, r)
       niche_loop(
         f,
         krest,
-        Util.minus(cand2, [pick]),
-        asgs,
-        Util.inc_at(counts, asg_ref(get_asg(asgs, pick))),
+        drop_nrow(rows2, pick),
+        Util.inc_at(counts, r),
         List.append(&2, Nat, selected, [pick])
       )
 
@@ -461,11 +687,11 @@ def fill(fuel: Nat, fronts: List<&2, List<&2, Nat>>, fits: Bool, +acc: List<&2, 
       acc
     case 1n+f +fr <> +rest False{}:
       +need = Nat.sub(target, Util.list_len(Nat, acc))
+      +rows = nrows_of(asgs, fr)
       niche_loop(
-        1n+Util.list_len(Nat, fr),
+        1n+Util.list_len(NRow, rows),
         need,
-        fr,
-        asgs,
+        rows,
         seed_counts(asgs, acc, Util.zeros_nat(n_dirs)),
         acc
       )
@@ -492,26 +718,25 @@ def fill.wrap(+fronts: List<&2, List<&2, Nat>>, +target: Nat, +asgs: List<&2, As
     n_dirs
   )
 
-def niche_loop.rng(fuel: Nat, k: Nat, cand: List<&2, Nat>, +asgs: List<&2, Assignment>, +counts: List<&2, Nat>, selected: List<&2, Nat>, rng: Rng.State) -> List<&2, Nat> & Rng.State:
-  match fuel k cand:
-    case 0n kk c:
+def niche_loop.rng(fuel: Nat, k: Nat, rows: List<&2, NRow>, +counts: List<&2, Nat>, selected: List<&2, Nat>, rng: Rng.State) -> List<&2, Nat> & Rng.State:
+  match fuel k rows:
+    case 0n kk r:
       (selected, rng)
-    case f 0n c:
+    case f 0n r:
       (selected, rng)
     case f kk Nil{}:
       (selected, rng)
-    case 1n+f 1n+krest +c0 <> +cs:
-      +cand2 = {c0 <> cs : List<&2, Nat>}
-      +rng1 = pick_ref.rng(asgs, counts, cand2, rng)
+    case 1n+f 1n+krest +r0 <> +rs:
+      +rows2 = {r0 <> rs : List<&2, NRow>}
+      +rng1 = pick_ref.rng.rows(counts, rows2, rng)
       +r = Rng.last_nat(rng1)
-      +rng2 = pick_member.rng(asgs, counts, cand2, r, rng1)
+      +rng2 = pick_member.rng.rows(counts, rows2, r, rng1)
       +pick = Rng.last_nat(rng2)
       niche_loop.rng(
         f,
         krest,
-        Util.minus(cand2, [pick]),
-        asgs,
-        Util.inc_at(counts, asg_ref(get_asg(asgs, pick))),
+        drop_nrow(rows2, pick),
+        Util.inc_at(counts, r),
         List.append(&2, Nat, selected, [pick]),
         rng2
       )
@@ -524,11 +749,11 @@ def fill.rng(fuel: Nat, fronts: List<&2, List<&2, Nat>>, fits: Bool, +acc: List<
       (acc, rng)
     case 1n+f +fr <> +rest False{}:
       +need = Nat.sub(target, Util.list_len(Nat, acc))
+      +rows = nrows_of(asgs, fr)
       niche_loop.rng(
-        1n+Util.list_len(Nat, fr),
+        1n+Util.list_len(NRow, rows),
         need,
-        fr,
-        asgs,
+        rows,
         seed_counts(asgs, acc, Util.zeros_nat(n_dirs)),
         acc,
         rng
