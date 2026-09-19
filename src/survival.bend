@@ -82,14 +82,41 @@ def nearest_go(+f: List<&2, F32>, dirs: List<&2, List<&2, F32>>, +i: Nat, +best_
 def nearest_one(f: List<&2, F32>, dirs: List<&2, List<&2, F32>>) -> Assignment:
   nearest_go(f, dirs, 0n, 0n, 1000000000.0)
 
-def associate_raw(pop: List<&2, Ind.Individual>, F: List<&2, List<&2, F32>>, +dirs: List<&2, List<&2, F32>>) -> List<&2, Assignment>:
-  match pop F:
-    case Nil{} fs:
+def associate_head(+dirs: List<&2, List<&2, F32>>, +ind: Ind.Individual, F: List<&2, List<&2, F32>>) -> Assignment:
+  match F:
+    case Nil{}:
+      nearest_one(Ind.objectives(ind), dirs)
+    case f <> fs:
+      nearest_one(f, dirs)
+
+# Nearest-ref per individual is independent given dirs. Mid-split pop and F.
+def associate_raw.go(
+  +dirs: List<&2, List<&2, F32>>,
+  +fuel: Nat,
+  pop: List<&2, Ind.Individual>,
+  +F: List<&2, List<&2, F32>>
+) -> List<&2, Assignment>:
+  match fuel pop:
+    case 0n Nil{}:
       Nil{}
-    case ind <> rest Nil{}:
-      nearest_one(Ind.objectives(ind), dirs) <> associate_raw(rest, Nil{}, dirs)
-    case ind <> rest f <> fs:
-      nearest_one(f, dirs) <> associate_raw(rest, fs, dirs)
+    case 0n ind <> rest:
+      match F:
+        case Nil{}:
+          nearest_one(Ind.objectives(ind), dirs) <> associate_raw.go(dirs, 0n, rest, Nil{})
+        case f <> fs:
+          nearest_one(f, dirs) <> associate_raw.go(dirs, 0n, rest, fs)
+    case 1n+p Nil{}:
+      Nil{}
+    case 1n+p ind <> Nil{}:
+      associate_head(dirs, ind, F) <> Nil{}
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Ind.Individual>}
+      +mid = Nat.div(Util.list_len(Ind.Individual, all), 2n)
+      lo hi = associate_raw.go(dirs, p, List.take(&2, Ind.Individual, all, mid), List.take(&2, List<&2, F32>, F, mid)) associate_raw.go(dirs, p, List.drop(&2, Ind.Individual, all, mid), List.drop(&2, List<&2, F32>, F, mid))
+      List.append(&2, Assignment, lo, hi)
+
+def associate_raw(+pop: List<&2, Ind.Individual>, +F: List<&2, List<&2, F32>>, +dirs: List<&2, List<&2, F32>>) -> List<&2, Assignment>:
+  associate_raw.go(dirs, Util.list_len(Ind.Individual, pop), pop, F)
 
 def count_asg(asgs: List<&2, Assignment>, acc: List<&2, Nat>) -> List<&2, Nat>:
   match asgs:
@@ -98,12 +125,13 @@ def count_asg(asgs: List<&2, Assignment>, acc: List<&2, Nat>) -> List<&2, Nat>:
     case a <> rest:
       count_asg(rest, Util.inc_at(acc, asg_ref(a)))
 
-def with_counts(+counts: List<&2, Nat>, asgs: List<&2, Assignment>) -> List<&2, Assignment>:
-  match asgs:
-    case Nil{}:
-      Nil{}
-    case MkAssignment{+r, d, n} <> rest:
-      MkAssignment{r, d, Util.get_nat(counts, r)} <> with_counts(counts, rest)
+def with_counts.one(+counts: List<&2, Nat>, +a: Assignment) -> Assignment:
+  match a:
+    case MkAssignment{+r, d, n}:
+      MkAssignment{r, d, Util.get_nat(counts, r)}
+
+def with_counts(+counts: List<&2, Nat>, +asgs: List<&2, Assignment>) -> List<&2, Assignment>:
+  Util.map_halves(~Assignment, ~Assignment, ~List<&2, Nat>, ~with_counts.one, counts, asgs)
 
 def associate(+pop: List<&2, Ind.Individual>, +F: List<&2, List<&2, F32>>, +dirs: List<&2, List<&2, F32>>) -> List<&2, Assignment>:
   +raw = associate_raw(pop, F, dirs)
@@ -126,12 +154,11 @@ def head_len(fronts: List<&2, List<&2, Nat>>) -> Nat:
     case h <> t:
       Util.list_len(Nat, h)
 
-def gather(+pop: List<&2, Ind.Individual>, idxs: List<&2, Nat>) -> List<&2, Ind.Individual>:
-  match idxs:
-    case Nil{}:
-      Nil{}
-    case i <> rest:
-      get_ind(pop, i) <> gather(pop, rest)
+def gather.one(+pop: List<&2, Ind.Individual>, +i: Nat) -> Ind.Individual:
+  get_ind(pop, i)
+
+def gather(+pop: List<&2, Ind.Individual>, +idxs: List<&2, Nat>) -> List<&2, Ind.Individual>:
+  Util.map_halves(~Nat, ~Ind.Individual, ~List<&2, Ind.Individual>, ~gather.one, pop, idxs)
 
 def cand_refs(+asgs: List<&2, Assignment>, cand: List<&2, Nat>) -> List<&2, Nat>:
   match cand:

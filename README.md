@@ -25,6 +25,8 @@ Bend artifacts publish later via `bend … --publish` (content-hash hub). They d
 
 **Pass 2** — decision variables, SBX (η=30, p=1.0), polynomial mutation (η=20, p=1/n), ZDT1 / ZDT2 / DTLZ2 (3-obj), PymooCompatible mating tournament, and `Unsga3Algorithm.Run`.
 
+**Parallel maps (started)** — `evaluate_all`, reference-point association, and per-individual normalization use Bend parallel calls (`a b = f(lo) f(hi)`), mid-split fork-join. Observationally the same fronts as the sequential maps. Native `bend … -o` dump wiring is a follow-up.
+
 | Module | C# surface it mirrors |
 |--------|------------------------|
 | `Individual` | objectives + variables + evaluated + rank/niche bookkeeping |
@@ -70,6 +72,9 @@ bend src/ab_select.bend # v0 selection smoke (prints CSV front)
 bend src/op_smoke.bend  # SBX + poly mutation on a 2-var box, seed 42
 bend src/run_smoke.bend # short fixed-seed ZDT1 Run; prints ND front CSV
 bend PROOF.bend         # gate: closed Nat laws + remaining ?TODO
+# Optional native compile (clang 14+). Dump-to-binary A/B wiring is a follow-up.
+# bend src/run_smoke.bend -o run_smoke
+# ./run_smoke --threads 8
 python3 ab/dump_bend_front.py
 python3 ab/dump_bend_run.py
 python3 ab/dump_csharp_front.py   # skip if UNSGA3_CS_ROOT unset

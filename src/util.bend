@@ -1,4 +1,6 @@
 # Shared helpers. Parallelize independent list splits; keep these total.
+# Population maps use mid-split + `a b = f(lo) f(hi)` (bend guide Parallelism).
+# Fuel is |xs| so the Nat shrinks; halves stay observationally ordered.
 
 import Base
 
@@ -212,3 +214,33 @@ def g12_vec(xs: List<&2, F32>) -> List<&2, F32>:
       Nil{}
     case x <> rest:
       g12_one(x) <> g12_vec(rest)
+
+# Balanced fork-join map. Singleton / empty stay sequential. Fuel 0 is a
+# total fallback (public callers pass |xs|). `~f` is a closed top-level.
+# Mid take/drop is inlined: a computed pair cannot be matched.
+def map_halves.go(
+  ~A: Data,
+  ~B: Data,
+  ~C: Data,
+  ~f: @+c:C -> @+x:A -> B,
+  +ctx: C,
+  +fuel: Nat,
+  xs: List<&2, A>
+) -> List<&2, B>:
+  match fuel xs:
+    case 0n Nil{}:
+      Nil{}
+    case 0n h <> t:
+      f(ctx, h) <> map_halves.go(~A, ~B, ~C, ~f, ctx, 0n, t)
+    case 1n+p Nil{}:
+      Nil{}
+    case 1n+p h <> Nil{}:
+      f(ctx, h) <> Nil{}
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, A>}
+      +mid = Nat.div(list_len(A, all), 2n)
+      a b = map_halves.go(~A, ~B, ~C, ~f, ctx, p, List.take(&2, A, all, mid)) map_halves.go(~A, ~B, ~C, ~f, ctx, p, List.drop(&2, A, all, mid))
+      List.append(&2, B, a, b)
+
+def map_halves(~A: Data, ~B: Data, ~C: Data, ~f: @+c:C -> @+x:A -> B, +ctx: C, +xs: List<&2, A>) -> List<&2, B>:
+  map_halves.go(~A, ~B, ~C, ~f, ctx, list_len(A, xs), xs)
