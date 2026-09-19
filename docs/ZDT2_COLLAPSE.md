@@ -8,9 +8,16 @@ Do **not** invent IGD. Numbers below are either already recorded on `main` / PR 
 
 ## Root-cause hypothesis (short)
 
-**Shared + problem-inherent, not Bend-specific.** U-NSGA-III last-front niching + Das–Dennis rays on ZDT2’s **concave** PF lose `x0` (hence `f1`) diversity on many RNG streams. C# `System.Random` and Bend’s LCG collapse **different seeds**, so this is not “Bend LCG is broken.” ZDT1 (convex) and DTLZ2 (3-obj sphere) stay stable on the same protocol. C# never published a ZDT2 Wilcoxon / oracle table; the smoke bar is `IGD < 0.75`.
+**Shared + problem-inherent + too-short oracle budget. Not Bend-specific.**
 
-Bend-specific extras (`2×best+0.01` near-ray filter from PR #7) rescued **seed=1** after uniform `inNiche[Next]` + LCG piled the front at `f1≈0`. They do **not** stop multi-seed collapse. C# still uses uniform `inNiche[rng.Next]` and still collapses 8/15 seeds.
+1. **Geometry.** ZDT2’s concave PF (`f2 = 1 − f1²`) plus early `g ≫ x0` makes `f2 ≈ g`, so last-front niching / tournament barely see `x0`. By **gen 10** every stack we dumped (Bend, C#, pymoo 0.6.2) is already a **few points near `f1≈0`** (axis pile, not a healthy interior ray).
+2. **Budget.** Oracle **gens=100** is a premature snapshot. The same PymooCompatible protocol at **gens=250** recovered **all four probe seeds on all three stacks** (Bend/C# IGD ≈ 0.017–0.043, 52 ND pts; pymoo IGD ≈ 0.031–0.045, 13 ND pts = one per Das–Dennis ray). **gens=150** (C# ZDT2 smoke length) is mid-recovery: some seeds are already spread, seed 11 still has `f1_max ≈ 0.21`.
+3. **RNG / extras explain which seed is ugly at 100, not the phenomenon.** C# and Bend collapse **different** seeds at 100 gens (PR #16: 10/15 vs 8/15). pymoo seed 1 **also** collapses at 100 (2 pts, IGD 0.499) while Bend/C# seed 1 are the healthier pair.
+4. **Tournament is a lever, not a root bug.** C#’s unpublished Wilcoxon ZDT2 protocol is **RankNicheDistance** (ctor default), not PymooCompatible. On the four probe seeds at 100 gens, RankNicheDistance **cleared Bend collapse** (seed 2: 3→52 pts, IGD 0.593→0.079). C# was mixed (seed 11 saved, seed 2 got *worse* than PymooCompatible).
+
+ZDT1 and DTLZ2 stay stable at the published 100/150-gen budgets. C# never published a ZDT2 oracle / Wilcoxon table; the smoke bar is `IGD < 0.75`.
+
+Bend’s PR #7 near-ray extras rescued **seed=1** after uniform `inNiche[Next]` + LCG. They do **not** stop multi-seed collapse at 100 gens. C# still uses uniform extras and still collapses 8/15 seeds at that budget.
 
 ## What the collapsed front looks like
 
@@ -29,7 +36,26 @@ PR #16 15-seed table (PymooCompatible, gens=100) — **cite only**, not re-inven
 
 Full 1–15: [PERF_NOTES.md](PERF_NOTES.md#zdt2-p12-pop52-gens100). Bend 10/15, C# 8/15. Some only one side.
 
-**Shape (this investigation):** see [Measured fronts](#measured-fronts-this-pr) — dumped CSVs under `ab/out/zdt2_probe/` (gitignored). Characterization: `n`, `f1` span, counts with `f1<0.05` vs `f1>0.95`, Das–Dennis association histogram (raw + min–max), `shape` (`pile_at_f1_near_0` / `two_extremes_only` / `one_ray` / `spread`).
+**Shape (this investigation):** collapsed ND fronts are a **left-axis pile** — a handful of points with `f1` at ~0 and `f2` just above 1 (still `g>1`). Example seed **11**, gens=100, PymooCompatible:
+
+```
+# Bend (3 pts, IGD 0.700)
+3.58e-13, 1.151
+3.49e-13, 1.157
+3.49e-13, 1.176
+
+# C# (2 pts, IGD 0.647)
+0,        1.079
+7.88e-17, 1.070
+
+# pymoo seed 1 (2 pts, IGD 0.499) — same pile, one slightly larger f1
+2.25e-17, 1.056
+0.199,    1.035
+```
+
+Healthy seed **1** Bend at 100 gens spans `f1` ≈ 0 … 0.91 (33 pts). Raw Das–Dennis association of a piled front is **one ray** (ref 0 = `(0,1)`). After min–max normalize a 1e-13 `f1` span, the histogram is noise — do not read that as diversity.
+
+Dumps: `ab/out/zdt2_probe/` (gitignored). `ab/characterize_front.py`.
 
 ## Is concave ZDT2 known to stress NSGA-III / U-NSGA-III?
 
@@ -68,40 +94,68 @@ PR #7 (Bend-only at the time): between gens **5–10**, `f1` max **0.93 → 0.00
 
 ## Prior probes (gens=250, RankNicheDistance)
 
-**Not in repo/docs before this note.** Searched `docs/`, `ab/`, PRs, C# `docs/` and smoke tests.
+**Not in repo/docs before this note** (searched `docs/`, `ab/`, PRs, C# `docs/` / smoke). This PR **ran them**.
 
-What **is** in tree / C#:
-
-| Probe | Where | What it found |
-|-------|--------|----------------|
+| Probe | Where / this PR | What it found |
+|-------|-----------------|---------------|
 | gens=100, PymooCompatible, seeds 1–15 | PERF_NOTES / PR #16 | Bend 10/15 collapse, C# 8/15; seed 1 healthier |
-| gens ~5–10, Bend uniform extras, seed=1 | PR #7 | Early `x0` death |
-| gens=150, RankNicheDistance, C# seed=2 | `IgdSmokeTests` | Loose `IGD<0.75` only (not a published front) |
+| gens ~5–10, Bend uniform extras, seed=1 | PR #7 | Early `x0` death (`f1` max 0.93→0.009) |
+| gens=10, PymooCompatible, seeds 1/2/7/11 | **this PR**, all 3 stacks | **All** piled near `f1≈0` (early, not stack-specific) |
+| gens=150, RankNicheDistance, C# seed=2 | `IgdSmokeTests` | Loose `IGD<0.75` only |
+| gens=150, PymooCompatible, seeds 2/7/11 | **this PR** | Mid-recovery (seed 2 often spread; seed 11 still `f1_max≈0.21`) |
+| gens=250, PymooCompatible, seeds 1/2/7/11 | **this PR** | **Recovered on Bend, C#, and pymoo** |
+| RankNicheDistance, gens=100, seeds 1/2/7/11 | **this PR** | Bend: all 4 spread. C#: mixed (11 saved, 2 worse than PymooCompatible) |
 | C# Wilcoxon ZDT2 | script only, unpublished | Protocol = RankNicheDistance, 100 gens |
-
-This PR’s dumps (when present): [Measured fronts](#measured-fronts-this-pr).
 
 ## Measured fronts (this PR)
 
-Dumps: `python3 ab/zdt2_collapse_probe.py` (Bend `--native`, optional `UNSGA3_CS_ROOT` + pymoo). Characterization: `python3 ab/characterize_front.py --front … --problem zdt2`.
+Host: 4-core, Bend **2.0.16** `--native`, C# Unsga3 **`f99fdac`** (`UNSGA3_CS_ROOT` outside this repo), pymoo **0.6.2** `UNSGA3`. IGD = pymoo `IGD` vs analytic ZDT2 **500** pts. Collapse rule: `n≤10` and `IGD≥0.3`.
 
-*Filled after the probe runs on this agent. Until then, use the PR #16 table above — do not invent new IGD.*
+Dumps: `python3 ab/zdt2_collapse_probe.py`. JSONL under `ab/out/zdt2_probe/` (gitignored).
 
 ### Geometry (no Run)
 
-`python3 ab/zdt2_geometry.py` — analytic 500-pt PF vs p=12 rays (13 dirs). Both PFs occupy **all 13** refs. ZDT1 `f1+f2` ∈ [0.75, 1] (inside simplex). ZDT2 `f1+f2` ∈ [1, 1.25] (outside; peak at mid-front). Collapse is therefore a **search** failure, not “the PF is one ray.”
+`python3 ab/zdt2_geometry.py` — analytic 500-pt PF vs p=12 rays (13 dirs). Both PFs occupy **all 13** refs. ZDT1 `f1+f2` ∈ [0.75, 1] (inside simplex). ZDT2 `f1+f2` ∈ [1, 1.25] (outside; peak at mid-front). Collapse is a **search** failure, not “the PF is one ray.”
 
-### Time series / RankNiche / gens=250 / pymoo
+### Time series — PymooCompatible (p=12, pop=52)
 
-See probe JSONL (`ab/out/zdt2_probe/summary.jsonl`, gitignored) and the filled table in the revision that ran the dumps.
+| stack | seed | g=10 n / IGD / f1max | g=50 | g=100 | g=150 | g=250 |
+|-------|-----:|----------------------|------|-------|-------|-------|
+| Bend | 1 | 8 / 2.785 / 0.031 **coll** | 18 / 0.802 / 0.964 | 33 / 0.147 / 0.914 | — | 52 / 0.025 / 1.000 |
+| Bend | 2 | 6 / 2.701 / 0.011 **coll** | 3 / 1.129 / 0.000 **coll** | 3 / 0.593 / 0.074 **coll** | 52 / 0.138 / 0.644 | 52 / 0.026 / 1.000 |
+| Bend | 7 | 9 / 2.294 / 0.082 **coll** | 11 / 0.985 / 0.000 | 3 / 0.516 / 0.165 **coll** | 52 / 0.289 / 0.406 | 52 / 0.022 / 0.999 |
+| Bend | 11 | 6 / 2.501 / 0.023 **coll** | 8 / 1.199 / 0.000 **coll** | 3 / 0.700 / 0.000 **coll** | 31 / 0.426 / 0.235 | 52 / 0.033 / 0.862 |
+| C# | 1 | 9 / 2.199 / 0.268 **coll** | 12 / 0.742 / 0.726 | 41 / 0.112 / 0.959 | — | 52 / 0.019 / 1.000 |
+| C# | 2 | 5 / 2.327 / 0.146 **coll** | 14 / 0.567 / 0.904 | 52 / 0.101 / 0.992 | 52 / 0.032 / 0.994 | 52 / 0.018 / 1.000 |
+| C# | 7 | 7 / 2.380 / 0.190 **coll** | 6 / 1.048 / 0.000 **coll** | 10 / 0.473 / 0.242 **coll** | 52 / 0.073 / 0.773 | 52 / 0.017 / 1.000 |
+| C# | 11 | 4 / 2.783 / 0.040 **coll** | 5 / 1.083 / 0.000 **coll** | 2 / 0.647 / 0.000 **coll** | 37 / 0.440 / 0.208 | 52 / 0.043 / 0.849 |
+| pymoo | 1 | 3 / 2.694 / 0.076 **coll** | 2 / 0.898 / 0.000 **coll** | 2 / 0.499 / 0.199 **coll** | — | 13 / 0.031 / 0.999 |
+| pymoo | 2 | 4 / 2.173 / 0.321 **coll** | 2 / 1.087 / 0.000 **coll** | 2 / 0.636 / 0.000 **coll** | — | 13 / 0.045 / 0.851 |
+| pymoo | 7 | 3 / 2.620 / 0.061 **coll** | 2 / 1.148 / 0.000 **coll** | 4 / 0.559 / 0.158 **coll** | — | 13 / 0.032 / 0.935 |
+| pymoo | 11 | 2 / 2.573 / 0.934 **coll** | 5 / 0.582 / 0.895 **coll** | 7 / 0.135 / 0.995 | — | 13 / 0.031 / 1.000 |
+
+g=100 Bend/C# IGD matches PR #16 (same fronts). g=10: **every** stack is an `f1≈0` pile. Recovery is **late** (100→250), not “stuck forever.” pymoo’s recovered n=13 is one point per ray (NSGA-III-typical); Bend/C# keep the extra 52−13 members on the PF.
+
+### RankNicheDistance vs PymooCompatible at gens=100
+
+C# Wilcoxon ZDT2 protocol = RankNicheDistance. Same four seeds:
+
+| seed | Bend Pymoo n / IGD | Bend RankNiche | C# Pymoo | C# RankNiche |
+|-----:|-------------------:|---------------:|---------:|-------------:|
+| 1 | 33 / 0.147 | 50 / 0.103 | 41 / 0.112 | 52 / 0.049 |
+| 2 | 3 / 0.593 **coll** | 52 / 0.079 | 52 / 0.101 | 11 / 0.517 |
+| 7 | 3 / 0.516 **coll** | 52 / 0.126 | 10 / 0.473 **coll** | 16 / 0.406 |
+| 11 | 3 / 0.700 **coll** | 38 / 0.153 | 2 / 0.647 **coll** | 52 / 0.058 |
+
+Bend RankNicheDistance cleared these four at 100 gens. C# RankNicheDistance is **not** a free win (seed 2 worse than PymooCompatible). Tournament changes which streams look healthy at the oracle budget; it does not remove the early pile.
 
 ## Recommended next experiments (no silent “fix”)
 
-1. **Confirm recovery is hard after early `x0` death** — if gens=10 already has `f1_max < 0.05`, gens=250 will not rebuild the PF (SBX/PM from a piled parent set).
-2. **RankNicheDistance vs PymooCompatible** on the same seeds (C# Wilcoxon protocol for ZDT2). If both modes collapse, mating pressure is not the main lever.
-3. **pymoo `UNSGA3`** on the same `p=12 pop=52 gens=100` seeds. If pymoo is stable, look at C#/Bend extras + RNG + G12. If pymoo also dies, the **protocol** (13 rays, 4× fold, 100 gens) is the story.
+1. **If ZDT2 A/B should look like ZDT1 at 100 gens:** try the C# Wilcoxon ZDT2 settings — **RankNicheDistance** and/or **gens=250** — on seeds 1–15 (both stacks + pymoo). Do not change last-front extras from seed=1 alone (PR #7 ZDT1 regression).
+2. **15-seed gens=250 PymooCompatible** — this PR only did seeds 1/2/7/11. Confirm the 10/15 “collapse” rate drops before calling 100 gens a Bend bug.
+3. **ZDT1 at gens=10** as a control (expect `f1` span stays large). Not run here.
 4. **Do not** ship always-closest extras without re-checking ZDT1 / DTLZ2 (PR #7 tradeoff).
-5. If a later PR changes niching, require ZDT1 + DTLZ2 + ZDT2 multi-seed, not seed=1 alone.
+5. If a later PR changes niching or the oracle gens, require ZDT1 + DTLZ2 + ZDT2 multi-seed, not seed=1 alone.
 
 ## How to reproduce
 
