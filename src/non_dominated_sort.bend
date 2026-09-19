@@ -101,15 +101,70 @@ def first_scan(+pop: List<&2, Ind.Individual>, +all: List<&2, Nat>, cand: List<&
 def first_front(+pop: List<&2, Ind.Individual>, +remaining: List<&2, Nat>) -> List<&2, Nat>:
   first_scan(pop, remaining, remaining)
 
+# Split remaining into (front, leftover). Same front as first_scan, leftover
+# in original order. |front| + |leftover| = |remaining| by construction.
+type Split is Data:
+  Split{
+    ff: List<&2, Nat>
+    ot: List<&2, Nat>
+  }
+
+def split_put(+i: Nat, s: Split, dominated: Bool) -> Split:
+  match s:
+    case Split{ff, ot}:
+      match dominated:
+        case True{}:
+          Split{ff, i <> ot}
+        case False{}:
+          Split{i <> ff, ot}
+
+def split_walk(+pop: List<&2, Ind.Individual>, +all: List<&2, Nat>, cand: List<&2, Nat>) -> Split:
+  match cand:
+    case Nil{}:
+      Split{Nil{}, Nil{}}
+    case +i <> rest:
+      split_put(i, split_walk(pop, all, rest), is_dominated(pop, all, i))
+
+# Empty first_scan (unreachable on a finite Pareto set) keeps the head so
+# peel stays a partition. Observationally first_front + minus when the
+# remaining list has a unique head (range / peeled leftovers).
+def split_ne(+i: Nat, +rest: List<&2, Nat>, s: Split) -> Split:
+  match s:
+    case Split{ff, ot}:
+      match ff:
+        case Nil{}:
+          Split{i <> Nil{}, rest}
+        case h <> t:
+          Split{h <> t, ot}
+
+def split_front(+pop: List<&2, Ind.Individual>, remaining: List<&2, Nat>) -> Split:
+  match remaining:
+    case Nil{}:
+      Split{Nil{}, Nil{}}
+    case +i <> +rest:
+      split_ne(i, rest, split_walk(pop, i <> rest, i <> rest))
+
+def split_fst(s: Split) -> List<&2, Nat>:
+  match s:
+    case Split{ff, ot}:
+      ff
+
+def split_snd(s: Split) -> List<&2, Nat>:
+  match s:
+    case Split{ff, ot}:
+      ot
+
 def peel(+pop: List<&2, Ind.Individual>, fuel: Nat, remaining: List<&2, Nat>) -> List<&2, List<&2, Nat>>:
   match fuel remaining:
-    case f Nil{}:
+    case 0n Nil{}:
       Nil{}
-    case 0n rem:
+    case 1n+f Nil{}:
       Nil{}
+    case 0n +i <> +rest:
+      {i <> rest : List<&2, Nat>} <> Nil{}
     case 1n+f +i <> +rest:
-      +ff = first_front(pop, i <> rest)
-      ff <> peel(pop, f, Util.minus(i <> rest, ff))
+      +s = split_front(pop, i <> rest)
+      split_fst(s) <> peel(pop, f, split_snd(s))
 
 def sort(+population: List<&2, Ind.Individual>) -> List<&2, List<&2, Nat>>:
   +n = Util.list_len(Ind.Individual, population)

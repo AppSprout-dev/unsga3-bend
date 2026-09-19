@@ -5,6 +5,7 @@ import Base
 import ./individual.bend as Ind
 import ./bounds.bend as Bounds
 import ./rng.bend as Rng
+import ./util.bend as Util
 
 type Poly is Data:
   MkPoly{
@@ -146,6 +147,23 @@ def start(
         eta, box, rng2, ind, p
       )
 
+# p=0 leaves the decision vector unchanged before any NextDouble.
+# Matches C# when per-variable probability is 0 (every draw is > 0).
+def start_or_copy(
+  +eta: F32,
+  +box: Bounds.Box,
+  rng: Rng.State,
+  ind: Ind.Individual,
+  +p: F32,
+  n: Nat,
+  zero: Bool
+) -> Rng.State & Ind.Individual:
+  match zero:
+    case True{}:
+      (rng, ind)
+    case False{}:
+      start(eta, box, rng, ind, p, n)
+
 def mutate(
   +op: Poly,
   +ind: Ind.Individual,
@@ -153,4 +171,4 @@ def mutate(
   rng: Rng.State,
   +p: F32
 ) -> Rng.State & Ind.Individual:
-  start(eta(op), box, rng, ind, p, Ind.n_var(ind))
+  start_or_copy(eta(op), box, rng, ind, p, Ind.n_var(ind), Util.f32_is_zero(p))

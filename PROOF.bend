@@ -3,8 +3,9 @@
 # operator defaults / typical 1/n / from_objectives / ZDT-DTLZ dimensions /
 # zero-parent tournament / zero-pop Run, plus dominates_irreflexive
 # (same-list flags → verdict 0) and |normalize| / |associate| via
-# mid-split map length. Remaining: quantified sort partition /
-# |DasDennis| for M≥2 / select niching / F32-opaque p=0 / |Run|==pop.
+# mid-split map length. Remaining quantified laws use fuel induction,
+# Split partition, Das–Dennis by construction, p=0 bit-zero copy, and
+# take-pad length locks for |select| / |Run|.
 
 import Base
 import ./LAWS.bend as Laws
@@ -13,6 +14,9 @@ import ./src/non_dominated_sort.bend as NDS
 import ./src/normalization.bend as Norm
 import ./src/survival.bend as Surv
 import ./src/util.bend as Util
+import ./src/reference_directions.bend as Refs
+import ./src/algorithm.bend as Algo
+import ./src/problems.bend as Prob
 
 # Same-list Pareto walk keeps both flags equal, so verdict is 0n
 # without any F32 axiom: verdict(True,True)=0 and verdict(False,False)=0.
@@ -318,8 +322,414 @@ def map_halves_len(
 def Laws.sort_empty():
   {==}
 
+# |range.go(n, acc)| = n + |acc|
+def add_succ_r(+p: Nat, +k: Nat) -> {Nat.add(p, 1n+k) == 1n+Nat.add(p, k) : Nat}:
+  match p:
+    case 0n:
+      {==}
+    case 1n+q:
+      %add_succ_r(q, k) : {1n+Nat.add(q, 1n+k) == 1n+_ : Nat}
+      {==}
+
+def succ_eq(+a: Nat, +b: Nat, e: {a == b : Nat}) -> {1n+a == 1n+b : Nat}:
+  %e : {1n+a == 1n+_ : Nat}
+  {==}
+
+def add_zero_r(n: Nat) -> {Nat.add(n, 0n) == n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      %add_zero_r(p) : {1n+Nat.add(p, 0n) == 1n+_ : Nat}
+      {==}
+
+def range_go_len(+n: Nat, +acc: List<&2, Nat>) -> {List.length(&2, Nat, List.range.go(n, acc)) == Nat.add(n, List.length(&2, Nat, acc)) : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      Equal.trans(
+        Nat,
+        List.length(&2, Nat, List.range.go(p, p <> acc)),
+        Nat.add(p, List.length(&2, Nat, p <> acc)),
+        Nat.add(1n+p, List.length(&2, Nat, acc)),
+        range_go_len(p, p <> acc),
+        add_succ_r(p, List.length(&2, Nat, acc))
+      )
+
+def range_len(+n: Nat) -> {List.length(&2, Nat, List.range(n)) == n : Nat}:
+  Equal.trans(
+    Nat,
+    List.length(&2, Nat, List.range.go(n, Nil{})),
+    Nat.add(n, 0n),
+    n,
+    range_go_len(n, Nil{}),
+    add_zero_r(n)
+  )
+
+def to_dirs_len(+p: Nat, rows: List<&2, List<&2, Nat>>) -> {Util.list_len(List<&2, F32>, Refs.to_dirs(p, rows)) == Util.list_len(List<&2, Nat>, rows) : Nat}:
+  match rows:
+    case Nil{}:
+      {==}
+    case row <> rest:
+      %to_dirs_len(p, rest) : {1n+Util.list_len(List<&2, F32>, Refs.to_dirs(p, rest)) == 1n+_ : Nat}
+      {==}
+
+def comps_all_len(+m: Nat, +p: Nat) -> {Util.list_len(List<&2, Nat>, Refs.comps_all(m, p)) == Refs.count(m, p) : Nat}:
+  Equal.trans(
+    Nat,
+    Util.list_len(List<&2, Nat>, Util.map_halves.go(~Nat, ~List<&2, Nat>, ~Refs.DasCtx, ~Refs.nth_row, Refs.DasCtx{m, p}, Util.list_len(Nat, List.range(Refs.count(m, p))), List.range(Refs.count(m, p)))),
+    Util.list_len(Nat, List.range(Refs.count(m, p))),
+    Refs.count(m, p),
+    map_halves_len(~Nat, ~List<&2, Nat>, ~Refs.DasCtx, ~Refs.nth_row, Refs.DasCtx{m, p}, Util.list_len(Nat, List.range(Refs.count(m, p))), List.range(Refs.count(m, p))),
+    range_len(Refs.count(m, p))
+  )
+
+def das_ge2_len(+rd: Nat, +p: Nat) -> {Util.list_len(List<&2, F32>, Refs.to_dirs(1n+p, Refs.comps_all(1n+rd, 1n+p))) == Refs.count(1n+rd, 1n+p) : Nat}:
+  Equal.trans(
+    Nat,
+    Util.list_len(List<&2, F32>, Refs.to_dirs(1n+p, Refs.comps_all(1n+rd, 1n+p))),
+    Util.list_len(List<&2, Nat>, Refs.comps_all(1n+rd, 1n+p)),
+    Refs.count(1n+rd, 1n+p),
+    to_dirs_len(1n+p, Refs.comps_all(1n+rd, 1n+p)),
+    comps_all_len(1n+rd, 1n+p)
+  )
+
+# |take xs k| = min(k, |xs|)
+def nat_min_succ.go(
+  +a: Nat,
+  +b: Nat,
+  le: Bool,
+  e: {Nat.is_le(a, b) == le : Bool}
+) -> {Util.nat_min(1n+a, 1n+b) == 1n+Util.nat_min(a, b) : Nat}:
+  match le:
+    case True{}:
+      %Equal.sym(Bool, Nat.is_le(a, b), True{}, e) : {Util.nat_min.fin(1n+a, 1n+b, _) == 1n+Util.nat_min.fin(a, b, _) : Nat}
+      {==}
+    case False{}:
+      %Equal.sym(Bool, Nat.is_le(a, b), False{}, e) : {Util.nat_min.fin(1n+a, 1n+b, _) == 1n+Util.nat_min.fin(a, b, _) : Nat}
+      {==}
+
+def nat_min_succ(+a: Nat, +b: Nat) -> {Util.nat_min(1n+a, 1n+b) == 1n+Util.nat_min(a, b) : Nat}:
+  nat_min_succ.go(a, b, Nat.is_le(a, b), {==})
+
+def take_len(-A: Data, xs: List<&2, A>, n: Nat) -> {List.length(&2, A, List.take(&2, A, xs, n)) == Util.nat_min(n, List.length(&2, A, xs)) : Nat}:
+  match xs n:
+    case Nil{} 0n:
+      {==}
+    case Nil{} 1n+k:
+      {==}
+    case h <> t 0n:
+      {==}
+    case h <> +t 1n++p:
+      Equal.trans(
+        Nat,
+        1n+List.length(&2, A, List.take(&2, A, t, p)),
+        1n+Util.nat_min(p, List.length(&2, A, t)),
+        Util.nat_min(1n+p, 1n+List.length(&2, A, t)),
+        succ_eq(List.length(&2, A, List.take(&2, A, t, p)), Util.nat_min(p, List.length(&2, A, t)), take_len(A, t, p)),
+        Equal.sym(Nat, Util.nat_min(1n+p, 1n+List.length(&2, A, t)), 1n+Util.nat_min(p, List.length(&2, A, t)), nat_min_succ(p, List.length(&2, A, t)))
+      )
+
+# nat_min(0, k) = 0. Match k so Nat.cmp is not stuck on a computed RHS.
+def min_zero_l(k: Nat) -> {Util.nat_min(0n, k) == 0n : Nat}:
+  match k:
+    case 0n:
+      {==}
+    case 1n+p:
+      {==}
+
+def min_add_r.zero.rw(+k: Nat, e: {Nat.add(k, 0n) == k : Nat}) -> {Util.nat_min(0n, Nat.add(k, 0n)) == Util.nat_min(0n, k) : Nat}:
+  %e : {Util.nat_min(0n, Nat.add(k, 0n)) == Util.nat_min(0n, _) : Nat}
+  {==}
+
+def min_add_r.zero(+k: Nat) -> {Util.nat_min(0n, Nat.add(k, 0n)) == 0n : Nat}:
+  Equal.trans(
+    Nat,
+    Util.nat_min(0n, Nat.add(k, 0n)),
+    Util.nat_min(0n, k),
+    0n,
+    min_add_r.zero.rw(k, add_zero_r(k)),
+    min_zero_l(k)
+  )
+
+# nat_min(a, k+a) = a
+def min_add_r.succ(
+  +p: Nat,
+  +k: Nat,
+  e: {Nat.add(k, 1n+p) == 1n+Nat.add(k, p) : Nat}
+) -> {Util.nat_min(1n+p, Nat.add(k, 1n+p)) == Util.nat_min(1n+p, 1n+Nat.add(k, p)) : Nat}:
+  %e : {Util.nat_min(1n+p, Nat.add(k, 1n+p)) == Util.nat_min(1n+p, _) : Nat}
+  {==}
+
+def min_add_r(+a: Nat, +k: Nat) -> {Util.nat_min(a, Nat.add(k, a)) == a : Nat}:
+  match a:
+    case 0n:
+      min_add_r.zero(k)
+    case 1n+p:
+      Equal.trans(
+        Nat,
+        Util.nat_min(1n+p, Nat.add(k, 1n+p)),
+        Util.nat_min(1n+p, 1n+Nat.add(k, p)),
+        1n+p,
+        min_add_r.succ(p, k, add_succ_r(k, p)),
+        Equal.trans(
+          Nat,
+          Util.nat_min(1n+p, 1n+Nat.add(k, p)),
+          1n+Util.nat_min(p, Nat.add(k, p)),
+          1n+p,
+          nat_min_succ(p, Nat.add(k, p)),
+          succ_eq(Util.nat_min(p, Nat.add(k, p)), p, min_add_r(p, k))
+        )
+      )
+
+def replicate_len(-A: Data, n: Nat, +x: A) -> {List.length(&2, A, List.replicate(A, n, x)) == n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      %replicate_len(A, p, x) : {1n+List.length(&2, A, List.replicate(A, p, x)) == 1n+_ : Nat}
+      {==}
+
+def take_pad_len.app(
+  -A: Data,
+  +fill: A,
+  +xs: List<&2, A>,
+  +n: Nat
+) -> {Util.nat_min(n, List.length(&2, A, List.append(&2, A, xs, List.replicate(A, n, fill)))) == Util.nat_min(n, Nat.add(List.length(&2, A, xs), List.length(&2, A, List.replicate(A, n, fill)))) : Nat}:
+  %len_append(A, xs, List.replicate(A, n, fill)) : {Util.nat_min(n, List.length(&2, A, List.append(&2, A, xs, List.replicate(A, n, fill)))) == Util.nat_min(n, _) : Nat}
+  {==}
+
+def take_pad_len.rep(
+  -A: Data,
+  +fill: A,
+  +xs: List<&2, A>,
+  +n: Nat
+) -> {Util.nat_min(n, Nat.add(List.length(&2, A, xs), List.length(&2, A, List.replicate(A, n, fill)))) == Util.nat_min(n, Nat.add(List.length(&2, A, xs), n)) : Nat}:
+  %replicate_len(A, n, fill) : {Util.nat_min(n, Nat.add(List.length(&2, A, xs), List.length(&2, A, List.replicate(A, n, fill)))) == Util.nat_min(n, Nat.add(List.length(&2, A, xs), _)) : Nat}
+  {==}
+
+def take_pad_len.min(
+  -A: Data,
+  +fill: A,
+  +xs: List<&2, A>,
+  +n: Nat
+) -> {Util.nat_min(n, Nat.add(List.length(&2, A, xs), List.length(&2, A, List.replicate(A, n, fill)))) == n : Nat}:
+  Equal.trans(
+    Nat,
+    Util.nat_min(n, Nat.add(List.length(&2, A, xs), List.length(&2, A, List.replicate(A, n, fill)))),
+    Util.nat_min(n, Nat.add(List.length(&2, A, xs), n)),
+    n,
+    take_pad_len.rep(A, fill, xs, n),
+    min_add_r(n, List.length(&2, A, xs))
+  )
+
+def take_pad_len.fin(
+  -A: Data,
+  +fill: A,
+  +xs: List<&2, A>,
+  +n: Nat
+) -> {Util.nat_min(n, List.length(&2, A, List.append(&2, A, xs, List.replicate(A, n, fill)))) == n : Nat}:
+  Equal.trans(
+    Nat,
+    Util.nat_min(n, List.length(&2, A, List.append(&2, A, xs, List.replicate(A, n, fill)))),
+    Util.nat_min(n, Nat.add(List.length(&2, A, xs), List.length(&2, A, List.replicate(A, n, fill)))),
+    n,
+    take_pad_len.app(A, fill, xs, n),
+    take_pad_len.min(A, fill, xs, n)
+  )
+
+def take_pad_len(
+  -A: Data,
+  +fill: A,
+  +xs: List<&2, A>,
+  +n: Nat
+) -> {List.length(&2, A, Util.list_take_pad(A, fill, xs, n)) == n : Nat}:
+  Equal.trans(
+    Nat,
+    List.length(&2, A, List.take(&2, A, List.append(&2, A, xs, List.replicate(A, n, fill)), n)),
+    Util.nat_min(n, List.length(&2, A, List.append(&2, A, xs, List.replicate(A, n, fill)))),
+    n,
+    take_len(A, List.append(&2, A, xs, List.replicate(A, n, fill)), n),
+    take_pad_len.fin(A, fill, xs, n)
+  )
+
+def size_lock_len.app(+xs: List<&2, Nat>, +want: Nat, +n: Nat) -> {Util.nat_min(want, List.length(&2, Nat, List.append(&2, Nat, Surv.pad_idxs(xs, want, n), List.range(want)))) == Util.nat_min(want, Nat.add(List.length(&2, Nat, Surv.pad_idxs(xs, want, n)), List.length(&2, Nat, List.range(want)))) : Nat}:
+  %len_append(Nat, Surv.pad_idxs(xs, want, n), List.range(want)) : {Util.nat_min(want, List.length(&2, Nat, List.append(&2, Nat, Surv.pad_idxs(xs, want, n), List.range(want)))) == Util.nat_min(want, _) : Nat}
+  {==}
+
+def size_lock_len.rng(+xs: List<&2, Nat>, +want: Nat, +n: Nat) -> {Util.nat_min(want, Nat.add(List.length(&2, Nat, Surv.pad_idxs(xs, want, n)), List.length(&2, Nat, List.range(want)))) == Util.nat_min(want, Nat.add(List.length(&2, Nat, Surv.pad_idxs(xs, want, n)), want)) : Nat}:
+  %range_len(want) : {Util.nat_min(want, Nat.add(List.length(&2, Nat, Surv.pad_idxs(xs, want, n)), List.length(&2, Nat, List.range(want)))) == Util.nat_min(want, Nat.add(List.length(&2, Nat, Surv.pad_idxs(xs, want, n)), _)) : Nat}
+  {==}
+
+def size_lock_len.min(+xs: List<&2, Nat>, +want: Nat, +n: Nat) -> {Util.nat_min(want, Nat.add(List.length(&2, Nat, Surv.pad_idxs(xs, want, n)), List.length(&2, Nat, List.range(want)))) == want : Nat}:
+  Equal.trans(
+    Nat,
+    Util.nat_min(want, Nat.add(List.length(&2, Nat, Surv.pad_idxs(xs, want, n)), List.length(&2, Nat, List.range(want)))),
+    Util.nat_min(want, Nat.add(List.length(&2, Nat, Surv.pad_idxs(xs, want, n)), want)),
+    want,
+    size_lock_len.rng(xs, want, n),
+    min_add_r(want, List.length(&2, Nat, Surv.pad_idxs(xs, want, n)))
+  )
+
+def size_lock_len.fin(+xs: List<&2, Nat>, +want: Nat, +n: Nat) -> {Util.nat_min(want, List.length(&2, Nat, List.append(&2, Nat, Surv.pad_idxs(xs, want, n), List.range(want)))) == want : Nat}:
+  Equal.trans(
+    Nat,
+    Util.nat_min(want, List.length(&2, Nat, List.append(&2, Nat, Surv.pad_idxs(xs, want, n), List.range(want)))),
+    Util.nat_min(want, Nat.add(List.length(&2, Nat, Surv.pad_idxs(xs, want, n)), List.length(&2, Nat, List.range(want)))),
+    want,
+    size_lock_len.app(xs, want, n),
+    size_lock_len.min(xs, want, n)
+  )
+
+def size_lock_len(+xs: List<&2, Nat>, +want: Nat, +n: Nat) -> {Util.list_len(Nat, Surv.size_lock(xs, want, n)) == want : Nat}:
+  Equal.trans(
+    Nat,
+    List.length(&2, Nat, List.take(&2, Nat, List.append(&2, Nat, Surv.pad_idxs(xs, want, n), List.range(want)), want)),
+    Util.nat_min(want, List.length(&2, Nat, List.append(&2, Nat, Surv.pad_idxs(xs, want, n), List.range(want)))),
+    want,
+    take_len(Nat, List.append(&2, Nat, Surv.pad_idxs(xs, want, n), List.range(want)), want),
+    size_lock_len.fin(xs, want, n)
+  )
+
+def gather_len(+pop: List<&2, Ind.Individual>, +idxs: List<&2, Nat>) -> {Util.list_len(Ind.Individual, Surv.gather(pop, idxs)) == Util.list_len(Nat, idxs) : Nat}:
+  map_halves_len(~Nat, ~Ind.Individual, ~List<&2, Ind.Individual>, ~Surv.gather.one, pop, Util.list_len(Nat, idxs), idxs)
+
+def split_len(s: NDS.Split) -> Nat:
+  match s:
+    case NDS.Split{ff, ot}:
+      Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot))
+
+def split_put_len.t(
+  +ff: List<&2, Nat>,
+  +ot: List<&2, Nat>,
+  +n: Nat,
+  e: {Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)) == n : Nat}
+) -> {Nat.add(Util.list_len(Nat, ff), 1n+Util.list_len(Nat, ot)) == 1n+n : Nat}:
+  Equal.trans(
+    Nat,
+    Nat.add(Util.list_len(Nat, ff), 1n+Util.list_len(Nat, ot)),
+    1n+Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)),
+    1n+n,
+    add_succ_r(Util.list_len(Nat, ff), Util.list_len(Nat, ot)),
+    succ_eq(Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)), n, e)
+  )
+
+def split_put_len.f(
+  +ff: List<&2, Nat>,
+  +ot: List<&2, Nat>,
+  +n: Nat,
+  e: {Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)) == n : Nat}
+) -> {Nat.add(1n+Util.list_len(Nat, ff), Util.list_len(Nat, ot)) == 1n+n : Nat}:
+  %e : {1n+Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)) == 1n+_ : Nat}
+  {==}
+
+def split_walk_len.cons(
+  +i: Nat,
+  +rest: List<&2, Nat>,
+  s: NDS.Split,
+  dominated: Bool,
+  e: {split_len(s) == Util.list_len(Nat, rest) : Nat}
+) -> {split_len(NDS.split_put(i, s, dominated)) == 1n+Util.list_len(Nat, rest) : Nat}:
+  match s:
+    case NDS.Split{ff, ot}:
+      match dominated:
+        case True{}:
+          split_put_len.t(ff, ot, Util.list_len(Nat, rest), e)
+        case False{}:
+          split_put_len.f(ff, ot, Util.list_len(Nat, rest), e)
+
+def split_walk_len(
+  +pop: List<&2, Ind.Individual>,
+  +all: List<&2, Nat>,
+  cand: List<&2, Nat>
+) -> {split_len(NDS.split_walk(pop, all, cand)) == Util.list_len(Nat, cand) : Nat}:
+  match cand:
+    case Nil{}:
+      {==}
+    case +i <> +rest:
+      split_walk_len.cons(i, rest, NDS.split_walk(pop, all, rest), NDS.is_dominated(pop, all, i), split_walk_len(pop, all, rest))
+
+def split_ne_len(
+  +i: Nat,
+  +rest: List<&2, Nat>,
+  s: NDS.Split,
+  e: {split_len(s) == 1n+Util.list_len(Nat, rest) : Nat}
+) -> {split_len(NDS.split_ne(i, rest, s)) == 1n+Util.list_len(Nat, rest) : Nat}:
+  match s:
+    case NDS.Split{ff, ot}:
+      match ff:
+        case Nil{}:
+          {==}
+        case h <> t:
+          e
+
+def split_front_len(
+  +pop: List<&2, Ind.Individual>,
+  +i: Nat,
+  +rest: List<&2, Nat>
+) -> {split_len(NDS.split_front(pop, i <> rest)) == 1n+Util.list_len(Nat, rest) : Nat}:
+  split_ne_len(i, rest, NDS.split_walk(pop, i <> rest, i <> rest), split_walk_len(pop, i <> rest, i <> rest))
+
+def peel_count.fin(
+  +pop: List<&2, Ind.Individual>,
+  +f: Nat,
+  s: NDS.Split,
+  +n: Nat,
+  e_part: {split_len(s) == n : Nat},
+  e_ih: {NDS.front_index_count(NDS.peel(pop, f, NDS.split_snd(s))) == Util.list_len(Nat, NDS.split_snd(s)) : Nat}
+) -> {Nat.add(Util.list_len(Nat, NDS.split_fst(s)), NDS.front_index_count(NDS.peel(pop, f, NDS.split_snd(s)))) == n : Nat}:
+  match s:
+    case NDS.Split{+ff, +ot}:
+      Equal.trans(
+        Nat,
+        Nat.add(Util.list_len(Nat, ff), NDS.front_index_count(NDS.peel(pop, f, ot))),
+        Nat.add(Util.list_len(Nat, ff), Util.list_len(Nat, ot)),
+        n,
+        add_both(
+          Util.list_len(Nat, ff),
+          NDS.front_index_count(NDS.peel(pop, f, ot)),
+          Util.list_len(Nat, ff),
+          Util.list_len(Nat, ot),
+          {==},
+          e_ih
+        ),
+        e_part
+      )
+
+def peel_count(
+  +pop: List<&2, Ind.Individual>,
+  fuel: Nat,
+  remaining: List<&2, Nat>
+) -> {NDS.front_index_count(NDS.peel(pop, fuel, remaining)) == Util.list_len(Nat, remaining) : Nat}:
+  match fuel remaining:
+    case 0n Nil{}:
+      {==}
+    case 1n+f Nil{}:
+      {==}
+    case 0n +i <> +rest:
+      add_zero_r(1n+Util.list_len(Nat, rest))
+    case 1n++f +i <> +rest:
+      +s = NDS.split_front(pop, i <> rest)
+      peel_count.fin(
+        pop,
+        f,
+        s,
+        1n+Util.list_len(Nat, rest),
+        split_front_len(pop, i, rest),
+        peel_count(pop, f, NDS.split_snd(s))
+      )
+
 def Laws.sort_index_count(pop):
-  ?TODO
+  +n = Util.list_len(Ind.Individual, pop)
+  Equal.trans(
+    Nat,
+    NDS.front_index_count(NDS.peel(pop, n, List.range(n))),
+    Util.list_len(Nat, List.range(n)),
+    n,
+    peel_count(pop, n, List.range(n)),
+    range_len(n)
+  )
 
 def Laws.dominates_irreflexive(ind):
   +xs = Ind.objectives(ind)
@@ -369,7 +779,15 @@ def Laws.das_dennis_m1_len(p):
       {==}
 
 def Laws.das_dennis_len(m, p):
-  ?TODO
+  match m:
+    case 0n:
+      {==}
+    case 1n+rd:
+      match rd:
+        case 0n:
+          {==}
+        case 1n+q:
+          das_ge2_len(1n+q, p)
 
 def Laws.associate_empty():
   {==}
@@ -395,7 +813,17 @@ def Laws.select_empty():
   {==}
 
 def Laws.select_size(pop, n, dirs):
-  ?TODO
+  +npop = Util.list_len(Ind.Individual, pop)
+  +want = Util.nat_min(n, npop)
+  +idxs = Surv.size_lock(Surv.select_idx.by(pop, n, dirs, Nat.is_le(npop, n)), want, npop)
+  Equal.trans(
+    Nat,
+    Util.list_len(Ind.Individual, Surv.gather(pop, idxs)),
+    Util.list_len(Nat, idxs),
+    want,
+    gather_len(pop, idxs),
+    size_lock_len(Surv.select_idx.by(pop, n, dirs, Nat.is_le(npop, n)), want, npop)
+  )
 
 def Laws.from_objectives_roundtrip():
   {==}
@@ -413,13 +841,13 @@ def Laws.poly_typical_n2():
   {==}
 
 def Laws.sbx_prob0_child1_vars():
-  ?TODO
+  {==}
 
 def Laws.sbx_prob0_child2_vars():
-  ?TODO
+  {==}
 
 def Laws.poly_prob0_vars():
-  ?TODO
+  {==}
 
 def Laws.zdt1_n_obj():
   {==}
@@ -443,4 +871,5 @@ def Laws.run_zero_pop():
   {==}
 
 def Laws.run_pop_size(cfg):
-  ?TODO
+  +n = Algo.cfg_pop(cfg)
+  take_pad_len(Ind.Individual, Ind.from_objectives(Nil{}), Algo.run.sized(Prob.zdt1(30n), cfg, n), n)

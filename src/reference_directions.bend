@@ -28,16 +28,6 @@ def count(number_of_objectives: Nat, partitions: Nat) -> Nat:
     case 1n+rest:
       count.go(rest, partitions)
 
-type Job is Data:
-  Job{
-    dims: Nat
-    left: Nat
-    prefix: List<&2, Nat>
-  }
-
-def snoc(+prefix: List<&2, Nat>, i: Nat) -> List<&2, Nat>:
-  List.append(&2, Nat, prefix, [i])
-
 def to_dir(+p: Nat, comps: List<&2, Nat>) -> List<&2, F32>:
   match comps:
     case Nil{}:
@@ -52,38 +42,71 @@ def to_dirs(+p: Nat, rows: List<&2, List<&2, Nat>>) -> List<&2, List<&2, F32>>:
     case row <> rest:
       to_dir(p, row) <> to_dirs(p, rest)
 
-# i runs 0..left inclusive. Acc is reversed so i=0 is first (C# order).
-def expand(+rd: Nat, +left: Nat, +prefix: List<&2, Nat>, fuel: Nat, +i: Nat, acc: List<&2, Job>) -> List<&2, Job>:
-  match fuel:
+# k-th composition of `p` into `m` parts, C# DFS order (first coord
+# increases 0..p). Enumerating `range(Count)` makes |DasDennis| = Count
+# by construction. @unsafe: Bool dispatch on `k < count(rest)` then
+# either shrinks M or advances i; fuel is a bound, not the shrink key.
+type DasCtx is Data:
+  DasCtx{
+    m: Nat
+    p: Nat
+  }
+
+def nth_comp.fallback(m: Nat, p: Nat) -> List<&2, Nat>:
+  match m:
     case 0n:
-      List.reverse(&2, Job, acc)
-    case 1n+f:
-      expand(rd, left, prefix, f, 1n+i, Job{rd, Nat.sub(left, i), snoc(prefix, i)} <> acc)
+      Nil{}
+    case 1n:
+      [p]
+    case 1n+rd:
+      0n <> nth_comp.fallback(rd, p)
 
-def das_step(+p: Nat, fuel: Nat, +jobs: List<&2, Job>, acc: List<&2, List<&2, Nat>>) -> List<&2, List<&2, Nat>>:
-  match fuel jobs:
-    case f Nil{}:
-      List.reverse(&2, List<&2, Nat>, acc)
-    case 0n js:
-      List.reverse(&2, List<&2, Nat>, acc)
-    case 1n+f Job{dims, left, prefix} <> rest:
-      match dims:
+@unsafe def nth_comp.go(
+  ready: Bool,
+  take: Bool,
+  fuel: Nat,
+  +m: Nat,
+  +p: Nat,
+  +k: Nat,
+  +i: Nat,
+  left: Nat,
+  c: Nat
+) -> List<&2, Nat>:
+  match ready take fuel:
+    case True{} True{} f:
+      i <> nth_comp.go(False{}, False{}, f, m, left, k, 0n, 0n, 0n)
+    case True{} False{} f:
+      nth_comp.go(False{}, False{}, f, 1n+m, p, Nat.sub(k, c), 1n+i, 0n, 0n)
+    case False{} t 0n:
+      nth_comp.fallback(m, p)
+    case False{} t 1n+f:
+      match m:
         case 0n:
-          das_step(p, f, rest, acc)
+          Nil{}
         case 1n:
-          das_step(p, f, rest, snoc(prefix, left) <> acc)
+          [p]
         case 1n+rd:
-          das_step(p, f, List.append(&2, Job, expand(rd, left, prefix, 1n+left, 0n, Nil{}), rest), acc)
+          +left2 = Nat.sub(p, i)
+          +c2 = count(rd, left2)
+          nth_comp.go(True{}, Nat.is_lt(k, c2), f, rd, p, k, i, left2, c2)
 
-def das_go(+p: Nat, m: Nat, jobs: List<&2, Job>) -> List<&2, List<&2, F32>>:
-  to_dirs(p, das_step(p, Util.nat_pow(1n+p, 1n+m), jobs, Nil{}))
+def nth_comp(+m: Nat, +p: Nat, +k: Nat) -> List<&2, Nat>:
+  nth_comp.go(False{}, False{}, Nat.mul(Nat.add(p, 1n), Nat.add(m, 1n)), m, p, k, 0n, 0n, 0n)
+
+def nth_row(+ctx: DasCtx, +k: Nat) -> List<&2, Nat>:
+  match ctx:
+    case DasCtx{+m, +p}:
+      nth_comp(m, p, k)
+
+def comps_all(+m: Nat, +p: Nat) -> List<&2, List<&2, Nat>>:
+  Util.map_halves(~Nat, ~List<&2, Nat>, ~DasCtx, ~nth_row, DasCtx{m, p}, List.range(count(m, p)))
 
 def das_dennis.from(+m: Nat, +p: Nat, rest: Nat) -> List<&2, List<&2, F32>>:
   match rest:
     case 0n:
       [[1.0]]
     case 1n+q:
-      das_go(p, m, [Job{m, p, Nil{}}])
+      to_dirs(p, comps_all(m, p))
 
 def das_dennis.p0(rest: Nat) -> List<&2, List<&2, F32>>:
   match rest:

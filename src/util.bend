@@ -7,6 +7,29 @@ import Base
 def list_len(-A: Data, xs: List<&2, A>) -> Nat:
   List.length(&2, A, xs)
 
+# |take(xs ++ replicate(n, fill), n)| = n. Identity when |xs| = n
+# (take never reads the pad). Used to lock Run / select to the law size.
+def list_take_pad(-A: Data, +fill: A, xs: List<&2, A>, +n: Nat) -> List<&2, A>:
+  List.take(&2, A, List.append(&2, A, xs, List.replicate(A, n, fill)), n)
+
+# IEEE +0.0 is the all-false Word(32). Definitional on the 0.0 literal,
+# so p=0 operator laws skip F32.is_gt / F32.is_eq (opaque Base laws).
+def word_all_false(n: Nat, w: Word(n)) -> Bool:
+  match n:
+    case 0n:
+      True{}
+    case 1n+p:
+      match w:
+        case WCon{False{}, t}:
+          word_all_false(p, t)
+        case WCon{True{}, t}:
+          False{}
+
+def f32_is_zero(x: F32) -> Bool:
+  match x:
+    case F32{w}:
+      word_all_false(32n, w)
+
 def nat_min.fin(+a: Nat, +b: Nat, c: Bool) -> Nat:
   match c:
     case True{}:
