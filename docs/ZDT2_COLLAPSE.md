@@ -104,7 +104,9 @@ PR #7 (Bend-only at the time): between gens **5–10**, `f1` max **0.93 → 0.00
 | gens=150, RankNicheDistance, C# seed=2 | `IgdSmokeTests` | Loose `IGD<0.75` only |
 | gens=150, PymooCompatible, seeds 2/7/11 | **this PR** | Mid-recovery (seed 2 often spread; seed 11 still `f1_max≈0.21`) |
 | gens=250, PymooCompatible, seeds 1/2/7/11 | **this PR** | **Recovered on Bend, C#, and pymoo** |
+| gens=250, PymooCompatible, seeds **1–15** | **this PR (Jason both-runs)** | **Bend 0/15 collapse, C# 0/15.** Median IGD Bend 0.025621 / C# 0.018684. All 52 ND pts. |
 | RankNicheDistance, gens=100, seeds 1/2/7/11 | **this PR** | Bend: all 4 spread. C#: mixed (11 saved, 2 worse than PymooCompatible) |
+| RankNicheDistance, gens=100, seeds **1–15** | **this PR (Jason both-runs)** | Bend **4/15**, C# **4/15** (vs PymooCompatible @ 100: 10/15 and 8/15). Median IGD Bend 0.166381 / C# 0.405799. |
 | C# Wilcoxon ZDT2 | script only, unpublished | Protocol = RankNicheDistance, 100 gens |
 
 ## Measured fronts (this PR)
@@ -149,13 +151,93 @@ C# Wilcoxon ZDT2 protocol = RankNicheDistance. Same four seeds:
 
 Bend RankNicheDistance cleared these four at 100 gens. C# RankNicheDistance is **not** a free win (seed 2 worse than PymooCompatible). Tournament changes which streams look healthy at the oracle budget; it does not remove the early pile.
 
+## 15-seed confirmation (Jason: both runs)
+
+Host: 4-core, Bend **2.0.16** `--native` (warm-cache `dump_bend_run.py`; each seed rewrites the generated driver so compile is per-seed, `run_s` is the binary), C# Unsga3 **`f99fdac`** (`UNSGA3_CS_ROOT` / `OracleCompare` Release), pymoo **0.6.2**. IGD = `python3 ab/igd_vs_pymoo.py --front … --problem zdt2 --pf-points 500 --partitions 12` (`pf_source=analytic-zdt2 n=500`, `pf_rows=500`). Characterize IGD on the same CSVs matched to 1e-12. Collapse = `n≤10` and `IGD≥0.3`. **No invented IGD.** Dumps: `ab/out/zdt2_probe/` (gitignored).
+
+`--tournament rank_niche` was already wired on both dumpers; no algorithm change.
+
+### A) gens=250, PymooCompatible (p=12, pop=52, seeds 1–15)
+
+Median IGD: **Bend 0.025621**, **C# 0.018684**. Collapse: **Bend 0/15**, **C# 0/15**. Every seed finished with **52** ND points.
+
+The four earlier probe seeds match this revision (Bend 0.024550 / 0.025621 / 0.022320 / 0.033346; C# 0.019230 / 0.017794 / 0.016622 / 0.042790). Slowest Bend recoveries still fail the collapse rule: seed 5 IGD 0.108520, seed 12 0.092069, seed 8 0.075328 — all `n=52`.
+
+| seed | Bend n / IGD | C# n / IGD | collapse |
+|-----:|-------------:|-----------:|----------|
+| 1 | 52 / 0.024550 | 52 / 0.019230 | |
+| 2 | 52 / 0.025621 | 52 / 0.017794 | |
+| 3 | 52 / 0.028093 | 52 / 0.018684 | |
+| 4 | 52 / 0.023679 | 52 / 0.033702 | |
+| 5 | 52 / 0.108520 | 52 / 0.029099 | |
+| 6 | 52 / 0.024795 | 52 / 0.021193 | |
+| 7 | 52 / 0.022320 | 52 / 0.016622 | |
+| 8 | 52 / 0.075328 | 52 / 0.021164 | |
+| 9 | 52 / 0.025847 | 52 / 0.017039 | |
+| 10 | 52 / 0.023553 | 52 / 0.018429 | |
+| 11 | 52 / 0.033346 | 52 / 0.042790 | |
+| 12 | 52 / 0.092069 | 52 / 0.016716 | |
+| 13 | 52 / 0.024122 | 52 / 0.014222 | |
+| 14 | 52 / 0.061379 | 52 / 0.017277 | |
+| 15 | 52 / 0.022635 | 52 / 0.019121 | |
+
+### B) gens=100, RankNicheDistance (C# Wilcoxon ZDT2 mode; p=12, pop=52, seeds 1–15)
+
+Median IGD: **Bend 0.166381**, **C# 0.405799**. Collapse: **Bend 4/15**, **C# 4/15**.
+
+Versus the published PymooCompatible gens=100 table ([PERF_NOTES.md](PERF_NOTES.md#zdt2-p12-pop52-gens100) / PR #16: Bend **10/15**, C# **8/15**). RankNicheDistance roughly **halves** the collapse rate on both stacks. It is **not** a free win: C# median IGD stays high (several `n>10` fronts still have IGD ≥ 0.3), and the dying seeds **move** (Bend 9 and 14 newly collapse; C# 2 is worse than PymooCompatible, matching the four-seed probe).
+
+| seed | Bend n / IGD | C# n / IGD | collapse |
+|-----:|-------------:|-----------:|----------|
+| 1 | 50 / 0.102896 | 52 / 0.048536 | |
+| 2 | 52 / 0.078540 | 11 / 0.516911 | |
+| 3 | 14 / 0.371608 | 8 / 0.530106 **coll** | C# |
+| 4 | 48 / 0.113598 | 17 / 0.416161 | |
+| 5 | 36 / 0.166381 | 44 / 0.095101 | |
+| 6 | 52 / 0.040034 | 2 / 0.688858 **coll** | C# |
+| 7 | 52 / 0.125654 | 16 / 0.405799 | |
+| 8 | 5 / 0.634662 **coll** | 7 / 0.517897 **coll** | both |
+| 9 | 4 / 0.584695 **coll** | 34 / 0.141532 | Bend |
+| 10 | 20 / 0.386363 | 52 / 0.061205 | |
+| 11 | 38 / 0.152637 | 52 / 0.058241 | |
+| 12 | 16 / 0.351658 | 49 / 0.078001 | |
+| 13 | 52 / 0.085629 | 3 / 0.528407 **coll** | C# |
+| 14 | 4 / 0.629991 **coll** | 11 / 0.378169 | Bend |
+| 15 | 10 / 0.470267 **coll** | 22 / 0.417406 | Bend |
+
+Same four probe seeds as the earlier RankNiche table: Bend 50/0.103, 52/0.079, 52/0.126, 38/0.153; C# 52/0.049, 11/0.517, 16/0.406, 52/0.058.
+
+Per-seed vs PymooCompatible @ 100 (cite #16; RankNiche this revision):
+
+| seed | Bend Pymoo | Bend RankNiche | C# Pymoo | C# RankNiche |
+|-----:|-----------:|---------------:|---------:|-------------:|
+| 1 | 33 / 0.147170 | 50 / 0.102896 | 41 / 0.111885 | 52 / 0.048536 |
+| 2 | 3 / 0.592805 **coll** | 52 / 0.078540 | 52 / 0.101012 | 11 / 0.516911 |
+| 3 | 8 / 0.549664 **coll** | 14 / 0.371608 | 7 / 0.543600 **coll** | 8 / 0.530106 **coll** |
+| 4 | 31 / 0.150038 | 48 / 0.113598 | 2 / 0.661220 **coll** | 17 / 0.416161 |
+| 5 | 4 / 0.641379 **coll** | 36 / 0.166381 | 2 / 0.655763 **coll** | 44 / 0.095101 |
+| 6 | 8 / 0.455388 **coll** | 52 / 0.040034 | 5 / 0.645855 **coll** | 2 / 0.688858 **coll** |
+| 7 | 3 / 0.515859 **coll** | 52 / 0.125654 | 10 / 0.472835 **coll** | 16 / 0.405799 |
+| 8 | 4 / 0.680160 **coll** | 5 / 0.634662 **coll** | 2 / 0.695668 **coll** | 7 / 0.517897 **coll** |
+| 9 | 26 / 0.305638 | 4 / 0.584695 **coll** | 35 / 0.243734 | 34 / 0.141532 |
+| 10 | 7 / 0.528767 **coll** | 20 / 0.386363 | 41 / 0.160180 | 52 / 0.061205 |
+| 11 | 3 / 0.699747 **coll** | 38 / 0.152637 | 2 / 0.646897 **coll** | 52 / 0.058241 |
+| 12 | 7 / 0.550622 **coll** | 16 / 0.351658 | 25 / 0.143003 | 49 / 0.078001 |
+| 13 | 46 / 0.085241 | 52 / 0.085629 | 2 / 0.652186 **coll** | 3 / 0.528407 **coll** |
+| 14 | 12 / 0.432479 | 4 / 0.629991 **coll** | 23 / 0.351300 | 11 / 0.378169 |
+| 15 | 5 / 0.540660 **coll** | 10 / 0.470267 **coll** | 31 / 0.256799 | 22 / 0.417406 |
+
+### Short conclusion
+
+**gens=250 PymooCompatible recovers the 15-seed table on both stacks (0/15 collapse).** The 10/15 vs 8/15 “collapse” at oracle gens=100 is a premature snapshot, not a Bend-only bug. **RankNicheDistance at 100 gens** (C# Wilcoxon ZDT2 protocol) cuts the rate to **4/15 vs 4/15** but leaves C# median IGD high and moves which seeds die. Tournament is a lever; the early `f1≈0` pile is shared. No niching / extras patch in this PR.
+
 ## Recommended next experiments (no silent “fix”)
 
-1. **If ZDT2 A/B should look like ZDT1 at 100 gens:** try the C# Wilcoxon ZDT2 settings — **RankNicheDistance** and/or **gens=250** — on seeds 1–15 (both stacks + pymoo). Do not change last-front extras from seed=1 alone (PR #7 ZDT1 regression).
-2. **15-seed gens=250 PymooCompatible** — this PR only did seeds 1/2/7/11. Confirm the 10/15 “collapse” rate drops before calling 100 gens a Bend bug.
+1. **Done (this revision).** C# Wilcoxon ZDT2 settings — **RankNicheDistance**, gens=100, seeds 1–15, both stacks. Collapse 4/15 vs 4/15 (not ZDT1-clean).
+2. **Done (this revision).** **15-seed gens=250 PymooCompatible** — collapse rate is **0/15** on Bend and C#. Do not call gens=100 a Bend bug.
 3. **ZDT1 at gens=10** as a control (expect `f1` span stays large). Not run here.
 4. **Do not** ship always-closest extras without re-checking ZDT1 / DTLZ2 (PR #7 tradeoff).
-5. If a later PR changes niching or the oracle gens, require ZDT1 + DTLZ2 + ZDT2 multi-seed, not seed=1 alone.
+5. If a later PR changes niching or the oracle gens, require ZDT1 + DTLZ2 + ZDT2 multi-seed, not seed=1 alone. If ZDT2 A/B should look like ZDT1 at the published budget, raise gens (250) rather than swapping extras from one ugly seed.
 
 ## How to reproduce
 
@@ -171,6 +253,13 @@ python3 ab/zdt2_collapse_probe.py --stacks bend csharp pymoo \
   --seeds 1 2 7 11 --gens 10 50 100 250 --tournament pymoo
 python3 ab/zdt2_collapse_probe.py --stacks bend csharp \
   --seeds 1 2 7 11 --gens 100 --tournament rank_niche
+# 15-seed confirmation (this revision)
+python3 ab/zdt2_collapse_probe.py --stacks bend csharp \
+  --seeds 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 --gens 250 --tournament pymoo
+python3 ab/zdt2_collapse_probe.py --stacks bend csharp \
+  --seeds 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 --gens 100 --tournament rank_niche
+python3 ab/igd_vs_pymoo.py --front ab/out/zdt2_probe/bend_zdt2_p12_pop52_g250_s1_pymoo_F.csv \
+  --problem zdt2 --pf-points 500 --partitions 12
 python3 ab/characterize_front.py --front ab/out/zdt2_probe/bend_zdt2_p12_pop52_g100_s11_pymoo_F.csv --problem zdt2
 ```
 
