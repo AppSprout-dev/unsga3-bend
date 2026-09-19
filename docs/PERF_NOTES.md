@@ -251,6 +251,71 @@ NDS wall ms dropped ~43× on DTLZ2 and ~31× on ZDT1. Warm `run_s` dropped ~3.6�
 | offspring_sbx_pm_g12 | 1898 | 1.898 | 66 |
 | unaccounted | 62 | 0.062 | |
 
+## After niching / offspring walks
+
+Same pick rules. Same SBX / PM / G12 RNG order. Last-front fill builds `NRow{index, ref, dist}` once and walks that list (no `List.get` of `Assignment` per remaining candidate per pick). SBX and polynomial mutation peel variable lists with the box intervals (no per-index `List.get` / `set_var_at`). G12 is a sequential tail walk; `try_add` hashes once. Tournament / `niche_loop.rng` stay sequential. Arrays still unused (cannot ride a fork tree).
+
+Host for these rows: 4-core Xeon (KVM), clang 18.1.3, Bend **2.0.15**, `--threads 4`, seed=1, `PymooCompatible`. Warm-cache native `ab/profile_bend_run.py` (second invocation; `compile_s` omitted). Fronts vs main @ dc2eccb (#15) seed=1 are **byte-identical** (checked-in smoke, core fixture, oracle ZDT1, oracle DTLZ2, and the profile fronts). No IGD / HV claimed — the dumps matched, so pymoo was not needed (and is not installed here).
+
+### Headline before (#15 / main @ dc2eccb) vs after (this tree)
+
+`pct` is of that run’s `profile_sum_ms`. NDS **absolute** ms stay in the same band.
+
+| run | | run_s | nds ms (%) | niche ms (%) | offspring ms (%) |
+|-----|--|------:|-----------:|-------------:|-----------------:|
+| DTLZ2 92×150 | before | 15.736 | 901 (5%) | 8987 (57%) | 3876 (24%) |
+| DTLZ2 92×150 | after | 6.779 | 883 (13%) | 2829 (42%) | 1097 (16%) |
+| ZDT1 52×100 | before | 2.920 | 270 (9%) | 376 (13%) | 1898 (66%) |
+| ZDT1 52×100 | after | 1.238 | 285 (23%) | 62 (5%) | 523 (43%) |
+
+DTLZ2 niche wall ms dropped ~3.2×; offspring ~3.5×. ZDT1 offspring wall ms dropped ~3.6×; niche ~6× (small absolute). Warm `run_s` dropped ~2.3× / ~2.4×. NDS stayed ~0.9 s / ~0.3 s.
+
+### DTLZ2 M=3 k=10, partitions=12, pop=92, gens=150, seed=1 (after niching / offspring)
+
+- warm: `compile_s` omitted, `run_s=6.779`, `profile_sum_ms=6645`, `profile_wall_ms=6776` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 64 | 0.064 | 0 |
+| nds_select | 692 | 0.692 | 10 |
+| nds_prepare | 191 | 0.191 | 2 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **883** | **0.883** | **13** |
+| normalize_select | 301 | 0.301 | 4 |
+| normalize_prepare | 172 | 0.172 | 2 |
+| normalize | 473 | 0.473 | 7 |
+| associate_select | 731 | 0.731 | 11 |
+| associate_prepare | 476 | 0.476 | 7 |
+| associate | 1207 | 1.207 | 18 |
+| niche | 2829 | 2.829 | 42 |
+| tournament | 92 | 0.092 | 1 |
+| offspring_sbx_pm_g12 | 1097 | 1.097 | 16 |
+| unaccounted | 131 | 0.131 | |
+
+### ZDT1 n=30, partitions=12, pop=52, gens=100, seed=1 (after niching / offspring)
+
+- warm: `compile_s` omitted, `run_s=1.238`, `profile_sum_ms=1196`, `profile_wall_ms=1235` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 1 | 0.001 | 0 |
+| evaluate | 33 | 0.033 | 2 |
+| nds_select | 225 | 0.225 | 18 |
+| nds_prepare | 60 | 0.060 | 5 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **285** | **0.285** | **23** |
+| normalize_select | 64 | 0.064 | 5 |
+| normalize_prepare | 47 | 0.047 | 3 |
+| normalize | 111 | 0.111 | 9 |
+| associate_select | 89 | 0.089 | 7 |
+| associate_prepare | 74 | 0.074 | 6 |
+| associate | 163 | 0.163 | 13 |
+| niche | 62 | 0.062 | 5 |
+| tournament | 18 | 0.018 | 1 |
+| offspring_sbx_pm_g12 | 523 | 0.523 | 43 |
+| unaccounted | 39 | 0.039 | |
+
 ## How to reproduce
 
 ```bash
