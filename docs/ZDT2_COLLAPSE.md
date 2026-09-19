@@ -168,8 +168,10 @@ export UNSGA3_CS_ROOT=/path/to/Unsga3   # e.g. f99fdac
 
 python3 ab/zdt2_geometry.py
 python3 ab/zdt2_collapse_probe.py --stacks bend csharp pymoo \
-  --seeds 1 2 7 11 --gens 10 50 100 --tournament pymoo
-python3 ab/characterize_front.py --front ab/out/zdt2_probe/bend_zdt2_p12_pop52_g100_s1_pymoo_F.csv --problem zdt2
+  --seeds 1 2 7 11 --gens 10 50 100 250 --tournament pymoo
+python3 ab/zdt2_collapse_probe.py --stacks bend csharp \
+  --seeds 1 2 7 11 --gens 100 --tournament rank_niche
+python3 ab/characterize_front.py --front ab/out/zdt2_probe/bend_zdt2_p12_pop52_g100_s11_pymoo_F.csv --problem zdt2
 ```
 
 `dump_csharp_run.py` / the csharp stack skip (exit 0) without `UNSGA3_CS_ROOT` / `dotnet`. The pymoo stack skips without pymoo. Do not invent a front or IGD.
