@@ -2,7 +2,7 @@
 
 Compare **unsga3-bend** to C# [Unsga3](https://github.com/AppSprout-dev/Unsga3) and, when installed, a pymoo IGD. Same public protocol as [docs/EQUIVALENCE.md](../docs/EQUIVALENCE.md) and C# `docs/EQUIVALENCE.md`: Das–Dennis partitions, pop, gens, seed, IGD as mean nearest-neighbor distance. Dump defaults: [`protocol.py`](protocol.py).
 
-This repo is not a NuGet package and is not a drop-in into C# consumers. PackageId `Unsga3` stays C# / NuGet / GitHub Packages; Bend is the hub package beside it (planned **0.1.0**, hash filled at publish). Do not invent IGD / HV / Wilcoxon numbers.
+This repo is not a NuGet package and is not a drop-in into C# consumers. PackageId `Unsga3` stays C# / NuGet / GitHub Packages; Bend is the hub package beside it (**0.1.0**, `import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3`). Do not invent IGD / HV / Wilcoxon numbers.
 
 ## Layer 1 — v0 core (wired)
 

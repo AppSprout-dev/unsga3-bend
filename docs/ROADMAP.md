@@ -1,12 +1,12 @@
 # Roadmap
 
-Living plan for **unsga3-bend**. This is a Bend rewrite, not a NuGet package. PackageId `Unsga3` stays the C# / NuGet / GitHub Packages stack. This tree is the Bend hub package beside it. Planned first hub version: **0.1.0**.
+Living plan for **unsga3-bend**. This is a Bend rewrite, not a NuGet package. PackageId `Unsga3` stays the C# / NuGet / GitHub Packages stack. This tree is the Bend hub package beside it. First hub version: **0.1.0** (content hash `0xcd07e24a626a62e74603d48f436cd679`).
 
 Public protocol: [EQUIVALENCE.md](EQUIVALENCE.md). How to check the tree: [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-## 0.1.0 scope (planned hub)
+## 0.1.0 scope (hub)
 
-Treat as **shipped** for a first hub visitor: v0 core, Pass 2 `Run` + samples, parallel maps, native `-o` dumps, closed `PROOF.bend`, ZDT2 quality protocol gens=250. Open boxes below (C# fixture bit-match, bit-for-bit IGD, hub hash) are remaining work — only the paused `--publish` hash fill is the 0.1.0 publish gate.
+Treat as **shipped** for a first hub visitor: v0 core, Pass 2 `Run` + samples, parallel maps, native `-o` dumps, closed `PROOF.bend`, ZDT2 quality protocol gens=250. Open boxes below (C# fixture bit-match, bit-for-bit IGD) are remaining work. Hub publish already ran; this tree records the import hash.
 
 ## v0 — core (implemented)
 
@@ -65,13 +65,19 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 - [x] NDS peel on pre-materialized `Row{index, objectives}` (no `List.get` of `Individual` during the rank walk). Same Pareto definition; same Split partition law. Mid-split on candidates kept; inner `is_dominated` still sequential OR
 - [x] Last-front niching on `NRow{index, ref, dist}` + SBX/PM/G12 list walks (no repeated `List.get` / `set_var_at` on fat Individuals). Same pick rules and RNG order; tournament / `niche_loop.rng` stay sequential
 
-## Hub publish — planned 0.1.0
+## Hub publish — 0.1.0
 
-**0.1.0** is the first planned content-hash hub version. **Paused:** do not run `bend … --publish` or create a `v0.1.0` tag until maintainers fill the README import hash.
+**0.1.0** is the first content-hash hub version. Publish already ran: `bend src/lib.bend --publish`.
+
+- Content hash: `0xcd07e24a626a62e74603d48f436cd679`
+- Printed import: `import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Lib`
+- Consumer import: `import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3`
+
+Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
 
 - [x] Public docs: not NuGet; PackageId `Unsga3` stays C# / NuGet + GitHub Packages; Bend is the hub package beside it
-- [x] Consumer import placeholder (`import 0x…` — hash filled at publish)
+- [x] Consumer import (`import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3`)
 - [x] ZDT2 quality protocol gens=250; gens=100 = early stress ([ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md), [`ab/protocol.py`](../ab/protocol.py))
-- [ ] `bend src/lib.bend --publish` (fills the README hash — after this docs review)
-- [ ] Still not NuGet; PackageId `Unsga3` remains the C# package only
+- [x] `bend src/lib.bend --publish` (content hash `0xcd07e24a626a62e74603d48f436cd679`)
+- [x] Still not NuGet; PackageId `Unsga3` remains the C# package only
 - [ ] GitHub About description / topics (exact strings in [CHANGELOG.md](../CHANGELOG.md); `gh repo edit` needs org permission)

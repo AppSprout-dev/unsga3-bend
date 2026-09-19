@@ -4,13 +4,21 @@ Notable changes to **unsga3-bend**.
 
 This file tracks the Bend **hub** package (content-hash). It is **not** the C# / NuGet changelog for PackageId `Unsga3` ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)).
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The first planned hub version is **0.1.0**. That version is **not published yet**: no `v0.1.0` tag, and `bend … --publish` waits until maintainers fill the import hash.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The first hub version is **0.1.0** (content hash `0xcd07e24a626a62e74603d48f436cd679`). A `v0.1.0` git tag and GitHub Release wait until this hash is recorded on `main`.
 
-## [Unreleased] — planned 0.1.0 (hub)
+## [Unreleased]
 
-First content-hash hub package. After publish, consumers import the printed line (`import 0x…/src/lib.bend as …`). Until then the hash is a placeholder — **hash filled at publish**. Not nuget.org. Not GitHub Packages.
+## [0.1.0] - 2026-09-19
 
-### In this tree (what 0.1.0 would ship)
+First content-hash hub package. Publish already ran: `bend src/lib.bend --publish`.
+
+- Content hash: `0xcd07e24a626a62e74603d48f436cd679`
+- Printed import: `import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Lib`
+- Consumer import: `import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3`
+
+Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`. Not nuget.org. Not GitHub Packages.
+
+### Added
 
 - v0 core: non-dominated sort, NSGA-III normalization, Das–Dennis directions, niching / association, survival
 - Pass 2: decision variables, SBX (η=30), polynomial mutation (η=20), ZDT1 / ZDT2 / DTLZ2 (3-obj), `PymooCompatible` tournament, `Unsga3Algorithm.Run`
@@ -26,11 +34,11 @@ First content-hash hub package. After publish, consumers import the printed line
 
 ### GitHub About (apply with org permission)
 
-`gh repo edit` from this agent returned **HTTP 403**. Jason / maintainers:
+`gh repo edit` from this agent returned **HTTP 403**. Maintainers:
 
 ```bash
 gh repo edit AppSprout-dev/unsga3-bend \
-  --description "Bend 2 port of U-NSGA-III. Planned 0.1.0 content-hash hub package (not NuGet). C# Unsga3 is the NuGet/GitHub Packages reference. A/B via ZDT/DTLZ + IGD." \
+  --description "Bend 2 port of U-NSGA-III. 0.1.0 content-hash hub package (not NuGet). C# Unsga3 is the NuGet/GitHub Packages reference. A/B via ZDT/DTLZ + IGD." \
   --homepage "https://github.com/AppSprout-dev/unsga3-bend" \
   --add-topic bend \
   --add-topic nsga3 \
@@ -43,4 +51,5 @@ gh repo edit AppSprout-dev/unsga3-bend \
 
 Replaces current description: `U-NSGA-III in Bend — greenfield rewrite; A/B vs C# Unsga3 via ZDT/DTLZ + pymoo IGD. Not a NuGet package.` (no homepage, no topics). Do **not** add a `nuget` topic.
 
-[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/commits/main
+[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/AppSprout-dev/unsga3-bend/releases/tag/v0.1.0

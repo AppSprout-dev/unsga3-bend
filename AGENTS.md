@@ -22,7 +22,7 @@ Language docs: https://bend-lang.com/ and https://github.com/bendlang/bend
 
 - **Name:** `unsga3-bend`. Greenfield Bend rewrite of U-NSGA-III.
 - **Reference:** existing C# library [AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3). Read it via `gh` / GitHub API only; do **not** clone it into this repo.
-- **PackageId `Unsga3` stays C# / NuGet / GitHub Packages only.** This tree is not a NuGet package. Planned first hub version is **0.1.0** (`bend … --publish`, content-hash), not nuget.org / GitHub Packages. Publish and a `v0.1.0` tag wait until after the public-docs review merges — do not run `--publish` from this tree until then.
+- **PackageId `Unsga3` stays C# / NuGet / GitHub Packages only.** This tree is not a NuGet package. Hub version **0.1.0** is published (`bend src/lib.bend --publish`, content hash `0xcd07e24a626a62e74603d48f436cd679`), not nuget.org / GitHub Packages.
 - **Not a drop-in** for C# consumers. Shared plan is A/B of fronts and ZDT/DTLZ + IGD vs a pymoo oracle using the same protocol as the C# Unsga3 docs.
 - **v0 core (done):** non-dominated sort, normalization, Das–Dennis reference directions, niching / reference-point association, survival selection.
 - **Pass 2 (in tree):** `Individual` variables, SBX, polynomial mutation, ZDT1 / ZDT2 / DTLZ2 (3-obj), PymooCompatible mating tournament, `Unsga3Algorithm.Run`, smoke + algorithm A/B scripts.
@@ -30,7 +30,7 @@ Language docs: https://bend-lang.com/ and https://github.com/bendlang/bend
 - **NDS row peel (landed):** `sort` materializes `Row{index, objectives}` once and peels those rows (no `List.get` of `Individual` on the pair walk). Same dominance definition; seed=1 smoke and oracle fronts match main @ a6ebf2d.
 - **Niching / offspring walks (landed):** last-front fill uses `NRow{index, ref, dist}`; SBX / polynomial mutation / G12 walk variable lists (no per-index `List.get` / `set_var_at`). Same RNG order so seed=1 fronts stay byte-identical. Tournament / last-front pick order stay sequential.
 - **Native `-o` dump path (in tree):** `bend src/run_smoke.bend -o …` (or a generated driver) then run the binary; `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails. `bend PROOF.bend` is 0 `?TODO`.
-- **Hub 0.1.0 (planned):** first content-hash package. Consumers `import 0x…/src/lib.bend as …` once published (hash filled at publish). Until then, import `./src/lib.bend` from this checkout.
+- **Hub 0.1.0:** first content-hash package. Consumers `import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3`. `bend --publish` printed `import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Lib`. Checkout development still uses `import ./src/lib.bend as Unsga3`.
 - **Standalone OSS:** no mentions of private product repos or internal application names. Consumers wire their own Unsga3 usage; this repo does not know about them.
 - **No fabricated benchmark numbers.** A/B scripts dump a real Bend front or print `skip: …` when an oracle is missing. Do not invent IGD, HV, or Wilcoxon results.
 - **ZDT2 A/B / oracle default:** gens=**250**, still `PymooCompatible`, p=12, pop=52 (`ab/protocol.py`). gens=100 is an early-stress snapshot (PR #16 Bend 10/15, C# 8/15 collapse; 15-seed gens=250 is 0/15 — [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md)). ZDT1 stays 100; DTLZ2 stays 150. RankNicheDistance is `--tournament rank_niche`, not the new default.
