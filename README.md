@@ -73,7 +73,7 @@ bend src/lib.bend       # module graph: All terms check (Bend 2.0.10+)
 bend src/ab_select.bend # v0 selection smoke (prints CSV front)
 bend src/op_smoke.bend  # SBX + poly mutation on a 2-var box, seed 42
 bend src/run_smoke.bend # short fixed-seed ZDT1 Run; prints ND front CSV
-bend PROOF.bend         # gate: closed Nat laws + remaining ?TODO
+bend PROOF.bend         # gate: closed length / irreflexivity + remaining ?TODO
 # Native Run dump (clang 14+). Same CSV front as `bend src/run_smoke.bend`.
 mkdir -p ab/out
 bend src/run_smoke.bend -o ab/out/run_smoke
