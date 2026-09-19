@@ -49,7 +49,7 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 - [x] `Prob.evaluate_all` — mid-split, `a b = evaluate_all(lo) evaluate_all(hi)`
 - [x] `Surv.associate_raw` — nearest-ref per individual (dirs shared); `with_counts` / `gather` same shape
 - [x] `Norm.map_norm` / `gather_objs` — independent given ideal/nadir or the population
-- [x] Native `bend … -o` dump path — compile `src/run_smoke.bend` (or a generated driver) to a binary; `ab/dump_bend_run.py --native` prefers it and falls back to `bend file.bend` if the build fails
+- [x] Native `bend … -o` dump path — compile `src/run_smoke.bend` (or a generated driver) to a binary; `ab/dump_bend_run.py --native` prefers it and falls back to `bend file.bend` if the build fails. Same driver source reuses `ab/out/run_cache/<sha256>`; stderr splits `compile_s` from `run_s` (earlier dump wall times included compile)
 - [x] Close `dominates_irreflexive`, `normalize_len`, `associate_len` (same-list verdict / mid-split map length)
 - [x] Close remaining `PROOF.bend` laws: `sort_index_count`, `das_dennis_len`, `select_size`, `sbx_prob0_child1_vars`, `sbx_prob0_child2_vars`, `poly_prob0_vars`, `run_pop_size`. `bend PROOF.bend` is 0 `?TODO` (one `@unsafe` Das–Dennis index walk)
 
