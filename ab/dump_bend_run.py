@@ -7,6 +7,9 @@ OracleCompare protocol.
 
 With --problem/--partitions/--pop/--gens/--seed, generate a small Bend
 wrapper and run that (oracle-sized runs are opt-in and can be slow).
+Omitted --gens uses ab/protocol.py: ZDT2=250, ZDT1=100, DTLZ2=100
+(historical generated-driver default; pass --gens 150 for oracle DTLZ2).
+Explicit --gens always wins. Tournament default stays PymooCompatible.
 
 Native path (clang 14+; Bend 2.0.10+):
   bend <driver> -o ab/out/run_cache/<sha256(driver)>
@@ -30,6 +33,8 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+from protocol import default_gens
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BEND = ROOT / "src" / "run_smoke.bend"
@@ -230,7 +235,13 @@ def main() -> int:
     parser.add_argument("--problem", choices=sorted(PROBLEMS), default=None)
     parser.add_argument("--partitions", type=int, default=None)
     parser.add_argument("--pop", type=int, default=None)
-    parser.add_argument("--gens", type=int, default=None)
+    parser.add_argument(
+        "--gens",
+        type=int,
+        default=None,
+        help="generations (default: 250 if --problem zdt2, else 100; "
+        "explicit value always wins)",
+    )
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--tournament",
@@ -303,7 +314,11 @@ def main() -> int:
         problem = args.problem or "zdt1"
         partitions = args.partitions if args.partitions is not None else 12
         pop = args.pop if args.pop is not None else 52
-        gens = args.gens if args.gens is not None else 100
+        gens = (
+            args.gens
+            if args.gens is not None
+            else default_gens(problem, dtlz2_gens=100)
+        )
         seed = args.seed if args.seed is not None else 1
         tournament = args.tournament or "pymoo"
         OUT_DIR.mkdir(parents=True, exist_ok=True)

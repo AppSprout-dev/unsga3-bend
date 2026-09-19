@@ -23,11 +23,13 @@ Feed a **population of objective vectors** through Bend `NonDominatedSort` → `
 | Label | Problem | Partitions | Pop | Gens | Seed | Tournament |
 |-------|---------|------------|-----|------|------|------------|
 | **oracle ZDT1** | ZDT1 n=30 | 12 | 52 | 100 | 1 | PymooCompatible |
-| **oracle ZDT2** | ZDT2 n=30 | 12 | 52 | 100 | 1 | PymooCompatible |
+| **oracle ZDT2** | ZDT2 n=30 | 12 | 52 | **250** | 1 | PymooCompatible |
 | **oracle DTLZ2** | DTLZ2 M=3 k=10 | 12 | 92 | 150 | 1 | PymooCompatible |
 | **smoke ZDT1** | ZDT1 n=30 | 4 | 8 | 3 | 1 | PymooCompatible |
 
 Operators match C#: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Smoke is **not** an oracle claim.
+
+ZDT2 **gens=100** is an early-stress snapshot (PR #16 / [PERF_NOTES.md](../docs/PERF_NOTES.md): Bend 10/15, C# 8/15 collapse), not this tree’s A/B default. The 15-seed gens=250 table recovered **0/15** on both stacks ([ZDT2_COLLAPSE.md](../docs/ZDT2_COLLAPSE.md)). `ab/protocol.py` is the dump-helper default: omitted `--gens` on `--problem zdt2` is 250. RankNicheDistance (`--tournament rank_niche`) stays an optional lever.
 
 C# side (when `UNSGA3_CS_ROOT` points at a local Unsga3 checkout):
 
@@ -64,6 +66,18 @@ python3 ab/igd_vs_pymoo.py --front ab/out/bend_zdt1_F.csv --problem zdt1 --pf-po
 python3 ab/igd_vs_pymoo.py --front ab/out/csharp_zdt1_F.csv --problem zdt1 --pf-points 500
 ```
 
+**ZDT2** — same analytic PF; A/B default **gens=250** (omit `--gens` or pass it explicitly). `--gens 100` is the early-stress snapshot.
+
+```bash
+python3 ab/dump_bend_run.py --native --problem zdt2 --partitions 12 --pop 52 --seed 1 \
+  --out ab/out/bend_zdt2_F.csv
+python3 ab/dump_csharp_run.py --problem zdt2 --partitions 12 --pop 52 --seed 1 \
+  --out ab/out/csharp_zdt2_F.csv
+
+python3 ab/igd_vs_pymoo.py --front ab/out/bend_zdt2_F.csv --problem zdt2 --pf-points 500 --partitions 12
+python3 ab/igd_vs_pymoo.py --front ab/out/csharp_zdt2_F.csv --problem zdt2 --pf-points 500 --partitions 12
+```
+
 `dump_csharp_run.py` skips (exit 0) without `UNSGA3_CS_ROOT` / `dotnet`. Do not invent a C# front or IGD. Compare the two `igd=` lines only when both CSVs exist and both prints show the same `pf_rows` / `partitions`.
 
 ### Deltas vs C#
@@ -72,7 +86,7 @@ python3 ab/igd_vs_pymoo.py --front ab/out/csharp_zdt1_F.csv --problem zdt1 --pf-
 - `Run` survival niching threads rng (random among equal min-count niches), matching C# `Select(..., rng)` for the ref pick. Empty niches take closest; extras draw among members within 2×best+0.01 of the ray. Uniform `inNiche[rng.Next]` with this LCG collapsed oracle ZDT2. v0 `Survival.select` stays deterministic (`rng == null`).
 - Duplicate keys use C# G12-style 12-decimal rounding on decision vars (Bend F32 ULP is coarser than 1e-12).
 - Unconstrained problems only (no constraint-domination).
-- A/B / smoke tournament is `PymooCompatible`. C# ctor default is `RankNicheDistance` (also implemented).
+- A/B / smoke tournament is `PymooCompatible`. C# ctor default is `RankNicheDistance` (also implemented; `--tournament rank_niche` is diagnostic, not the A/B default).
 - DTLZ2 IGD must use the Das–Dennis PF at the run’s partitions. Scoring a C# or Bend front against pymoo’s default ~136-pt PF is a **yardstick mismatch**, not an algorithm gap (same C# seed-1 front: OracleCompare IGD ≈ 0.00403 vs ~0.051 on the old default PF).
 
 ## Smoke
@@ -124,7 +138,8 @@ python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 10
 | Script | Role |
 |--------|------|
 | `dump_bend_front.py` | v0 `Survival.select`, writes `ab/out/bend_F.csv` |
-| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` compiles to `ab/out/run_cache/<sha256>` on miss and reuses that binary on hit; falls back to `bend <driver>` if the build fails. Stderr `compile_s` vs `run_s` splits those costs |
+| `protocol.py` | A/B defaults: ZDT2 gens=250, ZDT1=100, DTLZ2=150 (C# path). RankNicheDistance is not the default |
+| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` compiles to `ab/out/run_cache/<sha256>` on miss and reuses that binary on hit; falls back to `bend <driver>` if the build fails. Stderr `compile_s` vs `run_s` splits those costs. Omitted `--gens` on `--problem zdt2` is 250 |
 | `dump_csharp_front.py` | optional C# `Select` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing |
 | `dump_csharp_run.py` | optional C# `OracleCompare` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing. Writes to a per-run `ab/out/csharp_oracle/<stem>/` so a leftover CSV from another problem is not picked (old shared-dir `glob[-1]` was wrong after multi-problem runs). |
 | `csharp_core_dump/` | one-shot `dotnet` helper for layer-1 `Select` |
@@ -137,4 +152,4 @@ python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 10
 | `zdt2_collapse_probe.py` | dump Bend / C# / pymoo ZDT2 (or ZDT1) over seeds×gens; JSONL summary |
 | `zdt2_geometry.py` | analytic ZDT1/ZDT2 PF vs Das–Dennis rays (no Run) |
 
-ZDT2 multi-seed collapse on **both** stacks: [docs/ZDT2_COLLAPSE.md](../docs/ZDT2_COLLAPSE.md). `dump_bend_run.py --tournament rank_niche` and `dump_csharp_run.py --tournament rank_niche` are diagnostic (A/B default stays `pymoo`).
+ZDT2 multi-seed collapse on **both** stacks at gens=100: [docs/ZDT2_COLLAPSE.md](../docs/ZDT2_COLLAPSE.md). A/B default is gens=250 / `pymoo`. `dump_bend_run.py --tournament rank_niche` and `dump_csharp_run.py --tournament rank_niche` are diagnostic.

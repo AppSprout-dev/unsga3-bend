@@ -425,7 +425,8 @@ Honest dumps on this host. **No invented IGD.** Every cell is `ab/dump_bend_run.
 |------|--------|
 | Protocol | [ab/README.md](../ab/README.md) / C# `docs/EQUIVALENCE.md` |
 | Tournament | `PymooCompatible` |
-| ZDT1 / ZDT2 | n=30, partitions=12, pop=52, gens=100 |
+| ZDT1 | n=30, partitions=12, pop=52, gens=100 |
+| ZDT2 (this #16 table) | n=30, partitions=12, pop=52, **gens=100** early-stress snapshot |
 | DTLZ2 | M=3 k=10, partitions=12, pop=92, gens=150 |
 | Seeds | 1–15 |
 | Bend | 2.0.15, this tree `29cff2d`, `--threads` omitted (`cpu_count()` = 4) |
@@ -474,7 +475,7 @@ Overall Bend ≤ C# IGD: **24/45**. ZDT2 collapses on **both** sides (known rema
 | 14 | 0.069462 | 0.103394 | 0.772 | 0.232 | 52 | 51 |
 | 15 | 0.071475 | 0.112429 | 0.764 | 0.239 | 52 | 52 |
 
-ZDT2 collapse on **both** stacks (not a #16 regression): investigation note [ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md).
+ZDT2 collapse on **both** stacks (not a #16 regression): investigation note [ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md). **This gens=100 table is an early-stress snapshot.** This tree’s A/B / oracle default for ZDT2 is now **gens=250** (still PymooCompatible, p=12, pop=52) — 15-seed confirmation there is Bend 0/15 and C# 0/15 collapse. RankNicheDistance is optional, not the new default.
 
 ### ZDT2 (p=12, pop=52, gens=100)
 
