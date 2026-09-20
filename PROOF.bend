@@ -1103,11 +1103,11 @@ def nats_add_same_len(a: List<&2, Nat>, b: List<&2, Nat>, e: {Util.list_len(Nat,
   match a b:
     case Nil{} Nil{}:
       {==}
-    case +x <> xs +y <> ys:
+    case +x <> +xs +y <> +ys:
       %nats_add_same_len(xs, ys, succ_inj(Util.list_len(Nat, xs), Util.list_len(Nat, ys), e)) : {1n+Util.list_len(Nat, Util.nats_add(xs, ys)) == 1n+_ : Nat}
       {==}
     case Nil{} +y <> ys:
-      Equal.sym(Nat, Util.list_len(Nat, y <> ys), 0n, e)
+      Equal.sym(Nat, 0n, Util.list_len(Nat, y <> ys), e)
     case +x <> xs Nil{}:
       {==}
 
@@ -1115,7 +1115,7 @@ def nats_add_len_n(
   +a: List<&2, Nat>,
   +b: List<&2, Nat>,
   +n: Nat,
-  e_a: {Util.list_len(Nat, a) == n : Nat},
+  +e_a: {Util.list_len(Nat, a) == n : Nat},
   e_b: {Util.list_len(Nat, b) == n : Nat}
 ) -> {Util.list_len(Nat, Util.nats_add(a, b)) == n : Nat}:
   Equal.trans(
@@ -1135,7 +1135,7 @@ def nats_add_sum(a: List<&2, Nat>, b: List<&2, Nat>) -> {Util.nats_sum(Util.nats
   match a b:
     case Nil{} Nil{}:
       {==}
-    case +x <> xs +y <> ys:
+    case +x <> +xs +y <> +ys:
       Equal.trans(
         Nat,
         Nat.add(Nat.add(x, y), Util.nats_sum(Util.nats_add(xs, ys))),
@@ -1151,14 +1151,13 @@ def nats_add_sum(a: List<&2, Nat>, b: List<&2, Nat>) -> {Util.nats_sum(Util.nats
         ),
         add4_rearr(x, y, Util.nats_sum(xs), Util.nats_sum(ys))
       )
-    case Nil{} ys:
+    case Nil{} +y <> ys:
       {==}
-    case xs Nil{}:
-      add_zero_r(Util.nats_sum(xs))
+    case +x <> +xs Nil{}:
+      Equal.sym(Nat, Nat.add(Util.nats_sum(x <> xs), 0n), Util.nats_sum(x <> xs), add_zero_r(Util.nats_sum(x <> xs)))
 
 def inc_at_sum.nil(i: Nat) -> {Util.nats_sum(Util.inc_at(Nil{}, i)) == Nat.add(Util.nats_sum(Nil{}), Util.bin_hit(i, 0n)) : Nat}:
-  %bin_hit_n0(i) : {0n == Nat.add(0n, _) : Nat}
-  {==}
+  Equal.sym(Nat, Util.bin_hit(i, 0n), 0n, bin_hit_n0(i))
 
 def inc_at_sum.zero(+h: Nat, +t: List<&2, Nat>) -> {Util.nats_sum(Util.inc_at(h <> t, 0n)) == Nat.add(Util.nats_sum(h <> t), 1n) : Nat}:
   Equal.sym(
@@ -1175,9 +1174,9 @@ def inc_at_sum(
   match xs i:
     case Nil{} k:
       inc_at_sum.nil(k)
-    case +h <> t 0n:
+    case +h <> +t 0n:
       inc_at_sum.zero(h, t)
-    case +h <> t 1n+p:
+    case +h <> +t 1n++p:
       Equal.trans(
         Nat,
         Nat.add(h, Util.nats_sum(Util.inc_at(t, p))),
@@ -1205,7 +1204,7 @@ def in_bin_take_drop(+n: Nat, asgs: List<&2, Surv.Assignment>, mid: Nat) -> {Nat
       {==}
     case +a <> rest 0n:
       {==}
-    case +a <> +rest 1n+p:
+    case +a <> +rest 1n++p:
       Equal.trans(
         Nat,
         Nat.add(Nat.add(Util.bin_hit(Surv.asg_ref(a), n), Surv.in_bin_count(List.take(&2, Surv.Assignment, rest, p), n)), Surv.in_bin_count(List.drop(&2, Surv.Assignment, rest, p), n)),
