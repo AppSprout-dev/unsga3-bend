@@ -100,6 +100,26 @@ def inc_at(+xs: List<&2, Nat>, +i: Nat) -> List<&2, Nat>:
 def zeros_nat(n: Nat) -> List<&2, Nat>:
   List.replicate(Nat, n, 0n)
 
+# Sum of a Nat histogram. Used to lock mid-split count conservation.
+def nats_sum(xs: List<&2, Nat>) -> Nat:
+  match xs:
+    case Nil{}:
+      0n
+    case +x <> rest:
+      Nat.add(x, nats_sum(rest))
+
+# 1 when i is a valid bin of a length-n histogram, else 0.
+# List.set (and therefore inc_at) is a no-op at i >= n.
+def bit(b: Bool) -> Nat:
+  match b:
+    case True{}:
+      1n
+    case False{}:
+      0n
+
+def bin_hit(+i: Nat, +n: Nat) -> Nat:
+  bit(Nat.is_lt(i, n))
+
 def nats_add(a: List<&2, Nat>, b: List<&2, Nat>) -> List<&2, Nat>:
   match a b:
     case Nil{} Nil{}:

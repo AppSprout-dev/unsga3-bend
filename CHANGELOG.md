@@ -8,6 +8,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The
 
 ## [Unreleased]
 
+### Added
+
+- Closed `niche_count_sum`: mid-split niching histogram conservation (`nats_sum(count_raw.go) == in_bin_count`). Nat-only honesty property of parallel partition; no IGD / F32 / RNG claim. Bend-wall gym spike (Bend+Jev architecture bet; this change is Bend proofs only).
+
 ## [0.1.0] - 2026-09-19
 
 First content-hash hub package. Publish already ran: `bend src/lib.bend --publish`.

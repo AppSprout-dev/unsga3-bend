@@ -5,7 +5,8 @@
 # (same-list flags → verdict 0) and |normalize| / |associate| via
 # mid-split map length. Remaining quantified laws use fuel induction,
 # Row-peel Split partition, Das–Dennis by construction, p=0 bit-zero copy, and
-# take-pad length locks for |select| / |Run|.
+# take-pad length locks for |select| / |Run|. `niche_count_sum` is mid-split
+# histogram conservation (sum of bins = in-range assignment count).
 
 import Base
 import ./LAWS.bend as Laws
@@ -1043,3 +1044,335 @@ def Laws.run_zero_pop():
 def Laws.run_pop_size(cfg):
   +n = Algo.cfg_pop(cfg)
   take_pad_len(Ind.Individual, Ind.from_objectives(Nil{}), Algo.run.sized(Prob.zdt1(30n), cfg, n), n)
+
+# --- niche_count_sum: mid-split histogram conservation -------------------
+
+def add_one_r(+x: Nat) -> {Nat.add(x, 1n) == 1n+x : Nat}:
+  Equal.trans(
+    Nat,
+    Nat.add(x, 1n),
+    1n+Nat.add(x, 0n),
+    1n+x,
+    add_succ_r(x, 0n),
+    succ_eq(Nat.add(x, 0n), x, add_zero_r(x))
+  )
+
+def nat_pred(n: Nat) -> Nat:
+  match n:
+    case 0n:
+      0n
+    case 1n+p:
+      p
+
+def succ_inj(+a: Nat, +b: Nat, e: {1n+a == 1n+b : Nat}) -> {a == b : Nat}:
+  %e : {nat_pred(1n+a) == nat_pred(_) : Nat}
+  {==}
+
+def zeros_sum(n: Nat) -> {Util.nats_sum(Util.zeros_nat(n)) == 0n : Nat}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      zeros_sum(p)
+
+def bin_hit_n0(i: Nat) -> {Util.bin_hit(i, 0n) == 0n : Nat}:
+  match i:
+    case 0n:
+      {==}
+    case 1n+p:
+      {==}
+
+def bin_hit_cong(+i: Nat, +a: Nat, +b: Nat, e: {a == b : Nat}) -> {Util.bin_hit(i, a) == Util.bin_hit(i, b) : Nat}:
+  %e : {Util.bin_hit(i, a) == Util.bin_hit(i, _) : Nat}
+  {==}
+
+def set_len(-A: Data, xs: List<&2, A>, n: Nat, +x: A) -> {Util.list_len(A, List.set(&2, A, xs, n, x)) == Util.list_len(A, xs) : Nat}:
+  match xs n:
+    case Nil{} k:
+      {==}
+    case h <> t 0n:
+      {==}
+    case h <> t 1n+p:
+      %set_len(A, t, p, x) : {1n+Util.list_len(A, List.set(&2, A, t, p, x)) == 1n+_ : Nat}
+      {==}
+
+def inc_at_len(+xs: List<&2, Nat>, +i: Nat) -> {Util.list_len(Nat, Util.inc_at(xs, i)) == Util.list_len(Nat, xs) : Nat}:
+  set_len(Nat, xs, i, 1n+Util.get_nat(xs, i))
+
+def nats_add_same_len(a: List<&2, Nat>, b: List<&2, Nat>, e: {Util.list_len(Nat, a) == Util.list_len(Nat, b) : Nat}) -> {Util.list_len(Nat, Util.nats_add(a, b)) == Util.list_len(Nat, a) : Nat}:
+  match a b:
+    case Nil{} Nil{}:
+      {==}
+    case +x <> xs +y <> ys:
+      %nats_add_same_len(xs, ys, succ_inj(Util.list_len(Nat, xs), Util.list_len(Nat, ys), e)) : {1n+Util.list_len(Nat, Util.nats_add(xs, ys)) == 1n+_ : Nat}
+      {==}
+    case Nil{} +y <> ys:
+      Equal.sym(Nat, Util.list_len(Nat, y <> ys), 0n, e)
+    case +x <> xs Nil{}:
+      {==}
+
+def nats_add_len_n(
+  +a: List<&2, Nat>,
+  +b: List<&2, Nat>,
+  +n: Nat,
+  e_a: {Util.list_len(Nat, a) == n : Nat},
+  e_b: {Util.list_len(Nat, b) == n : Nat}
+) -> {Util.list_len(Nat, Util.nats_add(a, b)) == n : Nat}:
+  Equal.trans(
+    Nat,
+    Util.list_len(Nat, Util.nats_add(a, b)),
+    Util.list_len(Nat, a),
+    n,
+    nats_add_same_len(
+      a,
+      b,
+      Equal.trans(Nat, Util.list_len(Nat, a), n, Util.list_len(Nat, b), e_a, Equal.sym(Nat, Util.list_len(Nat, b), n, e_b))
+    ),
+    e_a
+  )
+
+def nats_add_sum(a: List<&2, Nat>, b: List<&2, Nat>) -> {Util.nats_sum(Util.nats_add(a, b)) == Nat.add(Util.nats_sum(a), Util.nats_sum(b)) : Nat}:
+  match a b:
+    case Nil{} Nil{}:
+      {==}
+    case +x <> xs +y <> ys:
+      Equal.trans(
+        Nat,
+        Nat.add(Nat.add(x, y), Util.nats_sum(Util.nats_add(xs, ys))),
+        Nat.add(Nat.add(x, y), Nat.add(Util.nats_sum(xs), Util.nats_sum(ys))),
+        Nat.add(Nat.add(x, Util.nats_sum(xs)), Nat.add(y, Util.nats_sum(ys))),
+        add_both(
+          Nat.add(x, y),
+          Util.nats_sum(Util.nats_add(xs, ys)),
+          Nat.add(x, y),
+          Nat.add(Util.nats_sum(xs), Util.nats_sum(ys)),
+          {==},
+          nats_add_sum(xs, ys)
+        ),
+        add4_rearr(x, y, Util.nats_sum(xs), Util.nats_sum(ys))
+      )
+    case Nil{} ys:
+      {==}
+    case xs Nil{}:
+      add_zero_r(Util.nats_sum(xs))
+
+def inc_at_sum.nil(i: Nat) -> {Util.nats_sum(Util.inc_at(Nil{}, i)) == Nat.add(Util.nats_sum(Nil{}), Util.bin_hit(i, 0n)) : Nat}:
+  %bin_hit_n0(i) : {0n == Nat.add(0n, _) : Nat}
+  {==}
+
+def inc_at_sum.zero(+h: Nat, +t: List<&2, Nat>) -> {Util.nats_sum(Util.inc_at(h <> t, 0n)) == Nat.add(Util.nats_sum(h <> t), 1n) : Nat}:
+  Equal.sym(
+    Nat,
+    Nat.add(Nat.add(h, Util.nats_sum(t)), 1n),
+    1n+Nat.add(h, Util.nats_sum(t)),
+    add_one_r(Nat.add(h, Util.nats_sum(t)))
+  )
+
+def inc_at_sum(
+  xs: List<&2, Nat>,
+  i: Nat
+) -> {Util.nats_sum(Util.inc_at(xs, i)) == Nat.add(Util.nats_sum(xs), Util.bin_hit(i, Util.list_len(Nat, xs))) : Nat}:
+  match xs i:
+    case Nil{} k:
+      inc_at_sum.nil(k)
+    case +h <> t 0n:
+      inc_at_sum.zero(h, t)
+    case +h <> t 1n+p:
+      Equal.trans(
+        Nat,
+        Nat.add(h, Util.nats_sum(Util.inc_at(t, p))),
+        Nat.add(h, Nat.add(Util.nats_sum(t), Util.bin_hit(p, Util.list_len(Nat, t)))),
+        Nat.add(Nat.add(h, Util.nats_sum(t)), Util.bin_hit(p, Util.list_len(Nat, t))),
+        add_both(
+          h,
+          Util.nats_sum(Util.inc_at(t, p)),
+          h,
+          Nat.add(Util.nats_sum(t), Util.bin_hit(p, Util.list_len(Nat, t))),
+          {==},
+          inc_at_sum(t, p)
+        ),
+        Equal.sym(
+          Nat,
+          Nat.add(Nat.add(h, Util.nats_sum(t)), Util.bin_hit(p, Util.list_len(Nat, t))),
+          Nat.add(h, Nat.add(Util.nats_sum(t), Util.bin_hit(p, Util.list_len(Nat, t)))),
+          add_assoc(h, Util.nats_sum(t), Util.bin_hit(p, Util.list_len(Nat, t)))
+        )
+      )
+
+def in_bin_take_drop(+n: Nat, asgs: List<&2, Surv.Assignment>, mid: Nat) -> {Nat.add(Surv.in_bin_count(List.take(&2, Surv.Assignment, asgs, mid), n), Surv.in_bin_count(List.drop(&2, Surv.Assignment, asgs, mid), n)) == Surv.in_bin_count(asgs, n) : Nat}:
+  match asgs mid:
+    case Nil{} k:
+      {==}
+    case +a <> rest 0n:
+      {==}
+    case +a <> +rest 1n+p:
+      Equal.trans(
+        Nat,
+        Nat.add(Nat.add(Util.bin_hit(Surv.asg_ref(a), n), Surv.in_bin_count(List.take(&2, Surv.Assignment, rest, p), n)), Surv.in_bin_count(List.drop(&2, Surv.Assignment, rest, p), n)),
+        Nat.add(Util.bin_hit(Surv.asg_ref(a), n), Nat.add(Surv.in_bin_count(List.take(&2, Surv.Assignment, rest, p), n), Surv.in_bin_count(List.drop(&2, Surv.Assignment, rest, p), n))),
+        Nat.add(Util.bin_hit(Surv.asg_ref(a), n), Surv.in_bin_count(rest, n)),
+        add_assoc(Util.bin_hit(Surv.asg_ref(a), n), Surv.in_bin_count(List.take(&2, Surv.Assignment, rest, p), n), Surv.in_bin_count(List.drop(&2, Surv.Assignment, rest, p), n)),
+        add_both(
+          Util.bin_hit(Surv.asg_ref(a), n),
+          Nat.add(Surv.in_bin_count(List.take(&2, Surv.Assignment, rest, p), n), Surv.in_bin_count(List.drop(&2, Surv.Assignment, rest, p), n)),
+          Util.bin_hit(Surv.asg_ref(a), n),
+          Surv.in_bin_count(rest, n),
+          {==},
+          in_bin_take_drop(n, rest, p)
+        )
+      )
+
+def count_raw_len(
+  +n: Nat,
+  +fuel: Nat,
+  asgs: List<&2, Surv.Assignment>
+) -> {Util.list_len(Nat, Surv.count_raw.go(n, fuel, asgs)) == n : Nat}:
+  match fuel asgs:
+    case 0n Nil{}:
+      replicate_len(Nat, n, 0n)
+    case 0n +a <> +rest:
+      Equal.trans(
+        Nat,
+        Util.list_len(Nat, Util.inc_at(Surv.count_raw.go(n, 0n, rest), Surv.asg_ref(a))),
+        Util.list_len(Nat, Surv.count_raw.go(n, 0n, rest)),
+        n,
+        inc_at_len(Surv.count_raw.go(n, 0n, rest), Surv.asg_ref(a)),
+        count_raw_len(n, 0n, rest)
+      )
+    case 1n+p Nil{}:
+      replicate_len(Nat, n, 0n)
+    case 1n+p +a <> Nil{}:
+      Equal.trans(
+        Nat,
+        Util.list_len(Nat, Util.inc_at(Util.zeros_nat(n), Surv.asg_ref(a))),
+        Util.list_len(Nat, Util.zeros_nat(n)),
+        n,
+        inc_at_len(Util.zeros_nat(n), Surv.asg_ref(a)),
+        replicate_len(Nat, n, 0n)
+      )
+    case 1n+p +h <> +k <> +rest:
+      +all = {h <> k <> rest : List<&2, Surv.Assignment>}
+      +mid = Nat.div(Util.list_len(Surv.Assignment, all), 2n)
+      nats_add_len_n(
+        Surv.count_raw.go(n, p, List.take(&2, Surv.Assignment, all, mid)),
+        Surv.count_raw.go(n, p, List.drop(&2, Surv.Assignment, all, mid)),
+        n,
+        count_raw_len(n, p, List.take(&2, Surv.Assignment, all, mid)),
+        count_raw_len(n, p, List.drop(&2, Surv.Assignment, all, mid))
+      )
+
+def count_raw_sum.inc(
+  +n: Nat,
+  +hist: List<&2, Nat>,
+  +i: Nat,
+  +rest_count: Nat,
+  e_len: {Util.list_len(Nat, hist) == n : Nat},
+  e_sum: {Util.nats_sum(hist) == rest_count : Nat}
+) -> {Util.nats_sum(Util.inc_at(hist, i)) == Nat.add(Util.bin_hit(i, n), rest_count) : Nat}:
+  Equal.trans(
+    Nat,
+    Util.nats_sum(Util.inc_at(hist, i)),
+    Nat.add(Util.nats_sum(hist), Util.bin_hit(i, Util.list_len(Nat, hist))),
+    Nat.add(Util.bin_hit(i, n), rest_count),
+    inc_at_sum(hist, i),
+    Equal.trans(
+      Nat,
+      Nat.add(Util.nats_sum(hist), Util.bin_hit(i, Util.list_len(Nat, hist))),
+      Nat.add(rest_count, Util.bin_hit(i, n)),
+      Nat.add(Util.bin_hit(i, n), rest_count),
+      add_both(
+        Util.nats_sum(hist),
+        Util.bin_hit(i, Util.list_len(Nat, hist)),
+        rest_count,
+        Util.bin_hit(i, n),
+        e_sum,
+        bin_hit_cong(i, Util.list_len(Nat, hist), n, e_len)
+      ),
+      add_comm(rest_count, Util.bin_hit(i, n))
+    )
+  )
+
+def count_raw_sum.mid(
+  +n: Nat,
+  +p: Nat,
+  +all: List<&2, Surv.Assignment>,
+  +mid: Nat,
+  e_lo: {Util.nats_sum(Surv.count_raw.go(n, p, List.take(&2, Surv.Assignment, all, mid))) == Surv.in_bin_count(List.take(&2, Surv.Assignment, all, mid), n) : Nat},
+  e_hi: {Util.nats_sum(Surv.count_raw.go(n, p, List.drop(&2, Surv.Assignment, all, mid))) == Surv.in_bin_count(List.drop(&2, Surv.Assignment, all, mid), n) : Nat}
+) -> {Util.nats_sum(Util.nats_add(Surv.count_raw.go(n, p, List.take(&2, Surv.Assignment, all, mid)), Surv.count_raw.go(n, p, List.drop(&2, Surv.Assignment, all, mid)))) == Nat.add(Surv.in_bin_count(List.take(&2, Surv.Assignment, all, mid), n), Surv.in_bin_count(List.drop(&2, Surv.Assignment, all, mid), n)) : Nat}:
+  Equal.trans(
+    Nat,
+    Util.nats_sum(Util.nats_add(Surv.count_raw.go(n, p, List.take(&2, Surv.Assignment, all, mid)), Surv.count_raw.go(n, p, List.drop(&2, Surv.Assignment, all, mid)))),
+    Nat.add(Util.nats_sum(Surv.count_raw.go(n, p, List.take(&2, Surv.Assignment, all, mid))), Util.nats_sum(Surv.count_raw.go(n, p, List.drop(&2, Surv.Assignment, all, mid)))),
+    Nat.add(Surv.in_bin_count(List.take(&2, Surv.Assignment, all, mid), n), Surv.in_bin_count(List.drop(&2, Surv.Assignment, all, mid), n)),
+    nats_add_sum(Surv.count_raw.go(n, p, List.take(&2, Surv.Assignment, all, mid)), Surv.count_raw.go(n, p, List.drop(&2, Surv.Assignment, all, mid))),
+    add_both(
+      Util.nats_sum(Surv.count_raw.go(n, p, List.take(&2, Surv.Assignment, all, mid))),
+      Util.nats_sum(Surv.count_raw.go(n, p, List.drop(&2, Surv.Assignment, all, mid))),
+      Surv.in_bin_count(List.take(&2, Surv.Assignment, all, mid), n),
+      Surv.in_bin_count(List.drop(&2, Surv.Assignment, all, mid), n),
+      e_lo,
+      e_hi
+    )
+  )
+
+def count_raw_sum.finish(
+  +n: Nat,
+  +p: Nat,
+  +all: List<&2, Surv.Assignment>,
+  +mid: Nat,
+  e_lo: {Util.nats_sum(Surv.count_raw.go(n, p, List.take(&2, Surv.Assignment, all, mid))) == Surv.in_bin_count(List.take(&2, Surv.Assignment, all, mid), n) : Nat},
+  e_hi: {Util.nats_sum(Surv.count_raw.go(n, p, List.drop(&2, Surv.Assignment, all, mid))) == Surv.in_bin_count(List.drop(&2, Surv.Assignment, all, mid), n) : Nat}
+) -> {Util.nats_sum(Util.nats_add(Surv.count_raw.go(n, p, List.take(&2, Surv.Assignment, all, mid)), Surv.count_raw.go(n, p, List.drop(&2, Surv.Assignment, all, mid)))) == Surv.in_bin_count(all, n) : Nat}:
+  Equal.trans(
+    Nat,
+    Util.nats_sum(Util.nats_add(Surv.count_raw.go(n, p, List.take(&2, Surv.Assignment, all, mid)), Surv.count_raw.go(n, p, List.drop(&2, Surv.Assignment, all, mid)))),
+    Nat.add(Surv.in_bin_count(List.take(&2, Surv.Assignment, all, mid), n), Surv.in_bin_count(List.drop(&2, Surv.Assignment, all, mid), n)),
+    Surv.in_bin_count(all, n),
+    count_raw_sum.mid(n, p, all, mid, e_lo, e_hi),
+    in_bin_take_drop(n, all, mid)
+  )
+
+def count_raw_sum(
+  +n: Nat,
+  +fuel: Nat,
+  asgs: List<&2, Surv.Assignment>
+) -> {Util.nats_sum(Surv.count_raw.go(n, fuel, asgs)) == Surv.in_bin_count(asgs, n) : Nat}:
+  match fuel asgs:
+    case 0n Nil{}:
+      zeros_sum(n)
+    case 0n +a <> +rest:
+      count_raw_sum.inc(
+        n,
+        Surv.count_raw.go(n, 0n, rest),
+        Surv.asg_ref(a),
+        Surv.in_bin_count(rest, n),
+        count_raw_len(n, 0n, rest),
+        count_raw_sum(n, 0n, rest)
+      )
+    case 1n+p Nil{}:
+      zeros_sum(n)
+    case 1n+p +a <> Nil{}:
+      count_raw_sum.inc(
+        n,
+        Util.zeros_nat(n),
+        Surv.asg_ref(a),
+        0n,
+        replicate_len(Nat, n, 0n),
+        zeros_sum(n)
+      )
+    case 1n+p +h <> +k <> +rest:
+      +all = {h <> k <> rest : List<&2, Surv.Assignment>}
+      +mid = Nat.div(Util.list_len(Surv.Assignment, all), 2n)
+      count_raw_sum.finish(
+        n,
+        p,
+        all,
+        mid,
+        count_raw_sum(n, p, List.take(&2, Surv.Assignment, all, mid)),
+        count_raw_sum(n, p, List.drop(&2, Surv.Assignment, all, mid))
+      )
+
+def Laws.niche_count_sum(asgs, n_dirs):
+  count_raw_sum(n_dirs, Util.list_len(Surv.Assignment, asgs), asgs)
+
