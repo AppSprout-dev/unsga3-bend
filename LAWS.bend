@@ -81,6 +81,15 @@ law associate_len:
   for +dirs: List<&2, List<&2, F32>>
   {Util.list_len(Surv.Assignment, Surv.associate(pop, F, dirs)) == Util.list_len(Ind.Individual, pop) : Nat}
 
+# LAW: mid-split niche histogram is conservative. Each in-bin assignment
+# increments exactly once; List.set / inc_at drops i >= n_dirs (empty
+# dirs → zeros(0) is a no-op). When every asg_ref is < n_dirs this is
+# |asgs|. Nat only — no F32 / RNG claim.
+law niche_count_sum:
+  for +asgs: List<&2, Surv.Assignment>
+  for +n_dirs: Nat
+  {Util.nats_sum(Surv.count_raw.go(n_dirs, Util.list_len(Surv.Assignment, asgs), asgs)) == Surv.in_bin_count(asgs, n_dirs) : Nat}
+
 # LAW: empty combined pool → empty selection
 law select_empty:
   {Surv.select(Nil{}, 0n, Nil{}) == Nil{} : List<&2, Ind.Individual>}

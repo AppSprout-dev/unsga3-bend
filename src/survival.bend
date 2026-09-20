@@ -306,6 +306,15 @@ def count_raw.go(+n: Nat, +fuel: Nat, asgs: List<&2, Assignment>) -> List<&2, Na
 def count_asg(+asgs: List<&2, Assignment>, +acc: List<&2, Nat>) -> List<&2, Nat>:
   Util.nats_add(acc, count_raw.go(Util.list_len(Nat, acc), Util.list_len(Assignment, asgs), asgs))
 
+# Assignments whose reference_index lands in a length-n histogram.
+# Out-of-range refs are silent no-ops in inc_at / List.set.
+def in_bin_count(asgs: List<&2, Assignment>, +n: Nat) -> Nat:
+  match asgs:
+    case Nil{}:
+      0n
+    case +a <> rest:
+      Nat.add(Util.bin_hit(asg_ref(a), n), in_bin_count(rest, n))
+
 def with_counts.one(+counts: List<&2, Nat>, +a: Assignment) -> Assignment:
   match a:
     case MkAssignment{+r, d, n}:

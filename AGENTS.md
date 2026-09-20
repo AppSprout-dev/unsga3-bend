@@ -15,7 +15,7 @@ Language docs: https://bend-lang.com/ and https://github.com/bendlang/bend
 - `import Base` at the top of each module that needs the prelude.
 - Local modules: `import ./x.bend as M`.
 - Laws live in `LAWS.bend` (human-owned open claims). Do not silently weaken, delete, or “pass” a law by changing it to match a stub.
-- Proofs live in `PROOF.bend`, which must `import ./LAWS.bend`. A law named `foo` is proven by `def Laws.foo`. Use `?TODO` for open proofs. `bend PROOF.bend` is the gate even when proofs are incomplete.
+- Proofs live in `PROOF.bend`, which must `import ./LAWS.bend`. A law named `foo` is proven by `def Laws.foo`. Use `?TODO` for open proofs. `bend PROOF.bend` is the gate even when proofs are incomplete. Bend+Jev is the compounding architecture bet (proof wall + triage wall); gym spikes in this tree close **Bend-wall** laws only.
 - Prefer something that typechecks. If the Bend toolchain is missing, keep valid-looking `.bend` structure and note install in the README.
 
 ## Product locks (do not invent past this)
