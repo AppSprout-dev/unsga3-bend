@@ -6,7 +6,7 @@ Public protocol: [EQUIVALENCE.md](EQUIVALENCE.md). How to check the tree: [CONTR
 
 ## 0.1.0 scope (hub)
 
-Treat as **shipped** for a first hub visitor: v0 core, Pass 2 `Run` + samples, parallel maps, native `-o` dumps, closed `PROOF.bend`, ZDT2 quality protocol gens=250. Open boxes below (C# fixture bit-match, bit-for-bit IGD) are remaining work. Hub publish already ran; this tree records the import hash.
+Treat as **shipped** for a first hub visitor: v0 core, Pass 2 `Run` + samples, parallel maps, native `-o` dumps, closed `PROOF.bend`, ZDT2 quality protocol gens=250. Open boxes below (C# fixture bit-match, IGD vs C# + pymoo) now have in-tree drivers; measured results live in [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md) (GitHub 0.1.1, hub hash unchanged). Hub publish already ran; this tree records the import hash.
 
 ## v0 — core (implemented)
 
@@ -24,7 +24,7 @@ Enough to A/B a front when a population of **objectives** is provided.
 ## Pass A/B — core match
 
 - [x] Wire [ab/](../ab/README.md) Bend dump + compare (C# / pymoo still optional)
-- [ ] C# Unsga3 and Bend agree on sort / normalize / associate / select for shared fixtures (C# dump runs when `UNSGA3_CS_ROOT` + `dotnet` work; this repo does not clone Unsga3)
+- [ ] C# Unsga3 and Bend agree on sort / normalize / associate / select for shared fixtures (`ab/fixture_check.py` + `ab/dump_bend_front.py` / `ab/dump_csharp_front.py` / `ab/compare.py`; C# dump runs when `UNSGA3_CS_ROOT` + `dotnet` work; this repo does not clone Unsga3). Results: [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md)
 - [x] Document remaining intentional deltas (constraint-domination, LCG RNG)
 - [x] `Run` survival niching threads rng (random among equal min-count niches; near-best extras on the ray)
 - [x] Duplicate keys use C# G12-style 12-decimal rounding
@@ -47,7 +47,7 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] Algorithm A/B scripts: Bend Run dump; optional C# `OracleCompare` when `UNSGA3_CS_ROOT` is set; `igd_vs_pymoo.py` vs analytic / pymoo PF or `skip:`
 - [x] ZDT2 A/B / oracle default gens=**250** (PymooCompatible, p=12, pop=52). gens=100 kept as an early-stress snapshot — [ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md). ZDT1 100 / DTLZ2 150 unchanged. RankNicheDistance stays optional.
 - [x] Laws for operator defaults (closed) + ZDT/DTLZ dimensions / zero-pop Run (closed) + `|Run|==pop` (take-pad lock; identity when the inner Run already has `pop_size`) + SBX/poly p=0 copy (bit-zero branch before any `NextDouble`)
-- [ ] Bit-for-bit / IGD match vs C# + pymoo on oracle-sized ZDT/DTLZ (needs a real C# checkout + pymoo; do not invent numbers)
+- [ ] Bit-for-bit / IGD match vs C# + pymoo on oracle-sized ZDT/DTLZ (`ab/oracle_multiseed.py`: Bend vs C# vs pymoo NSGA-III, same knobs, same `igd_vs_pymoo.py` yardstick; needs a real C# checkout + pymoo; do not invent numbers). Results: [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md)
 
 ## Pass 3 — Bend-shaped speed (in tree)
 

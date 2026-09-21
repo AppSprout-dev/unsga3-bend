@@ -32,6 +32,7 @@ See [ab/README.md](ab/README.md) and [`ab/protocol.py`](ab/protocol.py).
 - ZDT2 **quality** = gens=**250**. gens=**100** is early-stress ([docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md)).
 - C# compare is optional: set `UNSGA3_CS_ROOT` to a checkout **outside** this repo. Do **not** clone Unsga3 into this tree.
 - Scripts print `skip: …` when an oracle is missing. **Do not invent IGD / HV / Wilcoxon numbers.**
+- Multi-seed IGD + Layer-1 fixture check: `python3 ab/oracle_multiseed.py`, `python3 ab/fixture_check.py` — [docs/ORACLE-MULTISEED.md](docs/ORACLE-MULTISEED.md).
 
 ## Do not
 

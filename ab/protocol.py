@@ -40,3 +40,27 @@ def default_gens(problem: str, *, dtlz2_gens: int | None = None) -> int:
 
 def default_pop(problem: str) -> int:
     return ORACLE_POP_DTLZ2 if problem == "dtlz2" else ORACLE_POP_ZDT
+
+
+def n_var(problem: str) -> int:
+    """Decision-variable count for the published ZDT / DTLZ2 oracles."""
+    if problem == "dtlz2":
+        return 12  # M=3, k=10
+    return 30
+
+
+def n_obj(problem: str) -> int:
+    return 3 if problem == "dtlz2" else 2
+
+
+def oracle_knobs(problem: str) -> dict[str, int | str]:
+    """Explicit A/B knobs (always pass these to dumpers; no omitted-flag traps)."""
+    return {
+        "problem": problem,
+        "partitions": ORACLE_PARTITIONS,
+        "pop": default_pop(problem),
+        "gens": default_gens(problem),
+        "tournament": ORACLE_TOURNAMENT,
+        "n_var": n_var(problem),
+        "n_obj": n_obj(problem),
+    }
