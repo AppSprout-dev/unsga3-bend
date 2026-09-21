@@ -24,7 +24,7 @@ import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3
 - Multi-seed IGD driver [`ab/oracle_multiseed.py`](ab/oracle_multiseed.py): Bend vs C# Unsga3 vs pymoo NSGA-III under the public oracle knobs; every cell is a real `igd=` or `skip:`.
 - pymoo NSGA-III front dump [`ab/dump_pymoo_nsga3.py`](ab/dump_pymoo_nsga3.py) (skips without pymoo).
 - Layer-1 fixture bit-check [`ab/fixture_check.py`](ab/fixture_check.py) on `ab/fixtures/core_2obj.json`.
-- Measured tables + pass/fail matrix: [docs/ORACLE-MULTISEED.md](docs/ORACLE-MULTISEED.md).
+- Measured tables + pass/fail matrix: [docs/ORACLE-MULTISEED.md](docs/ORACLE-MULTISEED.md) (15/15 seeds × 3 problems × 3 stacks; `core_2obj.json` Layer-1 pass).
 
 ## [0.1.0] - 2026-09-19
 
