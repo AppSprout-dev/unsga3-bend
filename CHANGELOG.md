@@ -2,15 +2,29 @@
 
 Notable changes to **unsga3-bend**.
 
-This file tracks the Bend **hub** package (content-hash). It is **not** the C# / NuGet changelog for PackageId `Unsga3` ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)).
+This file tracks the Bend **hub** package (content-hash) and GitHub tree versions. It is **not** the C# / NuGet changelog for PackageId `Unsga3` ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)).
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The first hub version is **0.1.0** (content hash `0xcd07e24a626a62e74603d48f436cd679`). A `v0.1.0` git tag and GitHub Release wait until this hash is recorded on `main`.
 
+GitHub tree **0.1.1** is a docs/ab confidence bump only. **Do not hub-publish** for 0.1.1 — the content hash stays `0xcd07e24a626a62e74603d48f436cd679`.
+
 ## [Unreleased]
+
+## [0.1.1] - 2026-09-21
+
+GitHub docs/ab confidence bump. Hub import unchanged:
+
+```bend
+import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3
+```
 
 ### Added
 
 - Closed `niche_count_sum`: mid-split niching histogram conservation (`nats_sum(count_raw.go) == in_bin_count`). Nat-only honesty property of parallel partition; no IGD / F32 / RNG claim. Bend-wall gym spike (Bend+Jev architecture bet; this change is Bend proofs only).
+- Multi-seed IGD driver [`ab/oracle_multiseed.py`](ab/oracle_multiseed.py): Bend vs C# Unsga3 vs pymoo NSGA-III under the public oracle knobs; every cell is a real `igd=` or `skip:`.
+- pymoo NSGA-III front dump [`ab/dump_pymoo_nsga3.py`](ab/dump_pymoo_nsga3.py) (skips without pymoo).
+- Layer-1 fixture bit-check [`ab/fixture_check.py`](ab/fixture_check.py) on `ab/fixtures/core_2obj.json`.
+- Measured tables + pass/fail matrix: [docs/ORACLE-MULTISEED.md](docs/ORACLE-MULTISEED.md) (15/15 seeds × 3 problems × 3 stacks; `core_2obj.json` Layer-1 pass).
 
 ## [0.1.0] - 2026-09-19
 
@@ -55,5 +69,6 @@ gh repo edit AppSprout-dev/unsga3-bend \
 
 Replaces current description: `U-NSGA-III in Bend — greenfield rewrite; A/B vs C# Unsga3 via ZDT/DTLZ + pymoo IGD. Not a NuGet package.` (no homepage, no topics). Do **not** add a `nuget` topic.
 
-[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/AppSprout-dev/unsga3-bend/releases/tag/v0.1.0

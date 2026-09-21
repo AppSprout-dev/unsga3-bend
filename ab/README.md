@@ -152,5 +152,10 @@ python3 ab/profile_bend_run.py --problem zdt2 --partitions 12 --pop 52 --gens 25
 | `characterize_front.py` | 2-obj front geometry + IGD (pymoo or local mean-NN). Collapse = `n≤10` and `IGD≥0.3` |
 | `zdt2_collapse_probe.py` | dump Bend / C# / pymoo ZDT2 (or ZDT1) over seeds×gens; JSONL summary |
 | `zdt2_geometry.py` | analytic ZDT1/ZDT2 PF vs Das–Dennis rays (no Run) |
+| `dump_pymoo_nsga3.py` | optional pymoo **NSGA-III** front (same knobs); skips if pymoo missing |
+| `oracle_multiseed.py` | 15-seed IGD table: Bend `--native` + C# + pymoo NSGA-III, scored with `igd_vs_pymoo.py` |
+| `fixture_check.py` | Layer-1 bit-check: dump Bend + C# selected fronts on a JSON fixture, then `compare.py` |
+
+Multi-seed tables + fixture matrix: [docs/ORACLE-MULTISEED.md](../docs/ORACLE-MULTISEED.md).
 
 ZDT2 multi-seed collapse on **both** stacks at gens=100: [docs/ZDT2_COLLAPSE.md](../docs/ZDT2_COLLAPSE.md). A/B default is gens=250 / `pymoo`. `dump_bend_run.py --tournament rank_niche` and `dump_csharp_run.py --tournament rank_niche` are diagnostic.

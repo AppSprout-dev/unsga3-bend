@@ -17,9 +17,11 @@ The reference implementation is the existing C# library:
 
 `unsga3-bend` is a from-scratch Bend 2 port of the algorithm core, not a binding and not a republish of that package. The two stacks sit **beside** each other: C# remains the .NET package; this tree is the Bend **hub** package. The shared validation plan is the same public protocol the C# docs use: ZDT / DTLZ problems and IGD against a [pymoo](https://pymoo.org/) `UNSGA3` oracle ([C# `docs/EQUIVALENCE.md`](https://github.com/AppSprout-dev/Unsga3/blob/main/docs/EQUIVALENCE.md)).
 
-## Hub package (0.1.0)
+## Hub package (0.1.0) and GitHub 0.1.1
 
 **0.1.0** is published on the Bend content-hash hub. `bend src/lib.bend --publish` already ran. Artifacts do **not** go to nuget.org or GitHub Packages.
+
+GitHub tree **0.1.1** is a docs/ab confidence bump (multi-seed IGD tables + Layer-1 fixture check). The hub content hash is **unchanged** — do not re-publish.
 
 ### How consumers import
 
@@ -137,7 +139,7 @@ Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `
 ```
 unsga3-bend/
 ├── AGENTS.md                 # Bend agent rules + product locks
-├── CHANGELOG.md              # 0.1.0 hub notes
+├── CHANGELOG.md              # 0.1.0 hub + 0.1.1 docs/ab notes
 ├── CONTRIBUTING.md           # install / smoke / proofs / do-nots
 ├── LAWS.bend                 # core + operator + Run/ZDT claims (human-owned)
 ├── PROOF.bend                # imports LAWS; closed proofs
@@ -145,6 +147,7 @@ unsga3-bend/
 ├── ab/                       # core + algorithm dump / optional IGD / optional C#
 ├── ab/protocol.py            # A/B defaults (ZDT2 gens=250)
 ├── docs/EQUIVALENCE.md       # public protocol (this tree)
+├── docs/ORACLE-MULTISEED.md  # 15-seed IGD + Layer-1 fixture check
 ├── docs/ROADMAP.md
 ├── docs/PERF_NOTES.md        # measured warm-native phases (not IGD)
 ├── docs/ZDT2_COLLAPSE.md     # ZDT2 gens=100 early-stress vs gens=250 quality
@@ -155,6 +158,7 @@ unsga3-bend/
 |-----|------|
 | [CONTRIBUTING.md](CONTRIBUTING.md) | how to check the tree |
 | [docs/EQUIVALENCE.md](docs/EQUIVALENCE.md) | quality protocol + C# pointer |
+| [docs/ORACLE-MULTISEED.md](docs/ORACLE-MULTISEED.md) | 15-seed IGD (Bend / C# / pymoo NSGA-III) + fixture bit-check |
 | [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md) | why ZDT2 gens=100 is early-stress |
 | [docs/PERF_NOTES.md](docs/PERF_NOTES.md) | warm-native phase tables |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | shipped vs open |

@@ -42,4 +42,4 @@ python3 ab/igd_vs_pymoo.py --front ab/out/bend_run_F.csv --problem zdt2 --pf-poi
 
 Omitted `--gens` on `--problem zdt2` is 250 (`ab/protocol.py`). C# dump is optional (`UNSGA3_CS_ROOT`); it skips rather than inventing a front.
 
-Measured native phase tables (not IGD): [PERF_NOTES.md](PERF_NOTES.md).
+Measured native phase tables (not IGD): [PERF_NOTES.md](PERF_NOTES.md). Multi-seed IGD (Bend / C# / pymoo NSGA-III) + Layer-1 fixture check: [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md).
