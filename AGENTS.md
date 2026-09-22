@@ -14,9 +14,26 @@ Language docs: https://bend-lang.com/ and https://github.com/bendlang/bend
 - Modules are `.bend` files.
 - `import Base` at the top of each module that needs the prelude.
 - Local modules: `import ./x.bend as M`.
-- Laws live in `LAWS.bend` (human-owned open claims). Do not silently weaken, delete, or “pass” a law by changing it to match a stub.
+- Laws live in `LAWS.bend` (human-owned open claims). Do not silently weaken, delete, or “pass” a law by changing it to match a stub. Schema edits use the schema-change gate below.
 - Proofs live in `PROOF.bend`, which must `import ./LAWS.bend`. A law named `foo` is proven by `def Laws.foo`. Use `?TODO` for open proofs. `bend PROOF.bend` is the gate even when proofs are incomplete. Bend+Jev is the compounding architecture bet (proof wall + triage wall); gym spikes in this tree close **Bend-wall** laws only.
 - Prefer something that typechecks. If the Bend toolchain is missing, keep valid-looking `.bend` structure and note install in the README.
+
+## Schema-change gate
+
+`LAWS.bend` / `PROOF.bend` are a schema/proof wall, not self-evolving Content. Claims stay human-owned.
+
+A bot pull request that **adds, weakens, deletes, or rewrites** `LAWS.bend` or `PROOF.bend`, or that proposes Jev Choice/Score schema changes used with this stack, must:
+
+- Attribute `level:schema` in the PR title or body.
+- Include **paired parent/candidate bench** evidence on the gates already in this tree. Minimum: `bend PROOF.bend` on the parent and on the candidate. Algorithm-facing changes also follow [`ab/protocol.py`](ab/protocol.py) and the [EQUIVALENCE](docs/EQUIVALENCE.md) A/B protocol. When fronts matter, also run [`ab/fixture_check.py`](ab/fixture_check.py) and/or [`ab/oracle_multiseed.py`](ab/oracle_multiseed.py).
+- Never invent IGD, HV, or Wilcoxon numbers. Never weaken a law so the claim matches a stub.
+
+Hard refuse:
+
+- Content evolution of `LAWS.bend` / `PROOF.bend`.
+- Vendor ontology plugins writing laws into this tree.
+
+How to run the gates: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Product locks (do not invent past this)
 
