@@ -84,7 +84,7 @@ python3 ab/igd_vs_pymoo.py --front ab/out/csharp_zdt2_F.csv --problem zdt2 --pf-
 
 - Bend RNG is a portable LCG, not `System.Random` — fronts will not match bit-for-bit.
 - `Run` survival niching threads rng (random among equal min-count niches), matching C# `Select(..., rng)` for the ref pick. Empty niches take closest; extras draw among members within 2×best+0.01 of the ray. Uniform `inNiche[rng.Next]` with this LCG collapsed oracle ZDT2. v0 `Survival.select` stays deterministic (`rng == null`).
-- Duplicate keys use C# G12-style 12-decimal rounding on decision vars (Bend F32 ULP is coarser than 1e-12).
+- Duplicate keys round decision variables to 12 decimal places (`round(x*1e12)/1e12`). C# `DecisionKey` is `ToString("G12")` (12 significant digits). Near 1, F32 ULP is coarser than `1e-12`, so 12-dp rounding often does nothing; small variables diverge (`1.234567e-8` → `1.2346e-8`, `src/g12_key.bend`). The 12-dp key stays.
 - Unconstrained problems only (no constraint-domination).
 - A/B / smoke tournament is `PymooCompatible`. C# ctor default is `RankNicheDistance` (also implemented; `--tournament rank_niche` is diagnostic, not the A/B default).
 - DTLZ2 IGD must use the Das–Dennis PF at the run’s partitions. Scoring a C# or Bend front against pymoo’s default ~136-pt PF is a **yardstick mismatch**, not an algorithm gap (same C# seed-1 front: OracleCompare IGD ≈ 0.00403 vs ~0.051 on the old default PF).
@@ -139,8 +139,8 @@ python3 ab/profile_bend_run.py --problem zdt2 --partitions 12 --pop 52 --gens 25
 | Script | Role |
 |--------|------|
 | `dump_bend_front.py` | v0 `Survival.select`, writes `ab/out/bend_F.csv` |
-| `protocol.py` | A/B defaults: ZDT2 gens=250, ZDT1=100, DTLZ2=150 (C# path / `ORACLE_GENS_*`). RankNicheDistance is not the default |
-| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` compiles to `ab/out/run_cache/<sha256>` on miss and reuses that binary on hit; falls back to `bend <driver>` if the build fails. Stderr `compile_s` vs `run_s` splits those costs. Omitted `--gens` on `--problem zdt2` is 250. **Trap:** omitted `--gens` on `--problem dtlz2` stays historical **100**, and omitted `--pop` stays **52** — pass `--pop 92 --gens 150` for oracle DTLZ2. `dump_csharp_run.py` uses `protocol.py` (`pop=92`, `gens=150`) |
+| `protocol.py` | A/B defaults: ZDT2 gens=250, ZDT1=100, DTLZ2=150 / pop 92 (C# path / `ORACLE_GENS_*`). `fill_omitted` is what a generated driver uses when `--gens` / `--pop` are left out. RankNicheDistance is not the default |
+| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` compiles to `ab/out/run_cache/<sha256>` on miss and reuses that binary on hit; falls back to `bend <driver>` if the build fails. Stderr `compile_s` vs `run_s` splits those costs. Omitted `--gens` / `--pop` follow [`protocol.py`](protocol.py): zdt2 250/52, zdt1 100/52, **dtlz2 150/92**. Explicit flags win. The no-flag path is still the checked-in smoke, not a generated DTLZ2 run. |
 | `dump_csharp_front.py` | optional C# `Select` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing |
 | `dump_csharp_run.py` | optional C# `OracleCompare` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing. Writes to a per-run `ab/out/csharp_oracle/<stem>/` so a leftover CSV from another problem is not picked (old shared-dir `glob[-1]` was wrong after multi-problem runs). |
 | `csharp_core_dump/` | one-shot `dotnet` helper for layer-1 `Select` |

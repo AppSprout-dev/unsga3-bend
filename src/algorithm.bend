@@ -2,12 +2,15 @@
 # init → evaluate → loop: tournament parents → SBX (η=30, p=1.0) →
 # polynomial mutation (η=20, p=1/n) → evaluate → survival Select
 # with persistent Normalization. Defaults match C# operator defaults.
-# Mating tournament for A/B is PymooCompatible (document RankNicheDistance
-# as the C# ctor default). Survival niching in Run threads rng (C#
-# Select(..., rng): random among equal min-count niches). Empty niches
+# Mating tournament for A/B is PymooCompatible. RankNicheDistance (C#
+# ctor default) is rank → niche count → perpendicular distance → coin.
+# Survival niching in Run threads rng (C# Select(..., rng): random among
+# equal min-count niches). Empty niches
 # take closest; extras are random among near-best on that ray. Uniform
 # inNiche[Next] with this LCG collapsed oracle ZDT2.
-# Duplicate keys use C# G12-style 12-decimal rounding, not bit-exact F32.
+# Duplicate keys round each decision variable to 12 decimal places
+# (round(x*1e12)/1e12). That is not C# ToString("G12") (12 significant
+# digits). Small variables diverge; see src/g12_key.bend.
 
 import Base
 import ./individual.bend as Ind

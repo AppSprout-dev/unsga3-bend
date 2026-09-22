@@ -72,6 +72,9 @@ def verdict(ab: Bool, bb: Bool) -> Nat:
       verdict.b(bb)
 
 def compare_pareto.go(a: List<&2, F32>, b: List<&2, F32>, ab: Bool, bb: Bool) -> Nat:
+  # Unequal lengths: mutual non-domination (0), even if the shared prefix
+  # is strictly better. C# ComparePareto throws. ZDT/DTLZ use one length.
+  # Locked by src/nds_unequal.bend.
   match a b:
     case Nil{} Nil{}:
       verdict(ab, bb)

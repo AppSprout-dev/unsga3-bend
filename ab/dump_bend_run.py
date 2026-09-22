@@ -7,10 +7,9 @@ OracleCompare protocol.
 
 With --problem/--partitions/--pop/--gens/--seed, generate a small Bend
 wrapper and run that (oracle-sized runs are opt-in and can be slow).
-Omitted --gens uses ab/protocol.py: ZDT2=250, ZDT1=100, DTLZ2=100
-(historical generated-driver default; pass --gens 150 --pop 92 for
-oracle DTLZ2). Omitted --pop is 52 even on dtlz2. Explicit flags win.
-Tournament default stays PymooCompatible.
+Omitted --gens / --pop use ab/protocol.py oracle defaults: ZDT2=250/52,
+ZDT1=100/52, DTLZ2=150/92. Explicit flags win. Tournament default stays
+PymooCompatible. The checked-in smoke (no --problem) is unchanged.
 
 Native path (clang 14+; Bend 2.0.10+):
   bend <driver> -o ab/out/run_cache/<sha256(driver)>
@@ -35,7 +34,7 @@ import sys
 import time
 from pathlib import Path
 
-from protocol import default_gens
+from protocol import fill_omitted
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_BEND = ROOT / "src" / "run_smoke.bend"
@@ -240,7 +239,7 @@ def main() -> int:
         "--gens",
         type=int,
         default=None,
-        help="generations (default: 250 if --problem zdt2, else 100; "
+        help="generations (omitted: zdt2=250, dtlz2=150, else 100; "
         "explicit value always wins)",
     )
     parser.add_argument("--seed", type=int, default=None)
@@ -312,16 +311,20 @@ def main() -> int:
         )
     ) or args.no_elim_dups
     if custom:
-        problem = args.problem or "zdt1"
-        partitions = args.partitions if args.partitions is not None else 12
-        pop = args.pop if args.pop is not None else 52
-        gens = (
-            args.gens
-            if args.gens is not None
-            else default_gens(problem, dtlz2_gens=100)
+        knobs = fill_omitted(
+            args.problem,
+            partitions=args.partitions,
+            pop=args.pop,
+            gens=args.gens,
+            seed=args.seed,
+            tournament=args.tournament,
         )
-        seed = args.seed if args.seed is not None else 1
-        tournament = args.tournament or "pymoo"
+        problem = str(knobs["problem"])
+        partitions = int(knobs["partitions"])
+        pop = int(knobs["pop"])
+        gens = int(knobs["gens"])
+        seed = int(knobs["seed"])
+        tournament = str(knobs["tournament"])
         OUT_DIR.mkdir(parents=True, exist_ok=True)
         generated = CUSTOM_BEND
         generated.write_text(

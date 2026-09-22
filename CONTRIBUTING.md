@@ -18,6 +18,8 @@ bend src/lib.bend       # module graph
 bend src/op_smoke.bend  # SBX + polynomial mutation
 bend src/run_smoke.bend # short ZDT1 Run (pop=8, gens=3) — not oracle
 bend PROOF.bend         # 0 ?TODO
+python3 ab/check_forensic.py  # audit locks (no IGD)
+python3 ab/test_dump_defaults.py  # omitted DTLZ2 pop/gens = 92/150
 
 python3 ab/dump_bend_front.py
 python3 ab/dump_bend_run.py --native
@@ -39,3 +41,11 @@ See [ab/README.md](ab/README.md) and [`ab/protocol.py`](ab/protocol.py).
 - Mention private product repos or internal application names.
 - Silently weaken, delete, or “pass” a law in `LAWS.bend` by changing the claim to match a stub.
 - Invent IGD / HV / Wilcoxon numbers.
+
+## Proof wall
+
+`bend PROOF.bend` closes every law in `LAWS.bend` (0 `?TODO`). What that buys is empty-input totality, literal defaults, Nat dimensions, list-length locks, irreflexivity of the coded dominance predicate, a bit-zero copy when crossover or mutation probability is the `0.0` word, and conservation of a niche histogram. It does not buy simplex membership, nondominated-front identity, ASF or intercept values, SBX or polynomial-mutation algebra, tournament order, or IGD.
+
+Das–Dennis length proofs are accepted with `@unsafe`: `comps_all_len`, `das_ge2_len`, `LAWS.das_dennis_m1_len`, `LAWS.das_dennis_len`. `nth_comp.go` in `src/reference_directions.bend` is `@unsafe`, and `bend src/lib.bend` also taints `das_dennis_m1`.
+
+Laws stay human-owned. Edits that add, weaken, delete, or rewrite `LAWS.bend` or `PROOF.bend` use the schema-change gate in [AGENTS.md](AGENTS.md) (`level:schema` plus a paired `bend PROOF.bend` bench). This tree does not write those files from a loop.

@@ -27,10 +27,10 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] C# Unsga3 and Bend agree on sort / normalize / associate / select for shared fixtures (`ab/fixture_check.py`: `core_2obj.json` `row_set_equal=True` when `UNSGA3_CS_ROOT` + `dotnet` work; this repo does not clone Unsga3). Results: [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md)
 - [x] Document remaining intentional deltas (constraint-domination, LCG RNG)
 - [x] `Run` survival niching threads rng (random among equal min-count niches; near-best extras on the ray)
-- [x] Duplicate keys use C# G12-style 12-decimal rounding
+- [x] Duplicate keys round decision variables to 12 decimal places (`round(x*1e12)/1e12`). Not C# `ToString("G12")` significant digits; `1.234567e-8` diverges (`src/g12_key.bend`)
 - [x] DTLZ2 IGD yardstick is Das–Dennis-density PF (not pymoo default ~136-pt sample)
 
-**Intentional remaining deltas vs C#:** v0 sort is still Pareto-only (no constraint-domination). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`. v0 `select` stays the deterministic `rng == null` branch. `Run` randomizes min-count niche ties like C# `Select(..., rng)`. Empty niches take closest; extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` — that LCG path collapsed oracle ZDT2.
+**Intentional remaining deltas vs C#:** v0 sort is still Pareto-only (no constraint-domination). Unequal-length objectives are mutual non-domination (C# `ComparePareto` throws; [`src/nds_unequal.bend`](../src/nds_unequal.bend)). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`. v0 `select` stays the deterministic `rng == null` branch. `Run` randomizes min-count niche ties like C# `Select(..., rng)`. Empty niches take closest; extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` — that LCG path collapsed oracle ZDT2.
 
 ## Pass 2 — variation, Run, samples
 
@@ -58,7 +58,7 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 - [x] `Norm.map_norm` / `gather_objs` — independent given ideal/nadir or the population
 - [x] Native `bend … -o` dump path — compile `src/run_smoke.bend` (or a generated driver) to a binary; `ab/dump_bend_run.py --native` prefers it and falls back to `bend file.bend` if the build fails. Same driver source reuses `ab/out/run_cache/<sha256>`; stderr splits `compile_s` from `run_s` (earlier dump wall times included compile)
 - [x] Close `dominates_irreflexive`, `normalize_len`, `associate_len` (same-list verdict / mid-split map length)
-- [x] Close remaining `PROOF.bend` laws: `sort_index_count`, `das_dennis_len`, `select_size`, `sbx_prob0_child1_vars`, `sbx_prob0_child2_vars`, `poly_prob0_vars`, `run_pop_size`. `bend PROOF.bend` is 0 `?TODO` (one `@unsafe` Das–Dennis index walk)
+- [x] Close remaining `PROOF.bend` laws: `sort_index_count`, `das_dennis_len`, `select_size`, `sbx_prob0_child1_vars`, `sbx_prob0_child2_vars`, `poly_prob0_vars`, `run_pop_size`. `bend PROOF.bend` is 0 `?TODO`. Das–Dennis length proofs are `@unsafe` (`comps_all_len`, `das_ge2_len`, `das_dennis_m1_len`, `das_dennis_len`) because `nth_comp.go` is `@unsafe`. The wall is lengths, literals, irreflexivity, and p=0 copies — not simplex membership, front identity, or SBX/PM/ASF algebra.
 - [x] Close `niche_count_sum`: mid-split `count_raw.go` histogram conservation (sum of bins = in-range assignment count). Bend-wall only — Bend+Jev is the compounding architecture bet; this spike does not touch Jev / TypeSafe.
 - [x] Remaining independent Run-path maps — NDS `split_walk` / `first_scan` (inner `is_dominated` stays sequential for OR short-circuit), niche `cand_refs` / `in_ref` / `near_members` / `refs_at` / count histograms, `col_min`/`col_max`/`col_max_idx`/`pick_extremes`, `stamp_asgs`, `g12_vec` / `vars_of`. Same fronts given the same RNG (tournament / SBX / mutation / `niche_loop.rng` stay sequential)
 

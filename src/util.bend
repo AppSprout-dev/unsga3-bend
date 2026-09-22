@@ -248,10 +248,13 @@ def has_f32s(+needle: List<&2, F32>, xs: List<&2, List<&2, F32>>) -> Bool:
     case h <> t:
       Bool.or(f32s_eq(needle, h), has_f32s(needle, t))
 
-# C# Unsga3Algorithm.DecisionKey: double.ToString("G12") — 12 significant
-# digits, which on the unit box is 12 decimal places. Round each coord
-# to 12 dp before duplicate-key compare. Bend F32 ULP is coarser than
-# 1e-12, so this matches C# G12 at the precision this tree has.
+# Decision-variable duplicate key: 12 decimal places, round(x*1e12)/1e12.
+# C# DecisionKey is double.ToString("G12") (12 significant digits). Those
+# are not the same format. Near magnitude 1, F32 ULP is coarser than
+# 1e-12, so 12-dp rounding often does nothing. Below about 1e-5 a 12-dp
+# bin is wider than the F32 ULP and the round changes the value
+# (1.234567e-8 → 1.2346e-8). This tree keeps 12-dp keys. It does not
+# match C# G12. See src/g12_key.bend.
 def g12_scale() -> F32:
   1000000000000.0
 
