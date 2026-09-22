@@ -2,6 +2,12 @@
 # Das–Dennis structured points on the unit simplex.
 # Count = C(p + M - 1, M - 1); M == 1n → 1n. Points match C# recurse order
 # (first coordinate increases 0..p, DFS).
+#
+# count and das_dennis disagree at partitions == 0 when M > 1.
+# count(2, 0) = C(1, 1) = 1. das_dennis(2, 0) is Nil{} (length 0).
+# C# throws if partitions < 1. Law das_dennis_len quantifies p+1 and
+# its comment in LAWS.bend records that split. Oracles use p >= 4.
+# Do not treat count and the generator as the same function.
 
 import Base
 import ./util.bend as Util

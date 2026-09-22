@@ -42,4 +42,8 @@ python3 ab/igd_vs_pymoo.py --front ab/out/bend_run_F.csv --problem zdt2 --pf-poi
 
 Omitted `--gens` / `--pop` on a generated driver follow [`ab/protocol.py`](../ab/protocol.py): ZDT2 250/52, ZDT1 100/52, DTLZ2 **150/92**. Explicit flags win. No `--problem` is the checked-in smoke, not that table. C# dump is optional (`UNSGA3_CS_ROOT`); it skips rather than inventing a front.
 
+## Das–Dennis `count` vs `das_dennis` at p = 0
+
+`Refs.count(2, 0)` is 1 (`C(1, 1)`). `Refs.das_dennis(2, 0)` is empty. C# throws when `partitions < 1`. The closed law `das_dennis_len` is quantified on `p+1`; the comment on that law in `LAWS.bend` already says v0 returns `Nil{}` for `M>1` / `p==0` while `Count` is `C(M-1, M-1)`. Oracles use `p≥4` (protocol partitions 12). This is a documented split, not a rewrite of the law. `count` and the generator are not the same function.
+
 Measured native phase tables (not IGD): [PERF_NOTES.md](PERF_NOTES.md). Multi-seed IGD (Bend / C# / pymoo NSGA-III) + Layer-1 fixture check: [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md).
