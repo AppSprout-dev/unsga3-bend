@@ -40,6 +40,20 @@ CASES: list[tuple[Path, list[str]]] = [
             "raw 1.234567e-8",
         ],
     ),
+    (
+        ROOT / "src" / "nds_unequal.bend",
+        [
+            "cmp_short_long 0",
+            "cmp_long_short 0",
+            "cmp_dom 1",
+            "cmp_rev 2",
+            "nfront_uneq 1",
+            "front0_uneq 0,1",
+            "nfront_dom 2",
+            "front0_dom 0",
+            "front1_dom 1",
+        ],
+    ),
 ]
 
 

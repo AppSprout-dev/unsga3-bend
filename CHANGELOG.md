@@ -16,6 +16,7 @@ GitHub tree **0.1.1** is a docs/ab confidence bump only. **Do not hub-publish** 
 - Duplicate-key docs no longer claim 12-decimal rounding matches C# `ToString("G12")`. The key stays `round(x*1e12)/1e12`. [`src/g12_key.bend`](src/g12_key.bend) locks `1.234567e-8` → `1.2346e-8`.
 - Generated DTLZ2 drivers omit `--pop` / `--gens` at the oracle (92 / 150), same as [`ab/protocol.py`](ab/protocol.py). Explicit flags still win. No-flag `dump_bend_run.py` stays the checked-in smoke.
 - Das–Dennis docs call out the existing `das_dennis_len` split: `count(2, 0) = 1` while `das_dennis(2, 0)` is empty. Law text is unchanged. Oracles stay `p≥4`.
+- Unequal-length objectives stay mutual non-domination (C# throws). Locked by [`src/nds_unequal.bend`](src/nds_unequal.bend). Equal-length domination is unchanged.
 
 ## [0.1.1] - 2026-09-21
 

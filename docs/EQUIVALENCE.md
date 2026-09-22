@@ -46,4 +46,8 @@ Omitted `--gens` / `--pop` on a generated driver follow [`ab/protocol.py`](../ab
 
 `Refs.count(2, 0)` is 1 (`C(1, 1)`). `Refs.das_dennis(2, 0)` is empty. C# throws when `partitions < 1`. The closed law `das_dennis_len` is quantified on `p+1`; the comment on that law in `LAWS.bend` already says v0 returns `Nil{}` for `M>1` / `p==0` while `Count` is `C(M-1, M-1)`. Oracles use `p≥4` (protocol partitions 12). This is a documented split, not a rewrite of the law. `count` and the generator are not the same function.
 
+## Unequal-length objectives
+
+`compare_pareto` returns mutual non-domination (`0`) when the objective lists have different lengths, including when the shared prefix is strictly better. C# `ComparePareto` throws. This tree stays total. ZDT / DTLZ populations use one length, so the oracle path does not hit it. Equal-length domination is unchanged (`1` = a dominates b, `2` = the reverse). [`src/nds_unequal.bend`](../src/nds_unequal.bend) locks that: the unequal pair shares front `0,1`; `[0,0]` still strictly dominates `[1,1]`.
+
 Measured native phase tables (not IGD): [PERF_NOTES.md](PERF_NOTES.md). Multi-seed IGD (Bend / C# / pymoo NSGA-III) + Layer-1 fixture check: [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md).
