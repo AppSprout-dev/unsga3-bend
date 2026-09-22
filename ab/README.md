@@ -84,7 +84,7 @@ python3 ab/igd_vs_pymoo.py --front ab/out/csharp_zdt2_F.csv --problem zdt2 --pf-
 
 - Bend RNG is a portable LCG, not `System.Random` — fronts will not match bit-for-bit.
 - `Run` survival niching threads rng (random among equal min-count niches), matching C# `Select(..., rng)` for the ref pick. Empty niches take closest; extras draw among members within 2×best+0.01 of the ray. Uniform `inNiche[rng.Next]` with this LCG collapsed oracle ZDT2. v0 `Survival.select` stays deterministic (`rng == null`).
-- Duplicate keys use C# G12-style 12-decimal rounding on decision vars (Bend F32 ULP is coarser than 1e-12).
+- Duplicate keys round decision variables to 12 decimal places (`round(x*1e12)/1e12`). C# `DecisionKey` is `ToString("G12")` (12 significant digits). Near 1, F32 ULP is coarser than `1e-12`, so 12-dp rounding often does nothing; small variables diverge (`1.234567e-8` → `1.2346e-8`, `src/g12_key.bend`). The 12-dp key stays.
 - Unconstrained problems only (no constraint-domination).
 - A/B / smoke tournament is `PymooCompatible`. C# ctor default is `RankNicheDistance` (also implemented; `--tournament rank_niche` is diagnostic, not the A/B default).
 - DTLZ2 IGD must use the Das–Dennis PF at the run’s partitions. Scoring a C# or Bend front against pymoo’s default ~136-pt PF is a **yardstick mismatch**, not an algorithm gap (same C# seed-1 front: OracleCompare IGD ≈ 0.00403 vs ~0.051 on the old default PF).

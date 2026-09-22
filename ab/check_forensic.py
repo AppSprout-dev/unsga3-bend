@@ -7,6 +7,7 @@ invent IGD, HV, or Wilcoxon numbers. Requires `bend` on PATH.
 
 from __future__ import annotations
 
+import struct
 import subprocess
 import sys
 from pathlib import Path
@@ -32,7 +33,27 @@ CASES: list[tuple[Path, list[str]]] = [
             "ok coin_picks_farther",
         ],
     ),
+    (
+        ROOT / "src" / "g12_key.bend",
+        [
+            "g12 1,0.5,1.2346e-8",
+            "raw 1.234567e-8",
+        ],
+    ),
 ]
+
+
+def f32_bits(x: float) -> float:
+    return struct.unpack("f", struct.pack("f", x))[0]
+
+
+def g12_formats_differ() -> str | None:
+    """C# G12 is 12 significant digits. Bend's locked key is 12 dp."""
+    sig = format(f32_bits(1.234567e-8), ".12g")
+    bend_key = "1.2346e-8"
+    if sig == bend_key:
+        return f"FAIL g12 divergence: .12g {sig!r} collapsed to the 12-dp key"
+    return None
 
 
 def program_lines(text: str) -> list[str]:
@@ -72,6 +93,12 @@ def check_one(path: Path, expected: list[str]) -> str:
 
 def main() -> int:
     fails = 0
+    split = g12_formats_differ()
+    if split is not None:
+        print(split)
+        fails += 1
+    else:
+        print("ok g12 .12g diverges from 12-dp key")
     for path, expected in CASES:
         line = check_one(path, expected)
         print(line)

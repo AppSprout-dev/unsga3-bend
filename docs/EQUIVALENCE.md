@@ -27,7 +27,7 @@ Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Tournament for A/B: `PymooComp
 - Bend RNG is a portable LCG, not `System.Random` — fronts will not match bit-for-bit.
 - v0 sort is Pareto-only (no constraint-domination).
 - `Run` niching threads rng for min-count niche ties; last-front extras are random among near-best on the ray.
-- Duplicate keys use C# G12-style 12-decimal rounding.
+- Duplicate keys round each decision variable to 12 decimal places (`round(x*1e12)/1e12`). C# `DecisionKey` is `ToString("G12")` (12 significant digits). Those formats diverge for small variables (`1.234567e-8` → Bend `1.2346e-8`). The 12-dp key is intentional; it is not a unit-box match to C#.
 
 ## How to dump (no invented fronts)
 

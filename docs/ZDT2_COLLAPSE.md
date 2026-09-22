@@ -89,7 +89,7 @@ C# library signals the same:
 | Min-count ref pick | random among ties if `rng` | same | Shared. |
 | Tournament A/B | `--pymoo-mode` → PymooCompatible | `Tour.pymoo()` | Shared for the 15-seed table. |
 | Tournament C# default | RankNicheDistance | implemented, not A/B default | See probes. |
-| G12 dups | 12-decimal decision keys | same | PR #7: elim_dups **off** still collapsed (1 pt, IGD≈0.695). Not the cause. |
+| G12 dups | `ToString("G12")` (12 significant digits) | 12 decimal places (`round(x*1e12)/1e12`); small vars diverge | PR #7: elim_dups **off** still collapsed (1 pt, IGD≈0.695). Not the cause. Formats are not the same. |
 | RNG | `System.Random` | portable LCG | Explains **which** seeds die, not **that** they die. |
 
 PR #7 (Bend-only at the time): between gens **5–10**, `f1` max **0.93 → 0.009** with uniform extras + LCG. Deterministic niching restored seed=1. Always-closest extras restored ZDT2 but **worsened ZDT1** (IGD 0.146 vs 0.087). So “always closest” is not a free shared fix.

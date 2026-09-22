@@ -27,7 +27,7 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] C# Unsga3 and Bend agree on sort / normalize / associate / select for shared fixtures (`ab/fixture_check.py`: `core_2obj.json` `row_set_equal=True` when `UNSGA3_CS_ROOT` + `dotnet` work; this repo does not clone Unsga3). Results: [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md)
 - [x] Document remaining intentional deltas (constraint-domination, LCG RNG)
 - [x] `Run` survival niching threads rng (random among equal min-count niches; near-best extras on the ray)
-- [x] Duplicate keys use C# G12-style 12-decimal rounding
+- [x] Duplicate keys round decision variables to 12 decimal places (`round(x*1e12)/1e12`). Not C# `ToString("G12")` significant digits; `1.234567e-8` diverges (`src/g12_key.bend`)
 - [x] DTLZ2 IGD yardstick is Das–Dennis-density PF (not pymoo default ~136-pt sample)
 
 **Intentional remaining deltas vs C#:** v0 sort is still Pareto-only (no constraint-domination). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`. v0 `select` stays the deterministic `rng == null` branch. `Run` randomizes min-count niche ties like C# `Select(..., rng)`. Empty niches take closest; extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` — that LCG path collapsed oracle ZDT2.
