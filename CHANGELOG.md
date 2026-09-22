@@ -10,6 +10,10 @@ GitHub tree **0.1.1** is a docs/ab confidence bump only. **Do not hub-publish** 
 
 ## [Unreleased]
 
+### Fixed
+
+- `RankNicheDistance` compares rank, then niche count, then perpendicular distance, then a coin. The earlier path coined as soon as the niche counts matched. A/B stays `PymooCompatible`. Seed-682 pair: [`src/trn_seed682.bend`](src/trn_seed682.bend). No new RankNiche IGD — historical cells in [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md) stay the two-key operator.
+
 ## [0.1.1] - 2026-09-21
 
 GitHub docs/ab confidence bump. Hub import unchanged:

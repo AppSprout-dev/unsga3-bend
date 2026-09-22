@@ -19,7 +19,7 @@ Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Tournament for A/B: `PymooComp
 
 - ZDT2 **gens=250** is the quality bar. **gens=100** is an early-stress snapshot (collapse on Bend, C#, and pymoo at that budget). See [ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md).
 - Smoke is labeled smoke and is **not** an oracle claim.
-- RankNicheDistance (`--tournament rank_niche`) is an optional lever, not the A/B default.
+- RankNicheDistance (`--tournament rank_niche`) is an optional lever, not the A/B default. Its key order is rank → niche count → perpendicular distance → coin (`WinnerRankNicheDistance`). Recorded RankNiche IGD in [ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md) is the earlier two-key operator (distance unused); it is not a rescore of this key order.
 - IGD is mean nearest-neighbor distance. DTLZ2 must use a Das–Dennis-density PF at the run’s partitions (not pymoo’s default ~136-pt sample).
 
 ## Intentional deltas vs C#

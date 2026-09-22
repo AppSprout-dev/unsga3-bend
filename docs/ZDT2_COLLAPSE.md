@@ -142,7 +142,9 @@ g=100 Bend/C# IGD matches PR #16 (same fronts). g=10: **every** stack is an `f1�
 
 ### RankNicheDistance vs PymooCompatible at gens=100
 
-C# Wilcoxon ZDT2 protocol = RankNicheDistance. Same four seeds:
+C# Wilcoxon ZDT2 protocol = RankNicheDistance. Same four seeds.
+
+**Bend cells in the RankNiche tables on this page** (this four-seed probe and the 15-seed table in section B) were measured while Bend `winner_rnd` was rank → niche count → coin. Perpendicular distance was not a key, so those Bend numbers are not C# `WinnerRankNicheDistance` and are not rescored here. C# cells are unchanged. No new IGD.
 
 | seed | Bend Pymoo n / IGD | Bend RankNiche | C# Pymoo | C# RankNiche |
 |-----:|-------------------:|---------------:|---------:|-------------:|
@@ -157,7 +159,7 @@ Bend RankNicheDistance cleared these four at 100 gens. C# RankNicheDistance is *
 
 Host: 4-core, Bend **2.0.16** `--native` (warm-cache `dump_bend_run.py`; each seed rewrites the generated driver so compile is per-seed, `run_s` is the binary), C# Unsga3 **`f99fdac`** (`UNSGA3_CS_ROOT` / `OracleCompare` Release), pymoo **0.6.2**. IGD = `python3 ab/igd_vs_pymoo.py --front … --problem zdt2 --pf-points 500 --partitions 12` (`pf_source=analytic-zdt2 n=500`, `pf_rows=500`). Characterize IGD on the same CSVs matched to 1e-12. Collapse = `n≤10` and `IGD≥0.3`. **No invented IGD.** Dumps: `ab/out/zdt2_probe/` (gitignored).
 
-`--tournament rank_niche` was already wired on both dumpers; no algorithm change.
+`--tournament rank_niche` was already wired on both dumpers; PR #17 did not change the operator. Bend’s RankNiche rows in section B used rank → niche count → coin (distance key not yet wired). They stay as recorded. Do not read them as a measurement of the later three-key order, and do not invent a replacement IGD.
 
 ### A) gens=250, PymooCompatible (p=12, pop=52, seeds 1–15)
 

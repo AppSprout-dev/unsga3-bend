@@ -1,9 +1,10 @@
 # Mating tournament — C# TournamentSelection / TournamentMode.
 # Default for algorithm A/B is PymooCompatible (pymoo
 # comp_by_rank_and_ref_line_dist): same niche → rank then perp dist;
-# else random. RankNicheDistance (C# default: rank → niche count → dist)
-# is also implemented. This slice is unconstrained, so CV branches are
-# unused (all individuals are treated feasible).
+# else random. RankNicheDistance (C# WinnerRankNicheDistance) is
+# rank → niche count → perpendicular distance → coin. This slice is
+# unconstrained, so CV branches are unused (all individuals are treated
+# feasible). A/B does not score this path; see src/trn_seed682.bend.
 
 import Base
 import ./individual.bend as Ind
@@ -64,10 +65,17 @@ def winner_pymoo.same(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, sa
 def winner_pymoo(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State) -> Rng.State & Ind.Individual:
   winner_pymoo.same(a, b, rng, Nat.is_eq(Ind.associated_ref(a), Ind.associated_ref(b)))
 
+# Equal niche counts fall through to perpendicular distance (then coin).
+# A count tie used to coin immediately and skip distance.
+def by_niche.eq(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, same: Bool) -> Rng.State & Ind.Individual:
+  match same:
+    case True{}:
+      by_dist(a, b, rng)
+    case False{}:
+      cmp_pick(a, b, rng, Nat.is_lt(Ind.niche(a), Ind.niche(b)), Nat.is_lt(Ind.niche(b), Ind.niche(a)))
+
 def by_niche(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State) -> Rng.State & Ind.Individual:
-  +na = Ind.niche(a)
-  +nb = Ind.niche(b)
-  cmp_pick(a, b, rng, Nat.is_lt(na, nb), Nat.is_lt(nb, na))
+  by_niche.eq(a, b, rng, Nat.is_eq(Ind.niche(a), Ind.niche(b)))
 
 def winner_rnd.eq(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, same: Bool) -> Rng.State & Ind.Individual:
   match same:
