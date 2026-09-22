@@ -4,11 +4,22 @@ Notable changes to **unsga3-bend**.
 
 This file tracks the Bend **hub** package (content-hash) and GitHub tree versions. It is **not** the C# / NuGet changelog for PackageId `Unsga3` ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)).
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The first hub version is **0.1.0** (content hash `0xcd07e24a626a62e74603d48f436cd679`). Git tags `v0.1.0` and `v0.1.1` and their GitHub Releases already exist.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Current hub package is **0.1.2** (content hash `0x527a2a4fa91b05a0250d7be0e11d232a`). The first hub version was **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`). Git tags `v0.1.0` and `v0.1.1` and their GitHub Releases already exist. Tag `v0.1.2` and its GitHub Release after the 0.1.2 pull request merges.
 
-GitHub tree **0.1.1** is a docs/ab confidence bump only. **Do not hub-publish** for 0.1.1 — the content hash stays `0xcd07e24a626a62e74603d48f436cd679`.
+GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-publish; its content hash stayed `0xcd07e24a626a62e74603d48f436cd679`.
 
 ## [Unreleased]
+
+## [0.1.2] - 2026-09-22
+
+Hub re-publish of the tree after forensic #24. `bend src/lib.bend --publish` (Bend 2.0.25) already ran. Not nuget.org. Not GitHub Packages. Git tag `v0.1.2` and the GitHub Release are cut after merge.
+
+- Previous hub hash (0.1.0, unchanged through GitHub 0.1.1): `0xcd07e24a626a62e74603d48f436cd679`
+- Content hash: `0x527a2a4fa91b05a0250d7be0e11d232a`
+- Printed import: `import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Lib`
+- Consumer import: `import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3`
+
+Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`. GitHub 0.1.2 includes the RankNicheDistance fix below. A/B stays `PymooCompatible`.
 
 ### Fixed
 
@@ -67,11 +78,11 @@ Landed on `main` after the hub `v0.1.0` tag and before GitHub `v0.1.1` ([#20](ht
 
 ### GitHub About (apply with org permission)
 
-`gh repo edit` from this agent returned **HTTP 403**. Maintainers:
+`gh repo edit` from this agent returned **HTTP 403** and never applied. The description below tracks the current hub (**0.1.2**). Maintainers:
 
 ```bash
 gh repo edit AppSprout-dev/unsga3-bend \
-  --description "Bend 2 port of U-NSGA-III. 0.1.0 content-hash hub package (not NuGet). C# Unsga3 is the NuGet/GitHub Packages reference. A/B via ZDT/DTLZ + IGD." \
+  --description "Bend 2 port of U-NSGA-III. 0.1.2 content-hash hub package (not NuGet). C# Unsga3 is the NuGet/GitHub Packages reference. A/B via ZDT/DTLZ + IGD." \
   --homepage "https://github.com/AppSprout-dev/unsga3-bend" \
   --add-topic bend \
   --add-topic nsga3 \
@@ -84,6 +95,7 @@ gh repo edit AppSprout-dev/unsga3-bend \
 
 Replaces current description: `U-NSGA-III in Bend — greenfield rewrite; A/B vs C# Unsga3 via ZDT/DTLZ + pymoo IGD. Not a NuGet package.` (no homepage, no topics). Do **not** add a `nuget` topic.
 
-[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/AppSprout-dev/unsga3-bend/releases/tag/v0.1.0

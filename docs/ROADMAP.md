@@ -1,12 +1,12 @@
 # Roadmap
 
-Living plan for **unsga3-bend**. This is a Bend rewrite, not a NuGet package. PackageId `Unsga3` stays the C# / NuGet / GitHub Packages stack. This tree is the Bend hub package beside it. First hub version: **0.1.0** (content hash `0xcd07e24a626a62e74603d48f436cd679`).
+Living plan for **unsga3-bend**. This is a Bend rewrite, not a NuGet package. PackageId `Unsga3` stays the C# / NuGet / GitHub Packages stack. This tree is the Bend hub package beside it. Current hub version: **0.1.2** (content hash `0x527a2a4fa91b05a0250d7be0e11d232a`). First hub version: **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`).
 
 Public protocol: [EQUIVALENCE.md](EQUIVALENCE.md). How to check the tree: [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## 0.1.0 scope (hub)
 
-Treat as **shipped** for a first hub visitor: v0 core, Pass 2 `Run` + samples, parallel maps, native `-o` dumps, closed `PROOF.bend`, ZDT2 quality protocol gens=250. GitHub **0.1.1** adds measured 15-seed IGD + Layer-1 fixture pass ([ORACLE-MULTISEED.md](ORACLE-MULTISEED.md)); hub hash unchanged. Hub publish already ran; this tree records the import hash.
+Treat as **shipped** for a first hub visitor: v0 core, Pass 2 `Run` + samples, parallel maps, native `-o` dumps, closed `PROOF.bend`, ZDT2 quality protocol gens=250. GitHub **0.1.1** adds measured 15-seed IGD + Layer-1 fixture pass ([ORACLE-MULTISEED.md](ORACLE-MULTISEED.md)) and did not change the 0.1.0 hub hash. **0.1.2** re-published the hub (`import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3`) and includes the RankNicheDistance fix. A/B stays `PymooCompatible`.
 
 ## v0 — core (implemented)
 
@@ -82,3 +82,17 @@ Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
 - [x] `bend src/lib.bend --publish` (content hash `0xcd07e24a626a62e74603d48f436cd679`)
 - [x] Still not NuGet; PackageId `Unsga3` remains the C# package only
 - [ ] GitHub About description / topics (exact strings in [CHANGELOG.md](../CHANGELOG.md); `gh repo edit` needs org permission)
+
+## Hub publish — 0.1.2
+
+**0.1.2** re-published the hub: `bend src/lib.bend --publish` (Bend 2.0.25). GitHub 0.1.2 includes the RankNicheDistance fix (rank, then niche count, then perpendicular distance, then a coin). A/B stays `PymooCompatible`.
+
+- Content hash: `0x527a2a4fa91b05a0250d7be0e11d232a`
+- Printed import: `import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Lib`
+- Consumer import: `import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3`
+- Previous hub hash (0.1.0 through GitHub 0.1.1): `0xcd07e24a626a62e74603d48f436cd679`
+
+Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
+
+- [x] `bend src/lib.bend --publish` (content hash `0x527a2a4fa91b05a0250d7be0e11d232a`)
+- [x] Consumer import (`import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3`)

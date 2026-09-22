@@ -2,7 +2,7 @@
 
 Public protocol for **unsga3-bend**. Same problems, pops, gens, and IGD definition as C# [Unsga3 `docs/EQUIVALENCE.md`](https://github.com/AppSprout-dev/Unsga3/blob/main/docs/EQUIVALENCE.md). Dump defaults live in [`ab/protocol.py`](../ab/protocol.py). Scripts: [ab/README.md](../ab/README.md).
 
-This is **not** a NuGet package. PackageId `Unsga3` stays the C# / NuGet / GitHub Packages stack. First Bend hub version is **0.1.0** (content hash `0xcd07e24a626a62e74603d48f436cd679`; `import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3`).
+This is **not** a NuGet package. PackageId `Unsga3` stays the C# / NuGet / GitHub Packages stack. Current Bend hub version is **0.1.2** (content hash `0x527a2a4fa91b05a0250d7be0e11d232a`; `import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3`). A/B stays `PymooCompatible`. GitHub 0.1.2 includes the RankNicheDistance fix (rank, niche count, perpendicular distance, coin).
 
 Do **not** invent IGD / HV / Wilcoxon numbers. A/B scripts dump a real front or print `skip: …`.
 
