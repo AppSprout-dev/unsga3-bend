@@ -17,27 +17,27 @@ The reference implementation is the existing C# library:
 
 `unsga3-bend` is a from-scratch Bend 2 port of the algorithm core, not a binding and not a republish of that package. The two stacks sit **beside** each other: C# remains the .NET package; this tree is the Bend **hub** package. The shared validation plan is the same public protocol the C# docs use: ZDT / DTLZ problems and IGD against a [pymoo](https://pymoo.org/) `UNSGA3` oracle ([C# `docs/EQUIVALENCE.md`](https://github.com/AppSprout-dev/Unsga3/blob/main/docs/EQUIVALENCE.md)).
 
-## Hub package (0.1.0) and GitHub 0.1.1
+## Hub package (0.1.2)
 
-**0.1.0** is published on the Bend content-hash hub. `bend src/lib.bend --publish` already ran. Artifacts do **not** go to nuget.org or GitHub Packages.
+**0.1.2** is the current Bend content-hash hub package. `bend src/lib.bend --publish` ran again for this tree (Bend 2.0.25). Artifacts do **not** go to nuget.org or GitHub Packages.
 
-GitHub tree **0.1.1** is a docs/ab confidence bump (multi-seed IGD tables + Layer-1 fixture check). The hub content hash is **unchanged** — do not re-publish.
+**0.1.0** was the first hub publish (`0xcd07e24a626a62e74603d48f436cd679`). GitHub **0.1.1** was a docs/ab confidence bump (multi-seed IGD tables + Layer-1 fixture check) and did not re-publish. GitHub **0.1.2** includes the RankNicheDistance fix. A/B stays `PymooCompatible`.
 
 ### How consumers import
 
 Bend fetches a published package by content hash (`bend guide` § Modules). Consumer-facing import (package alias `Unsga3`):
 
 ```bend
-import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Unsga3
+import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3
 ```
 
 `bend src/lib.bend --publish` printed this exact line (alias `Lib`):
 
 ```bend
-import 0xcd07e24a626a62e74603d48f436cd679/lib.bend as Lib
+import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Lib
 ```
 
-The hub entry path is `/lib.bend` (what bend printed), not `/src/lib.bend`. Content hash: `0xcd07e24a626a62e74603d48f436cd679`.
+The hub entry path is `/lib.bend` (what bend printed), not `/src/lib.bend`. Content hash: `0x527a2a4fa91b05a0250d7be0e11d232a`.
 
 Develop against `src/` in this checkout with a local path:
 
@@ -49,7 +49,7 @@ import ./src/lib.bend as Unsga3
 
 ## What is in this tree
 
-Shipped in the **0.1.0** hub package (algorithm + A/B helpers):
+Shipped in the **0.1.2** hub package (algorithm + A/B helpers):
 
 - **Core** — non-dominated sort, NSGA-III normalization, Das–Dennis directions, niching / association, survival
 - **Variation + Run** — decision variables, SBX (η=30, p=1.0), polynomial mutation (η=20, p=1/n), ZDT1 / ZDT2 / DTLZ2 (3-obj), `PymooCompatible` tournament, `Unsga3Algorithm.Run`
@@ -88,7 +88,7 @@ Protocol (same as C# `docs/EQUIVALENCE.md` / `tools/OracleCompare`; dump default
 
 Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Smoke is labeled smoke and is **not** an oracle claim. ZDT2 **quality protocol is gens=250**; **gens=100 is an early-stress snapshot** (PR #16: Bend 10/15 and C# 8/15 collapse), not the A/B default — see [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md) and [`ab/protocol.py`](ab/protocol.py). RankNicheDistance is an optional dump flag (`--tournament rank_niche`), not the new default.
 
-**Intentional deltas vs C#:** Bend RNG is a portable LCG (not `System.Random`), so fronts will not match bit-for-bit. `Run` survival niching threads rng for min-count niche ties (C# `Select(..., rng)`); last-front extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` (that LCG path collapsed oracle ZDT2). v0 `select` stays deterministic. Duplicate keys round decision variables to 12 decimal places (`round(x*1e12)/1e12`), which is not C# `ToString("G12")` significant digits (small variables diverge; see `src/g12_key.bend`). Unequal-length objectives are mutual non-domination (C# `ComparePareto` throws; see `src/nds_unequal.bend`). C# ctor default tournament is `RankNicheDistance`; Bend A/B / smoke uses `PymooCompatible`. DTLZ2 IGD uses a Das–Dennis-density PF (see [ab/README.md](ab/README.md)); pymoo’s default ~136-pt PF is a different yardstick.
+**Intentional deltas vs C#:** Bend RNG is a portable LCG (not `System.Random`), so fronts will not match bit-for-bit. `Run` survival niching threads rng for min-count niche ties (C# `Select(..., rng)`); last-front extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` (that LCG path collapsed oracle ZDT2). v0 `select` stays deterministic. Duplicate keys round decision variables to 12 decimal places (`round(x*1e12)/1e12`), which is not C# `ToString("G12")` significant digits (small variables diverge; see `src/g12_key.bend`). Unequal-length objectives are mutual non-domination (C# `ComparePareto` throws; see `src/nds_unequal.bend`). C# ctor default tournament is `RankNicheDistance`; Bend A/B / smoke uses `PymooCompatible`. GitHub **0.1.2** orders that optional key as rank, then niche count, then perpendicular distance, then a coin. DTLZ2 IGD uses a Das–Dennis-density PF (see [ab/README.md](ab/README.md)); pymoo’s default ~136-pt PF is a different yardstick.
 
 ## Install Bend and check this tree
 
@@ -139,7 +139,7 @@ Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `
 ```
 unsga3-bend/
 ├── AGENTS.md                 # Bend agent rules + product locks
-├── CHANGELOG.md              # 0.1.0 hub + 0.1.1 docs/ab notes
+├── CHANGELOG.md              # 0.1.2 hub re-publish + 0.1.1 docs/ab notes
 ├── CONTRIBUTING.md           # install / smoke / proofs / do-nots
 ├── LAWS.bend                 # core + operator + Run/ZDT claims (human-owned)
 ├── PROOF.bend                # imports LAWS; closed proofs
