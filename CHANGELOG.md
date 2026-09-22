@@ -17,6 +17,7 @@ GitHub tree **0.1.1** is a docs/ab confidence bump only. **Do not hub-publish** 
 - Generated DTLZ2 drivers omit `--pop` / `--gens` at the oracle (92 / 150), same as [`ab/protocol.py`](ab/protocol.py). Explicit flags still win. No-flag `dump_bend_run.py` stays the checked-in smoke.
 - Das–Dennis docs call out the existing `das_dennis_len` split: `count(2, 0) = 1` while `das_dennis(2, 0)` is empty. Law text is unchanged. Oracles stay `p≥4`.
 - Unequal-length objectives stay mutual non-domination (C# throws). Locked by [`src/nds_unequal.bend`](src/nds_unequal.bend). Equal-length domination is unchanged.
+- Stale `?TODO` comments in `LAWS.bend` now say the p=0 laws are closed by a bit-zero copy. Law statements are unchanged. Proof-wall scope is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## [0.1.1] - 2026-09-21
 
