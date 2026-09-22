@@ -35,11 +35,11 @@ Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Tournament for A/B: `PymooComp
 # smoke (checked-in driver)
 python3 ab/dump_bend_run.py --native
 
-# quality protocol (pass the table knobs; see ab/README.md for DTLZ2 omitted-flag traps)
+# quality protocol (omitted --gens/--pop on a generated driver match this table)
 python3 ab/dump_bend_run.py --native --problem zdt2 --partitions 12 --pop 52 --seed 1
 python3 ab/igd_vs_pymoo.py --front ab/out/bend_run_F.csv --problem zdt2 --pf-points 500 --partitions 12
 ```
 
-Omitted `--gens` on `--problem zdt2` is 250 (`ab/protocol.py`). C# dump is optional (`UNSGA3_CS_ROOT`); it skips rather than inventing a front.
+Omitted `--gens` / `--pop` on a generated driver follow [`ab/protocol.py`](../ab/protocol.py): ZDT2 250/52, ZDT1 100/52, DTLZ2 **150/92**. Explicit flags win. No `--problem` is the checked-in smoke, not that table. C# dump is optional (`UNSGA3_CS_ROOT`); it skips rather than inventing a front.
 
 Measured native phase tables (not IGD): [PERF_NOTES.md](PERF_NOTES.md). Multi-seed IGD (Bend / C# / pymoo NSGA-III) + Layer-1 fixture check: [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md).

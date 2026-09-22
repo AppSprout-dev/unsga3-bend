@@ -6,7 +6,8 @@ with IO.now() millisecond buckets. Bend 2.0.13 has no sampling profiler
 (official README limitations); this is the wall-clock path.
 
 Default: checked-in smoke (ab/profile_smoke.bend). With --problem / --pop /
---gens / … a generated driver calls ab/profile_run.bend.
+--gens / … a generated driver calls ab/profile_run.bend. Omitted --pop /
+--gens use ab/protocol.py (DTLZ2 is pop 92, gens 150). Explicit flags win.
 
 Native only for run_s (compile reported separately). Warm cache:
   bend <driver> -o ab/out/profile_cache/<sha256(driver)>
@@ -26,7 +27,7 @@ import sys
 import time
 from pathlib import Path
 
-from protocol import default_gens
+from protocol import fill_omitted
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "ab" / "out"
@@ -220,23 +221,27 @@ def main() -> int:
         v is not None for v in (args.problem, args.partitions, args.pop, args.gens)
     )
     if custom:
-        problem = args.problem or "zdt1"
-        partitions = args.partitions if args.partitions is not None else 12
-        pop = args.pop if args.pop is not None else 52
-        gens = (
-            args.gens
-            if args.gens is not None
-            else default_gens(problem, dtlz2_gens=100)
+        knobs = fill_omitted(
+            args.problem,
+            partitions=args.partitions,
+            pop=args.pop,
+            gens=args.gens,
+            seed=args.seed,
         )
+        problem = str(knobs["problem"])
+        partitions = int(knobs["partitions"])
+        pop = int(knobs["pop"])
+        gens = int(knobs["gens"])
+        seed = int(knobs["seed"])
         OUT_DIR.mkdir(parents=True, exist_ok=True)
         CUSTOM_BEND.write_text(
-            generate_bend(problem, partitions, pop, gens, args.seed),
+            generate_bend(problem, partitions, pop, gens, seed),
             encoding="utf-8",
         )
         src = CUSTOM_BEND
         print(
             f"generated {src} ({problem} p={partitions} pop={pop} "
-            f"gens={gens} seed={args.seed})",
+            f"gens={gens} seed={seed})",
             file=sys.stderr,
         )
     else:

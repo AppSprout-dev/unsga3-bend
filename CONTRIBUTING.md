@@ -19,6 +19,7 @@ bend src/op_smoke.bend  # SBX + polynomial mutation
 bend src/run_smoke.bend # short ZDT1 Run (pop=8, gens=3) — not oracle
 bend PROOF.bend         # 0 ?TODO
 python3 ab/check_forensic.py  # audit locks (no IGD)
+python3 ab/test_dump_defaults.py  # omitted DTLZ2 pop/gens = 92/150
 
 python3 ab/dump_bend_front.py
 python3 ab/dump_bend_run.py --native

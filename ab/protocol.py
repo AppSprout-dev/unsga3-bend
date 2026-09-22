@@ -27,9 +27,9 @@ ORACLE_TOURNAMENT = "pymoo"
 def default_gens(problem: str, *, dtlz2_gens: int | None = None) -> int:
     """Default generations when a dumper omits --gens.
 
-    `dtlz2_gens` keeps dump_bend_run / profile_bend_run at their historical
-    implicit 100 for DTLZ2 (callers that meant the oracle pass --gens 150).
-    dump_csharp_run uses ORACLE_GENS_DTLZ2 (150).
+    Omit `dtlz2_gens` for the oracle (DTLZ2 = 150). `dump_bend_run` and
+    `profile_bend_run` do that. Pass `dtlz2_gens=100` only to rebuild the
+    old generated-driver budget on purpose.
     """
     if problem == "zdt2":
         return ORACLE_GENS_ZDT2
@@ -40,6 +40,32 @@ def default_gens(problem: str, *, dtlz2_gens: int | None = None) -> int:
 
 def default_pop(problem: str) -> int:
     return ORACLE_POP_DTLZ2 if problem == "dtlz2" else ORACLE_POP_ZDT
+
+
+def fill_omitted(
+    problem: str | None,
+    *,
+    partitions: int | None = None,
+    pop: int | None = None,
+    gens: int | None = None,
+    seed: int | None = None,
+    tournament: str | None = None,
+) -> dict[str, int | str]:
+    """Fill a generated Run driver when flags are omitted.
+
+    Explicit values always win. DTLZ2 omissions are the oracle
+    (pop 92, gens 150), same as `oracle_knobs`. ZDT1 stays 100/52.
+    ZDT2 stays 250/52. Tournament stays PymooCompatible.
+    """
+    name = problem or "zdt1"
+    return {
+        "problem": name,
+        "partitions": ORACLE_PARTITIONS if partitions is None else partitions,
+        "pop": default_pop(name) if pop is None else pop,
+        "gens": default_gens(name) if gens is None else gens,
+        "seed": ORACLE_SEED if seed is None else seed,
+        "tournament": tournament or ORACLE_TOURNAMENT,
+    }
 
 
 def n_var(problem: str) -> int:

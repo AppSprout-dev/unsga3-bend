@@ -14,6 +14,7 @@ GitHub tree **0.1.1** is a docs/ab confidence bump only. **Do not hub-publish** 
 
 - `RankNicheDistance` compares rank, then niche count, then perpendicular distance, then a coin. The earlier path coined as soon as the niche counts matched. A/B stays `PymooCompatible`. Seed-682 pair: [`src/trn_seed682.bend`](src/trn_seed682.bend). No new RankNiche IGD — historical cells in [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md) stay the two-key operator.
 - Duplicate-key docs no longer claim 12-decimal rounding matches C# `ToString("G12")`. The key stays `round(x*1e12)/1e12`. [`src/g12_key.bend`](src/g12_key.bend) locks `1.234567e-8` → `1.2346e-8`.
+- Generated DTLZ2 drivers omit `--pop` / `--gens` at the oracle (92 / 150), same as [`ab/protocol.py`](ab/protocol.py). Explicit flags still win. No-flag `dump_bend_run.py` stays the checked-in smoke.
 
 ## [0.1.1] - 2026-09-21
 
