@@ -15,7 +15,7 @@ GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-p
 - Catalog IGD driver [`ab/oracle_catalog.py`](ab/oracle_catalog.py). ZDT3 / ZDT4 / ZDT6 use the ZDT1 budget (p=12, pop=52, gens=100). DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7 use the DTLZ2 budget (p=12, pop=92, gens=150). Sphere / Ackley / Rosenbrock are a short smoke (p=1, pop=20, gens=40) at library-default `n`. Tournament stays `PymooCompatible`. Every cell is a real `igd=` or `skip:`.
 - Pareto sets for those names in [`ab/igd_vs_pymoo.py`](ab/igd_vs_pymoo.py): C# `ParetoFronts` for ZDT3, ZDT4, ZDT6, DTLZ1, and the DTLZ2 sphere shared by DTLZ3 / DTLZ4. DTLZ7 uses pymoo `pareto_front()` or `skip:` (C# has no DTLZ7 front). Single-objective IGD is distance to `f = 0`.
 - Optional C# catalog dump [`ab/dump_csharp_catalog.py`](ab/dump_csharp_catalog.py). `tools/OracleCompare` still accepts only zdt1, zdt2, and dtlz2. pymoo NSGA-III dump accepts catalog names and skips when the box is not the Bend/C# box.
-- Catalog results belong in [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md), copied from `ab/oracle_catalog.py` `igd=` / `skip:` lines only. OSY / TNK / C1-DTLZ1 are skips (not in this tree). No hub republish. ZDT1 / ZDT2 / DTLZ2 quality numbers are not retuned.
+- Catalog results in [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md), copied from the 2026-09-30 `ab/oracle_catalog.py` run (seeds 1–15). 435 `igd=` cells. pymoo Sphere is `skip:` because that pymoo problem is a different box. OSY / TNK / C1-DTLZ1 are skips (not in this tree). No hub republish. ZDT1 / ZDT2 / DTLZ2 quality numbers are not retuned.
 
 ## [0.2.0] - 2026-09-30
 
