@@ -22,9 +22,25 @@ Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Tournament for A/B: `PymooComp
 - RankNicheDistance (`--tournament rank_niche`) is an optional lever, not the A/B default. Its key order is rank → niche count → perpendicular distance → coin (`WinnerRankNicheDistance`). Recorded RankNiche IGD in [ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md) is the earlier two-key operator (distance unused); it is not a rescore of this key order.
 - IGD is mean nearest-neighbor distance. DTLZ2 must use a Das–Dennis-density PF at the run’s partitions (not pymoo’s default ~136-pt sample).
 
-## Catalog problems (not the quality bar)
+## Catalog problems (not the ZDT1 / ZDT2 / DTLZ2 quality bar)
 
-[`src/problems.bend`](../src/problems.bend) also evaluates the rest of the unconstrained C# catalog: ZDT3, ZDT4, ZDT6, DTLZ1, DTLZ3, DTLZ4, DTLZ7, Sphere, Ackley, Rosenbrock. [`ab/dump_bend_run.py`](../ab/dump_bend_run.py) can dump a front for those names. Omitted gens / pop / partitions on a catalog name are a short smoke (3 / 8 / 4), not the table above. [`ab/protocol.py`](../ab/protocol.py) budgets for ZDT1, ZDT2, and DTLZ2 are unchanged. There is no IGD table for the catalog until a measured run is recorded. `igd_vs_pymoo.py` still accepts only `simplex`, `zdt1`, `zdt2`, and `dtlz2`.
+[`src/problems.bend`](../src/problems.bend) also evaluates the rest of the unconstrained C# catalog: ZDT3, ZDT4, ZDT6, DTLZ1, DTLZ3, DTLZ4, DTLZ7, Sphere, Ackley, Rosenbrock. [`ab/dump_bend_run.py`](../ab/dump_bend_run.py) can dump a front for those names. Omitted gens / pop / partitions on a catalog name are a short smoke (3 / 8 / 4), not the table above and not the catalog A/B below. [`ab/protocol.py`](../ab/protocol.py) `oracle_knobs` for ZDT1, ZDT2, and DTLZ2 are unchanged.
+
+C# `tools/OracleCompare` accepts only zdt1, zdt2, and dtlz2, and C# has no published catalog IGD table. [`ab/oracle_catalog.py`](../ab/oracle_catalog.py) still measures the catalog, under `catalog_knobs`, with tournament `PymooCompatible`:
+
+| Problems | Why these knobs | Partitions | Pop | Gens | n |
+|----------|-----------------|------------|-----|------|---|
+| ZDT3, ZDT4, ZDT6 | ZDT1 quality budget | 12 | 52 | 100 | 30, 10, 10 |
+| DTLZ1, DTLZ3, DTLZ4, DTLZ7 | DTLZ2 quality budget | 12 | 92 | 150 | 7, 12, 12, 22 (M=3; k=5 / 10 / 10 / 20) |
+| Sphere, Ackley, Rosenbrock | short smoke, one reference direction | 1 | 20 | 40 | 10, 30, 10 |
+
+C# CI smokes use smaller n on the single-objective problems, `RankNicheDistance`, and different pop/gens. That is not this budget.
+
+Pareto sets in [`ab/igd_vs_pymoo.py`](../ab/igd_vs_pymoo.py): ZDT3 segments, ZDT4 = ZDT1, ZDT6 floor `0.280775`, and DTLZ1 half-simplex follow C# `ParetoFronts`. DTLZ3 and DTLZ4 use the DTLZ2 Das–Dennis sphere. DTLZ7 uses pymoo `pareto_front()` or `skip:` (C# has no DTLZ7 front). Sphere / Ackley / Rosenbrock use the one-point minimum `f = 0`. pymoo's `sphere` is `[0,1]^n` with a different objective; that column must `skip:` rather than score a different problem.
+
+OSY, TNK, and C1-DTLZ1 are not in this tree. Constrained IGD is a skip. C# owns those demos and publishes no IGD table for them.
+
+Measured cells are whatever [`ab/oracle_catalog.py`](../ab/oracle_catalog.py) prints (`igd=` or `skip:`). They are recorded in [ORACLE-CATALOG.md](ORACLE-CATALOG.md) only after a real run. Do not invent IGD / HV / Wilcoxon numbers. The ZDT1 / ZDT2 / DTLZ2 tables in [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md) are a different protocol and are not recomputed here.
 
 ## Constraints
 

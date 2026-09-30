@@ -90,3 +90,91 @@ def oracle_knobs(problem: str) -> dict[str, int | str]:
         "n_var": n_var(problem),
         "n_obj": n_obj(problem),
     }
+
+
+# Catalog A/B. Separate from oracle_knobs. Does not change ZDT1 / ZDT2 / DTLZ2.
+#
+# C# tools/OracleCompare only accepts zdt1, zdt2, dtlz2, and C# has no
+# published catalog IGD table. Bi-objective catalog names use the ZDT1
+# quality budget. DTLZ catalog names use the DTLZ2 quality budget.
+# Dimensions are the C# constructor defaults (Zdt4 n=10, Dtlz1 k=5, …).
+# Single-objective names are a short smoke: one Das–Dennis direction,
+# pop=20, gens=40, library-default n. C# CI smokes use smaller n,
+# RankNicheDistance, and different pop/gens; they are not this budget.
+# Omitted flags on dump_bend_run stay the 4/8/3 smoke, not these knobs.
+
+CATALOG_ZDT = ("zdt3", "zdt4", "zdt6")
+CATALOG_DTLZ = ("dtlz1", "dtlz3", "dtlz4", "dtlz7")
+CATALOG_SO = ("sphere", "ackley", "rosenbrock")
+CATALOG_PROBLEMS = CATALOG_ZDT + CATALOG_DTLZ + CATALOG_SO
+
+# Not in this tree. C# owns the demos. No IGD.
+CONSTRAINED_ABSENT = ("osy", "tnk", "c1dtlz1")
+
+CATALOG_SO_PARTITIONS = 1
+CATALOG_SO_POP = 20
+CATALOG_SO_GENS = 40
+
+
+def catalog_n_var(problem: str) -> int:
+    return {
+        "zdt3": 30,
+        "zdt4": 10,
+        "zdt6": 10,
+        "dtlz1": 7,  # M=3, k=5
+        "dtlz3": 12,  # M=3, k=10
+        "dtlz4": 12,
+        "dtlz7": 22,  # M=3, k=20
+        "sphere": 10,
+        "ackley": 30,
+        "rosenbrock": 10,
+    }[problem]
+
+
+def catalog_n_obj(problem: str) -> int:
+    if problem in CATALOG_ZDT:
+        return 2
+    if problem in CATALOG_DTLZ:
+        return 3
+    if problem in CATALOG_SO:
+        return 1
+    raise KeyError(problem)
+
+
+def catalog_bounds(problem: str) -> tuple[list[float], list[float]]:
+    """Bend / C# box. pymoo must match this or the catalog dumper skips."""
+    n = catalog_n_var(problem)
+    if problem == "zdt4":
+        return [0.0] + [-5.0] * (n - 1), [1.0] + [5.0] * (n - 1)
+    if problem == "sphere":
+        return [-5.12] * n, [5.12] * n
+    if problem == "ackley":
+        return [-32.768] * n, [32.768] * n
+    if problem == "rosenbrock":
+        return [-2.048] * n, [2.048] * n
+    return [0.0] * n, [1.0] * n
+
+
+def catalog_knobs(problem: str) -> dict[str, int | str]:
+    """Explicit catalog knobs. Not oracle_knobs. Not the 4/8/3 dump smoke."""
+    if problem in CATALOG_ZDT:
+        partitions, pop, gens = ORACLE_PARTITIONS, ORACLE_POP_ZDT, ORACLE_GENS_ZDT1
+        sibling = "zdt1"
+    elif problem in CATALOG_DTLZ:
+        partitions, pop, gens = ORACLE_PARTITIONS, ORACLE_POP_DTLZ2, ORACLE_GENS_DTLZ2
+        sibling = "dtlz2"
+    elif problem in CATALOG_SO:
+        partitions, pop, gens = CATALOG_SO_PARTITIONS, CATALOG_SO_POP, CATALOG_SO_GENS
+        sibling = "short-smoke"
+    else:
+        raise KeyError(problem)
+    return {
+        "problem": problem,
+        "partitions": partitions,
+        "pop": pop,
+        "gens": gens,
+        "tournament": ORACLE_TOURNAMENT,
+        "n_var": catalog_n_var(problem),
+        "n_obj": catalog_n_obj(problem),
+        "sibling": sibling,
+    }

@@ -139,12 +139,12 @@ python3 ab/profile_bend_run.py --problem zdt2 --partitions 12 --pop 52 --gens 25
 | Script | Role |
 |--------|------|
 | `dump_bend_front.py` | v0 `Survival.select`, writes `ab/out/bend_F.csv` |
-| `protocol.py` | A/B defaults: ZDT2 gens=250, ZDT1=100, DTLZ2=150 / pop 92 (C# path / `ORACLE_GENS_*`). `fill_omitted` is what a generated driver uses when `--gens` / `--pop` are left out. RankNicheDistance is not the default |
+| `protocol.py` | A/B defaults: ZDT2 gens=250, ZDT1=100, DTLZ2=150 / pop 92 (C# path / `ORACLE_GENS_*`). `fill_omitted` is what a generated driver uses when `--gens` / `--pop` are left out. RankNicheDistance is not the default. `catalog_knobs` is a separate budget (ZDT1-shaped bi-objective catalog, DTLZ2-shaped DTLZ catalog, short single-objective smoke) and does not change those three |
 | `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` compiles to `ab/out/run_cache/<sha256>` on miss and reuses that binary on hit; falls back to `bend <driver>` if the build fails. Stderr `compile_s` vs `run_s` splits those costs. Omitted `--gens` / `--pop` for **zdt1 / zdt2 / dtlz2** follow [`protocol.py`](protocol.py): zdt2 250/52, zdt1 100/52, **dtlz2 150/92**. Catalog names (`zdt3`, `zdt4`, `zdt6`, `dtlz1`, `dtlz3`, `dtlz4`, `dtlz7`, `sphere`, `ackley`, `rosenbrock`) dump the same way; omitted knobs are a short smoke (partitions=4, pop=8, gens=3), not that protocol. Explicit flags win. The no-flag path is still the checked-in ZDT1 smoke. No IGD for the catalog. |
 | `dump_csharp_front.py` | optional C# `Select` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing |
 | `dump_csharp_run.py` | optional C# `OracleCompare` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing. Writes to a per-run `ab/out/csharp_oracle/<stem>/` so a leftover CSV from another problem is not picked (old shared-dir `glob[-1]` was wrong after multi-problem runs). |
 | `csharp_core_dump/` | one-shot `dotnet` helper for layer-1 `Select` |
-| `igd_vs_pymoo.py` | IGD vs pymoo when installed (`--problem simplex\|zdt1\|zdt2\|dtlz2`); DTLZ2 PF is Das–Dennis `--partitions` (prints `pf_rows` / `pf_source`); otherwise skip |
+| `igd_vs_pymoo.py` | IGD vs pymoo when installed. Quality names: `simplex`, `zdt1`, `zdt2`, `dtlz2` (DTLZ2 PF is Das–Dennis `--partitions`). Catalog names: `zdt3`, `zdt4`, `zdt6`, `dtlz1`, `dtlz3`, `dtlz4`, `dtlz7`, `sphere`, `ackley`, `rosenbrock`. Prints `pf_rows` / `pf_source` or `skip:` |
 | `compare.py` | prints Bend rows; compares to C# CSV when present |
 | `profile_run.bend` | IO.now() phase wrapper around the same Run calls (same RNG / front). No src/ hooks |
 | `profile_smoke.bend` | checked-in smoke driver for the profiler |
@@ -152,11 +152,13 @@ python3 ab/profile_bend_run.py --problem zdt2 --partitions 12 --pop 52 --gens 25
 | `characterize_front.py` | 2-obj front geometry + IGD (pymoo or local mean-NN). Collapse = `n≤10` and `IGD≥0.3` |
 | `zdt2_collapse_probe.py` | dump Bend / C# / pymoo ZDT2 (or ZDT1) over seeds×gens; JSONL summary |
 | `zdt2_geometry.py` | analytic ZDT1/ZDT2 PF vs Das–Dennis rays (no Run) |
-| `dump_pymoo_nsga3.py` | optional pymoo **NSGA-III** front (same knobs); skips if pymoo missing |
-| `oracle_multiseed.py` | 15-seed IGD table: Bend `--native` + C# + pymoo NSGA-III, scored with `igd_vs_pymoo.py` |
+| `dump_pymoo_nsga3.py` | optional pymoo **NSGA-III** front (same knobs); skips if pymoo missing. Catalog names use `catalog_knobs` when flags are omitted, and skip when the pymoo box is not the Bend/C# box |
+| `dump_csharp_catalog.py` | optional C# catalog Run (not `OracleCompare`, which only accepts zdt1/zdt2/dtlz2). Skips without `UNSGA3_CS_ROOT` / `dotnet`. Does not clone Unsga3 |
+| `oracle_multiseed.py` | 15-seed IGD table for ZDT1 / ZDT2 / DTLZ2: Bend `--native` + C# + pymoo NSGA-III, scored with `igd_vs_pymoo.py` |
+| `oracle_catalog.py` | Catalog IGD table under `catalog_knobs`. Every cell is `igd=` or `skip:`. OSY / TNK / C1-DTLZ1 are skips (not in this tree) |
 | `fixture_check.py` | Layer-1 bit-check: dump Bend + C# selected fronts on a JSON fixture, then `compare.py` |
 | `test_catalog_smoke.py` | `bend src/catalog_smoke.bend`: catalog dims, box ends, Evaluate(x=0.5), pop=4 gens=1 Run. No IGD |
 
-Multi-seed tables + fixture matrix: [docs/ORACLE-MULTISEED.md](../docs/ORACLE-MULTISEED.md).
+Multi-seed ZDT1 / ZDT2 / DTLZ2 tables + fixture matrix: [docs/ORACLE-MULTISEED.md](../docs/ORACLE-MULTISEED.md). Catalog measurements: [docs/ORACLE-CATALOG.md](../docs/ORACLE-CATALOG.md) (`python3 ab/oracle_catalog.py`).
 
 ZDT2 multi-seed collapse on **both** stacks at gens=100: [docs/ZDT2_COLLAPSE.md](../docs/ZDT2_COLLAPSE.md). A/B default is gens=250 / `pymoo`. `dump_bend_run.py --tournament rank_niche` and `dump_csharp_run.py --tournament rank_niche` are diagnostic.
