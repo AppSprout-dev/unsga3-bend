@@ -9,7 +9,13 @@ from __future__ import annotations
 
 import unittest
 
-from dump_bend_run import generate_bend
+from dump_bend_run import (
+    CATALOG_SMOKE_GENS,
+    CATALOG_SMOKE_PARTITIONS,
+    CATALOG_SMOKE_POP,
+    generate_bend,
+    resolve_dump_knobs,
+)
 from protocol import ORACLE_GENS_DTLZ2, ORACLE_POP_DTLZ2, fill_omitted
 
 
@@ -37,6 +43,26 @@ class FillOmittedTest(unittest.TestCase):
         self.assertEqual((zdt1["pop"], zdt1["gens"]), (52, 100))
         self.assertEqual((zdt2["pop"], zdt2["gens"]), (52, 250))
         self.assertEqual(fill_omitted(None)["problem"], "zdt1")
+
+    def test_catalog_omitted_is_smoke_not_zdt1_oracle(self) -> None:
+        knobs = resolve_dump_knobs("zdt3")
+        self.assertEqual(knobs["partitions"], CATALOG_SMOKE_PARTITIONS)
+        self.assertEqual(knobs["pop"], CATALOG_SMOKE_POP)
+        self.assertEqual(knobs["gens"], CATALOG_SMOKE_GENS)
+        self.assertEqual((knobs["pop"], knobs["gens"], knobs["partitions"]), (8, 3, 4))
+        src = generate_bend("zdt3", 4, 8, 3, 1)
+        self.assertIn("Prob.zdt3(30n)", src)
+        self.assertIn("das_dennis(2n, 4n), 8n, 3n, 1n", src)
+        self.assertNotIn("52n", src)
+        self.assertNotIn("100n", src)
+        explicit = resolve_dump_knobs("sphere", partitions=12, pop=52, gens=100)
+        self.assertEqual((explicit["pop"], explicit["gens"], explicit["partitions"]), (52, 100, 12))
+        self.assertIn("Prob.sphere(10n)", generate_bend("sphere", 12, 52, 100, 1))
+        # Quality budgets stay on the three oracle names.
+        zdt1 = resolve_dump_knobs("zdt1")
+        dtlz2 = resolve_dump_knobs("dtlz2")
+        self.assertEqual((zdt1["pop"], zdt1["gens"]), (52, 100))
+        self.assertEqual((dtlz2["pop"], dtlz2["gens"]), (92, 150))
 
 
 if __name__ == "__main__":

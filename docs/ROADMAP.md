@@ -96,3 +96,14 @@ Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
 
 - [x] `bend src/lib.bend --publish` (content hash `0x527a2a4fa91b05a0250d7be0e11d232a`)
 - [x] Consumer import (`import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3`)
+
+## Problem catalog (implemented, not oracle-tabled)
+
+The unconstrained C# suite beside ZDT1 / ZDT2 / DTLZ2. Formulas live in [`src/problems.bend`](../src/problems.bend). These names can be dumped. They are **not** rows of the ZDT1 / ZDT2 / DTLZ2 quality protocol ([EQUIVALENCE.md](EQUIVALENCE.md), [`ab/protocol.py`](../ab/protocol.py)). No IGD / HV / Wilcoxon numbers are recorded here.
+
+- [x] ZDT3, ZDT4, ZDT6 (bounds + Evaluate)
+- [x] DTLZ1 (k=5), DTLZ3, DTLZ4 (α=100), DTLZ7 (k=20)
+- [x] Sphere, Ackley, Rosenbrock (M=1; `Run` still accepts pop ≥ 1, including the existing zero-pop law)
+- [x] `ab/dump_bend_run.py --problem` writes a real front. Omitted knobs for these names are a short smoke (partitions=4, pop=8, gens=3), not oracle gens
+- [x] Smoke: `bend src/catalog_smoke.bend` (evaluate at 0.5, short Run). Checker: `python3 ab/test_catalog_smoke.py`
+- [ ] Measured IGD / HV / Wilcoxon table for the catalog (leave empty until a real run is pasted; do not fill cells by hand)

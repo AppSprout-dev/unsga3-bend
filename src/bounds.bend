@@ -1,5 +1,5 @@
 # IProblem box — variable count + per-var [lo, hi].
-# Named problems (ZDT1 / ZDT2 / DTLZ2) live in problems.bend.
+# Named problems live in problems.bend.
 
 import Base
 
@@ -54,6 +54,10 @@ def at.go(m: Maybe<&2, Interval>) -> Interval:
 def at(b: Box, i: Nat) -> Interval:
   at.go(List.get(&2, Interval, intervals_of(b), i))
 
-# nv copies of [0, 1]. Smoke / operator tests; not a named problem.
+# nv copies of [0, 1]. Smoke / operator tests; unit ZDT / DTLZ boxes.
 def unit_n(nv: Nat, nm: Nat) -> Box:
   MkBox{nm, List.replicate(Interval, nv, MkInterval{0.0, 1.0})}
+
+# nv copies of [low, high]. Sphere / Ackley / Rosenbrock and any uniform range.
+def span_n(nv: Nat, nm: Nat, +low: F32, +high: F32) -> Box:
+  MkBox{nm, List.replicate(Interval, nv, MkInterval{low, high})}

@@ -22,6 +22,10 @@ Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Tournament for A/B: `PymooComp
 - RankNicheDistance (`--tournament rank_niche`) is an optional lever, not the A/B default. Its key order is rank → niche count → perpendicular distance → coin (`WinnerRankNicheDistance`). Recorded RankNiche IGD in [ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md) is the earlier two-key operator (distance unused); it is not a rescore of this key order.
 - IGD is mean nearest-neighbor distance. DTLZ2 must use a Das–Dennis-density PF at the run’s partitions (not pymoo’s default ~136-pt sample).
 
+## Catalog problems (not the quality bar)
+
+[`src/problems.bend`](../src/problems.bend) also evaluates the rest of the unconstrained C# catalog: ZDT3, ZDT4, ZDT6, DTLZ1, DTLZ3, DTLZ4, DTLZ7, Sphere, Ackley, Rosenbrock. [`ab/dump_bend_run.py`](../ab/dump_bend_run.py) can dump a front for those names. Omitted gens / pop / partitions on a catalog name are a short smoke (3 / 8 / 4), not the table above. [`ab/protocol.py`](../ab/protocol.py) budgets for ZDT1, ZDT2, and DTLZ2 are unchanged. There is no IGD table for the catalog until a measured run is recorded. `igd_vs_pymoo.py` still accepts only `simplex`, `zdt1`, `zdt2`, and `dtlz2`.
+
 ## Intentional deltas vs C#
 
 - Bend RNG is a portable LCG, not `System.Random` — fronts will not match bit-for-bit.
