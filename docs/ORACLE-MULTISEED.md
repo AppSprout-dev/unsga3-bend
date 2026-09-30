@@ -4,7 +4,7 @@ Confidence tables for **unsga3-bend** vs C# [Unsga3](https://github.com/AppSprou
 
 **No invented numbers.** Every IGD cell is a real `igd=` line from a dumped front. Reproduce with [`ab/oracle_multiseed.py`](../ab/oracle_multiseed.py) and [`ab/fixture_check.py`](../ab/fixture_check.py).
 
-These tables shipped with GitHub **0.1.1** (docs/ab only; that tag did not hub-publish). Current hub package is **0.1.2** (`import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3`). The runs use `PymooCompatible`. The 0.1.2 RankNicheDistance fix is outside this default.
+These tables shipped with GitHub **0.1.1** (docs/ab only; that tag did not hub-publish). Current hub package is **0.2.0** (`import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Unsga3`). The runs use `PymooCompatible`. The 0.1.2 RankNicheDistance fix is outside this default. These cells were not re-run for the 0.2.0 catalog or constraint path.
 
 ## Protocol knobs
 

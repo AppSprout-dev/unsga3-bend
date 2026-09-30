@@ -1,6 +1,6 @@
 # Contributing
 
-This repository is **standalone public OSS**. It is **not** a NuGet package and **not** PackageId `Unsga3`. The C# library ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)) stays the NuGet / GitHub Packages stack. Current Bend hub version is **0.1.2** (content hash `0x527a2a4fa91b05a0250d7be0e11d232a`; `import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3`). First hub publish was **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`).
+This repository is **standalone public OSS**. It is **not** a NuGet package and **not** PackageId `Unsga3`. The C# library ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)) stays the NuGet / GitHub Packages stack. Current Bend hub version is **0.2.0** (content hash `0xa2f9d6ef8c474468bf1de15ebe70c512`; `import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Unsga3`). Previous hub publish was **0.1.2** (`0x527a2a4fa91b05a0250d7be0e11d232a`). First hub publish was **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`).
 
 Read [AGENTS.md](AGENTS.md) for language + product locks. Protocol: [docs/EQUIVALENCE.md](docs/EQUIVALENCE.md). License: [LICENSE](LICENSE) (MIT).
 
