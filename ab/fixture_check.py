@@ -125,8 +125,9 @@ def check_one(fixture: Path, out_dir: Path) -> dict:
         rec["verdict"] = "fail"
         rec["note"] = (
             "Selected-front row-sets differ. Do not weaken LAWS.bend or "
-            "change dominance to force a pass. Intentional Run-path deltas "
-            "(LCG, Pareto-only) do not apply to this deterministic select."
+            "change dominance to force a pass. The fixture has no constraints "
+            "(constraint-domination matches Pareto). LCG and the near-best "
+            "last-front band do not apply to this deterministic select."
         )
     return rec
 

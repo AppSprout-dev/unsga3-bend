@@ -11,6 +11,13 @@
 # Duplicate keys round each decision variable to 12 decimal places
 # (round(x*1e12)/1e12). That is not C# ToString("G12") (12 significant
 # digits). Small variables diverge; see src/g12_key.bend.
+# The seen set is the survivor population, then accepted offspring
+# (C# CreateOffspring hashes population.Members). After pop*40 pair
+# attempts, up to max(pop*20, 1) mutations must still be a new key;
+# only then are duplicates accepted.
+# Odd N: the last parent enters SBX, paired with parent 0. Even N
+# pair lookups stay the monotonic cursor (reset to pair 0 once the
+# cursor passes the last in-range start).
 
 import Base
 import ./individual.bend as Ind
@@ -163,15 +170,41 @@ def dec_if(n: Nat, hit: Bool) -> Nat:
     case False{}:
       n
 
-def wrap_pair.go(+pair: Nat, ok: Bool) -> Nat:
-  match ok:
+# in_range: pair+1 < n → use `pair` (even-N sequence, and odd N before
+# the last parent). last: pair+1 == n → keep `pair` so parent N-1
+# enters SBX. Otherwise reset to 0 (cursor already past the end).
+def wrap_pair.keep(+pair: Nat, last: Bool) -> Nat:
+  match last:
     case True{}:
       pair
     case False{}:
       0n
 
+def wrap_pair.go(+pair: Nat, in_range: Bool, last: Bool) -> Nat:
+  match in_range:
+    case True{}:
+      pair
+    case False{}:
+      wrap_pair.keep(pair, last)
+
 def wrap_pair(+pair: Nat, +n: Nat) -> Nat:
-  wrap_pair.go(pair, Nat.is_lt(1n+pair, n))
+  wrap_pair.go(pair, Nat.is_lt(1n+pair, n), Nat.is_eq(1n+pair, n))
+
+# Second parent. In range: pair+1. At the end (odd N, first parent is
+# N-1): parent 0. Even N never asks for a mate past N-1.
+def pair_mate.go(+i: Nat, ok: Bool) -> Nat:
+  match ok:
+    case True{}:
+      i
+    case False{}:
+      0n
+
+def pair_mate(+p0: Nat, +n: Nat) -> Nat:
+  pair_mate.go(1n+p0, Nat.is_lt(1n+p0, n))
+
+# C# fallback cap: max(pop * 20, 1). Unique-key stage before duplicates.
+def dup_fallback_cap(n: Nat) -> Nat:
+  Util.nat_max(Nat.mul(n, 20n), 1n)
 
 type FHold is Data:
   FH{
@@ -256,7 +289,7 @@ def offs_pair(
     prob,
     mut_p,
     elim,
-    Sbx.crossover(Sbx.default(), get_ind(parents, p0), get_ind(parents, 1n+p0), Prob.box_of(prob), rng)
+    Sbx.crossover(Sbx.default(), get_ind(parents, p0), get_ind(parents, pair_mate(p0, n)), Prob.box_of(prob), rng)
   )
 
 type OHold is Data:
@@ -277,10 +310,64 @@ def offs_next(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F
     case OH{need, +pair, rng, acc, seen}:
       offs_next.q(pair, offs_pair(parents, pair, need, acc, seen, rng, prob, mut_p, elim))
 
-def offs_done(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, hold: OHold) -> Rng.State & List<&2, Ind.Individual>:
+# Middle loop: mutation that must still be a new key. `need` is the
+# remaining slots. Cap is max(pop*20, 1), counted in `fuel`.
+type UHold is Data:
+  UH{
+    rng: Rng.State
+    acc: List<&2, Ind.Individual>
+    seen: List<&2, List<&2, F32>>
+    need: Nat
+  }
+
+def u_have(hold: UHold) -> Rng.State & List<&2, Ind.Individual>:
+  match hold:
+    case UH{rng, acc, seen, need}:
+      (rng, acc)
+
+def u_fallback(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, hold: UHold) -> Rng.State & List<&2, Ind.Individual>:
+  match hold:
+    case UH{rng, acc, seen, need}:
+      fallback_loop(need, FH{rng, acc}, parents, prob, mut_p)
+
+def u_step.hold(+rng: Rng.State, +need: Nat, trip: List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool) -> UHold:
+  (acc2, seen2, hit) = trip
+  UH{rng, acc2, seen2, dec_if(need, hit)}
+
+def u_step.child(+elim: Bool, +acc: List<&2, Ind.Individual>, +seen: List<&2, List<&2, F32>>, +need: Nat, +rng: Rng.State, +child: Ind.Individual) -> UHold:
+  u_step.hold(rng, need, try_add(acc, child, seen, elim))
+
+def u_step(+elim: Bool, +acc: List<&2, Ind.Individual>, +seen: List<&2, List<&2, F32>>, +need: Nat, pair: Rng.State & Ind.Individual) -> UHold:
+  (rng, child) = pair
+  u_step.child(elim, acc, seen, need, rng, child)
+
+def u_next(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, +elim: Bool, hold: UHold) -> UHold:
+  match hold:
+    case UH{rng, acc, seen, need}:
+      +n = Util.list_len(Ind.Individual, parents)
+      +rng_i = Rng.next_nat(rng, n)
+      u_step(elim, acc, seen, need, Poly.mutate(Poly.default(), get_ind(parents, Rng.last_nat(rng_i)), Prob.box_of(prob), rng_i, mut_p))
+
+def u_loop(
+  fuel: Nat,
+  hold: UHold,
+  +parents: List<&2, Ind.Individual>,
+  +prob: Prob.Problem,
+  +mut_p: F32,
+  +elim: Bool
+) -> Rng.State & List<&2, Ind.Individual>:
+  match fuel hold:
+    case 0n h:
+      u_fallback(parents, prob, mut_p, h)
+    case 1n+f UH{rng, acc, seen, 0n}:
+      u_have(UH{rng, acc, seen, 0n})
+    case 1n+f UH{rng, acc, seen, 1n+k}:
+      u_loop(f, u_next(parents, prob, mut_p, elim, UH{rng, acc, seen, 1n+k}), parents, prob, mut_p, elim)
+
+def offs_done(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, +elim: Bool, +n: Nat, hold: OHold) -> Rng.State & List<&2, Ind.Individual>:
   match hold:
     case OH{nrest, pair, rng, acc, seen}:
-      fallback_loop(nrest, FH{rng, acc}, parents, prob, mut_p)
+      u_loop(dup_fallback_cap(n), UH{rng, acc, seen, nrest}, parents, prob, mut_p, elim)
 
 def offs_have(hold: OHold) -> Rng.State & List<&2, Ind.Individual>:
   match hold:
@@ -293,31 +380,42 @@ def offs_loop(
   +parents: List<&2, Ind.Individual>,
   +prob: Prob.Problem,
   +mut_p: F32,
-  +elim: Bool
+  +elim: Bool,
+  +n: Nat
 ) -> Rng.State & List<&2, Ind.Individual>:
   match fuel hold:
     case 0n h:
-      offs_done(parents, prob, mut_p, h)
+      offs_done(parents, prob, mut_p, elim, n, h)
     case 1n+f OH{0n, pair, rng, acc, seen}:
       offs_have(OH{0n, pair, rng, acc, seen})
     case 1n+f OH{1n+k, pair, rng, acc, seen}:
-      offs_loop(f, offs_next(parents, prob, mut_p, elim, OH{1n+k, pair, rng, acc, seen}), parents, prob, mut_p, elim)
+      offs_loop(f, offs_next(parents, prob, mut_p, elim, OH{1n+k, pair, rng, acc, seen}), parents, prob, mut_p, elim, n)
 
-def seen_start(+parents: List<&2, Ind.Individual>, elim: Bool) -> List<&2, List<&2, F32>>:
+# Hash the survivor population (not the mating sample). An individual
+# who lost every tournament is still a duplicate of P.
+def seen_start(+survivors: List<&2, Ind.Individual>, elim: Bool) -> List<&2, List<&2, F32>>:
   match elim:
     case True{}:
-      vars_of(parents)
+      vars_of(survivors)
     case False{}:
       Nil{}
 
-def create_offspring(+prob: Prob.Problem, +parents: List<&2, Ind.Individual>, +n: Nat, rng: Rng.State, +elim: Bool) -> Rng.State & List<&2, Ind.Individual>:
+def create_offspring(
+  +prob: Prob.Problem,
+  +survivors: List<&2, Ind.Individual>,
+  +parents: List<&2, Ind.Individual>,
+  +n: Nat,
+  rng: Rng.State,
+  +elim: Bool
+) -> Rng.State & List<&2, Ind.Individual>:
   offs_loop(
     Nat.mul(n, 40n),
-    OH{n, 0n, rng, Nil{}, seen_start(parents, elim)},
+    OH{n, 0n, rng, Nil{}, seen_start(survivors, elim)},
     parents,
     prob,
     Poly.typical_probability(Prob.n_var(prob)),
-    elim
+    elim,
+    n
   )
 
 def nd_front(+pop: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
@@ -364,7 +462,7 @@ def one_gen.o(+prob: Prob.Problem, +cfg: Config, +pop: List<&2, Ind.Individual>,
 
 def one_gen.p(+prob: Prob.Problem, +cfg: Config, +pop: List<&2, Ind.Individual>, +state: Norm.State, trip: Rng.State & List<&2, Ind.Individual>) -> GHold:
   (rng1, parents) = trip
-  one_gen.o(prob, cfg, pop, state, create_offspring(prob, parents, cfg_pop(cfg), rng1, cfg_elim(cfg)))
+  one_gen.o(prob, cfg, pop, state, create_offspring(prob, pop, parents, cfg_pop(cfg), rng1, cfg_elim(cfg)))
 
 def one_gen(+prob: Prob.Problem, +cfg: Config, hold: GHold) -> GHold:
   match hold:

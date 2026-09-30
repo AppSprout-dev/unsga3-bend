@@ -600,6 +600,7 @@ def one_gen.offs(
     t0 : Nat <- IO.now()
     pair : Rng.State & List<&2, Ind.Individual> = Algo.create_offspring(
       prob,
+      pop,
       trip_xs(tp),
       cfg_pop(cfg),
       trip_rng(tp),

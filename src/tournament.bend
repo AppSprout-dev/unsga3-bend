@@ -2,9 +2,13 @@
 # Default for algorithm A/B is PymooCompatible (pymoo
 # comp_by_rank_and_ref_line_dist): same niche → rank then perp dist;
 # else random. RankNicheDistance (C# WinnerRankNicheDistance) is
-# rank → niche count → perpendicular distance → coin. This slice is
-# unconstrained, so CV branches are unused (all individuals are treated
-# feasible). A/B does not score this path; see src/trn_seed682.bend.
+# rank → niche count → perpendicular distance → coin.
+# Both modes take CV first. Feasible (cv ≤ 0) beats infeasible.
+# PymooCompatible: if either is infeasible, smaller CV wins and equal
+# CV is a coin (no rank / distance). RankNicheDistance: both infeasible
+# and unequal CV → smaller CV; equal CV falls through to rank.
+# cv 0 on both sides keeps the feasible comparators. A/B stays
+# PymooCompatible. See src/trn_seed682.bend.
 
 import Base
 import ./individual.bend as Ind
@@ -62,8 +66,35 @@ def winner_pymoo.same(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, sa
     case False{}:
       coin(a, b, rng)
 
+def winner_pymoo.cv_b(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, b_lt: Bool) -> Rng.State & Ind.Individual:
+  match b_lt:
+    case True{}:
+      (rng, b)
+    case False{}:
+      coin(a, b, rng)
+
+# Either infeasible: smaller CV, else coin. Does not read rank.
+def winner_pymoo.cv(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, a_lt: Bool, b_lt: Bool) -> Rng.State & Ind.Individual:
+  match a_lt:
+    case True{}:
+      (rng, a)
+    case False{}:
+      winner_pymoo.cv_b(a, b, rng, b_lt)
+
+def winner_pymoo.gate(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, either: Bool) -> Rng.State & Ind.Individual:
+  match either:
+    case True{}:
+      winner_pymoo.cv(a, b, rng, F32.is_lt(Ind.constraint_violation(a), Ind.constraint_violation(b)), F32.is_lt(Ind.constraint_violation(b), Ind.constraint_violation(a)))
+    case False{}:
+      winner_pymoo.same(a, b, rng, Nat.is_eq(Ind.associated_ref(a), Ind.associated_ref(b)))
+
 def winner_pymoo(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State) -> Rng.State & Ind.Individual:
-  winner_pymoo.same(a, b, rng, Nat.is_eq(Ind.associated_ref(a), Ind.associated_ref(b)))
+  winner_pymoo.gate(
+    a,
+    b,
+    rng,
+    Bool.or(Bool.not(Ind.feasible(a)), Bool.not(Ind.feasible(b)))
+  )
 
 # Equal niche counts fall through to perpendicular distance (then coin).
 # A count tie used to coin immediately and skip distance.
@@ -84,8 +115,34 @@ def winner_rnd.eq(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, same: 
     case False{}:
       cmp_pick(a, b, rng, Nat.is_lt(Ind.rank(a), Ind.rank(b)), Nat.is_lt(Ind.rank(b), Ind.rank(a)))
 
+def winner_rnd.cv_b(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, b_lt: Bool) -> Rng.State & Ind.Individual:
+  match b_lt:
+    case True{}:
+      (rng, b)
+    case False{}:
+      winner_rnd.eq(a, b, rng, Nat.is_eq(Ind.rank(a), Ind.rank(b)))
+
+# Both infeasible. Equal CV falls through to rank (not a coin, not Pareto).
+def winner_rnd.cv(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, a_lt: Bool, b_lt: Bool) -> Rng.State & Ind.Individual:
+  match a_lt:
+    case True{}:
+      (rng, a)
+    case False{}:
+      winner_rnd.cv_b(a, b, rng, b_lt)
+
+def winner_rnd.gate(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, a_feas: Bool, b_feas: Bool) -> Rng.State & Ind.Individual:
+  match a_feas b_feas:
+    case True{} False{}:
+      (rng, a)
+    case False{} True{}:
+      (rng, b)
+    case True{} True{}:
+      winner_rnd.eq(a, b, rng, Nat.is_eq(Ind.rank(a), Ind.rank(b)))
+    case False{} False{}:
+      winner_rnd.cv(a, b, rng, F32.is_lt(Ind.constraint_violation(a), Ind.constraint_violation(b)), F32.is_lt(Ind.constraint_violation(b), Ind.constraint_violation(a)))
+
 def winner_rnd(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State) -> Rng.State & Ind.Individual:
-  winner_rnd.eq(a, b, rng, Nat.is_eq(Ind.rank(a), Ind.rank(b)))
+  winner_rnd.gate(a, b, rng, Ind.feasible(a), Ind.feasible(b))
 
 def winner(mode: Mode, +a: Ind.Individual, +b: Ind.Individual, rng: Rng.State) -> Rng.State & Ind.Individual:
   match mode:

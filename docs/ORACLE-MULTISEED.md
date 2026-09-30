@@ -26,7 +26,7 @@ IGD = pymoo `IGD` mean nearest-neighbor distance.
 
 ZDT2 **gens=100** is an early-stress snapshot, not this table — [ZDT2_COLLAPSE.md](ZDT2_COLLAPSE.md).
 
-Intentional Run-path deltas (not Layer-1): Bend RNG is a portable LCG, not `System.Random`. Fronts will not match bit-for-bit. v0 sort is Pareto-only. Last-front extras on Bend are random among near-best on the ray.
+Intentional Run-path deltas (not Layer-1): Bend RNG is a portable LCG, not `System.Random`. Fronts will not match bit-for-bit. These measured runs are unconstrained (CV = 0), so constraint-domination agrees with Pareto. Last-front extras on Bend are random among near-best on the ray. The tables below were not re-run for the later survivor-set duplicate contract.
 
 ## How to reproduce
 
@@ -70,7 +70,7 @@ Selected row-set (parsed floats): `(0,1)`, `(0.2,0.9)`, `(0.5,0.5)`, `(0.9,0.2)`
 
 C# writes G17 doubles (`0.20000000000000001`); Bend prints shorter F32 text (`0.2`). `compare.py` equality is after Python `float` parse — same contract as Layer-1 smoke. No other shared fixtures are checked in.
 
-Intentional Run-path deltas (LCG ≠ `System.Random`, Pareto-only, last-front extras) do **not** apply to this deterministic select. No law was weakened.
+Intentional Run-path deltas (LCG ≠ `System.Random`, last-front extras) do **not** apply to this deterministic select. The fixture has no constraints, so constraint-domination matches Pareto. No law was weakened.
 
 ## Measured IGD tables
 

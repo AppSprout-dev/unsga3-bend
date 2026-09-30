@@ -25,12 +25,12 @@ Enough to A/B a front when a population of **objectives** is provided.
 
 - [x] Wire [ab/](../ab/README.md) Bend dump + compare (C# / pymoo still optional)
 - [x] C# Unsga3 and Bend agree on sort / normalize / associate / select for shared fixtures (`ab/fixture_check.py`: `core_2obj.json` `row_set_equal=True` when `UNSGA3_CS_ROOT` + `dotnet` work; this repo does not clone Unsga3). Results: [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md)
-- [x] Document remaining intentional deltas (constraint-domination, LCG RNG)
+- [x] Document remaining intentional deltas (LCG RNG, equal-CV vs published C# Pareto fall-through, 12-dp keys, near-best last front)
 - [x] `Run` survival niching threads rng (random among equal min-count niches; near-best extras on the ray)
 - [x] Duplicate keys round decision variables to 12 decimal places (`round(x*1e12)/1e12`). Not C# `ToString("G12")` significant digits; `1.234567e-8` diverges (`src/g12_key.bend`)
 - [x] DTLZ2 IGD yardstick is Das–Dennis-density PF (not pymoo default ~136-pt sample)
 
-**Intentional remaining deltas vs C#:** v0 sort is still Pareto-only (no constraint-domination). Unequal-length objectives are mutual non-domination (C# `ComparePareto` throws; [`src/nds_unequal.bend`](../src/nds_unequal.bend)). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`. v0 `select` stays the deterministic `rng == null` branch. `Run` randomizes min-count niche ties like C# `Select(..., rng)`. Empty niches take closest; extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` — that LCG path collapsed oracle ZDT2.
+**Intentional remaining deltas vs C#:** equal infeasible `cv` is mutual non-domination (Deb). Published C# `CompareConstraintDominated` still Pareto-compares that tie. Unequal-length objectives are mutual non-domination (C# `ComparePareto` throws; [`src/nds_unequal.bend`](../src/nds_unequal.bend)). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`. v0 `select` stays the deterministic `rng == null` branch. `Run` randomizes min-count niche ties like C# `Select(..., rng)`. Empty niches take closest; extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` — that LCG path collapsed oracle ZDT2. Duplicate keys stay 12 decimal places, not `ToString("G12")`. No OSY / TNK / C1-DTLZ1.
 
 ## Pass 2 — variation, Run, samples
 
@@ -41,7 +41,9 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] Polynomial mutation (default η=20; **probability per variable is passed in** — C# `Run` uses `1/n` when unset)
 - [x] Operator smoke: `bend src/op_smoke.bend` on a 2-var unit box, seed 42
 - [x] Shared ZDT1 / ZDT2 / DTLZ2 (3-obj, k=10) bounds + Evaluate matching C# `IProblem`
-- [x] Mating tournament: `PymooCompatible` (A/B default) + `RankNicheDistance` (C# ctor default)
+- [x] Mating tournament: `PymooCompatible` (A/B default) + `RankNicheDistance` (C# ctor default). Both modes take `cv` first. A/B stays `PymooCompatible`
+- [x] Constraint-domination in `NDS.sort` (Deb: equal infeasible `cv` does not Pareto-compare). `cv` on `Individual` is the sum of positive `g`. Zero constraints keep the Pareto path ([`src/cd_contract.bend`](../src/cd_contract.bend))
+- [x] Offspring duplicate contract: seen set is the survivor population; after `pop·40` pair attempts, `max(pop·20, 1)` mutations must be a new 12-dp key, then duplicates are accepted. Odd N pairs parent `N-1` with parent `0`. Even-N pair lookups are unchanged
 - [x] `Unsga3Algorithm.Run` generational loop (persistent Normalization, rng niching)
 - [x] Samples: `src/run_smoke.bend` + `ab/dump_bend_run.py` dump a real front under `ab/out/`
 - [x] Algorithm A/B scripts: Bend Run dump; optional C# `OracleCompare` when `UNSGA3_CS_ROOT` is set; `igd_vs_pymoo.py` vs analytic / pymoo PF or `skip:`

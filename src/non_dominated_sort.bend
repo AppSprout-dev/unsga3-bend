@@ -1,14 +1,17 @@
 # NonDominatedSort — C# Unsga3.Core.NonDominatedSort.
-# Fast non-dominated sorting by peeling (Deb et al.). v0: Pareto on
-# objectives only (no constraint-domination until constraints exist).
+# Fast non-dominated sorting by peeling (Deb et al.).
+# `sort` uses Deb constraint-domination: feasible beats infeasible;
+# both infeasible and unequal CV → smaller CV; equal CV is mutual
+# non-domination (objectives are not compared). Both feasible → Pareto.
+# `dominates` stays the Pareto predicate (law dominates_irreflexive).
+# Zero constraints (cv 0) keeps today's Pareto fronts.
 #
 # Layout (Bend guide: Arrays cannot ride a fork tree; List.get is a
-# cons walk): one sequential pass materializes `Row{index, objectives}`
+# cons walk): one sequential pass materializes `Row{index, objectives, cv}`
 # so the peel never `List.get`s a fat Individual. Per-candidate split
 # still mid-splits `a b = f(lo) f(hi)` (same front/leftover order as
 # the tail-first walk). Inner is_dominated stays a sequential OR so a
-# first hit skips the rest. Same dominance definition; same ranks and
-# index order for the same population.
+# first hit skips the rest. Same ranks and index order when every cv is 0.
 
 import Base
 import ./individual.bend as Ind
@@ -20,24 +23,30 @@ type Row is Data:
   Row{
     i: Nat
     f: List<&2, F32>
+    cv: F32
   }
 
 def row_idx(r: Row) -> Nat:
   match r:
-    case Row{i, f}:
+    case Row{i, f, cv}:
       i
 
 def row_f(r: Row) -> List<&2, F32>:
   match r:
-    case Row{i, f}:
+    case Row{i, f, cv}:
       f
+
+def row_cv(r: Row) -> F32:
+  match r:
+    case Row{i, f, cv}:
+      cv
 
 def rows_of.go(pop: List<&2, Ind.Individual>, +i: Nat) -> List<&2, Row>:
   match pop:
     case Nil{}:
       Nil{}
     case +h <> t:
-      Row{i, Ind.objectives(h)} <> rows_of.go(t, 1n+i)
+      Row{i, Ind.objectives(h), Ind.constraint_violation(h)} <> rows_of.go(t, 1n+i)
 
 def rows_of(+pop: List<&2, Ind.Individual>) -> List<&2, Row>:
   rows_of.go(pop, 0n)
@@ -88,6 +97,47 @@ def compare_pareto.go(a: List<&2, F32>, b: List<&2, F32>, ab: Bool, bb: Bool) ->
 def compare_pareto(a: List<&2, F32>, b: List<&2, F32>) -> Nat:
   compare_pareto.go(a, b, False{}, False{})
 
+# Equal CV among infeasible points: 0. Deb does not Pareto-compare.
+# C# CompareConstraintDominated on published main falls through to
+# Pareto; this tree does not (Deb / constraint-domination target).
+def compare_cd.infeas(+cva: F32, +cvb: F32, a_lt: Bool, b_lt: Bool) -> Nat:
+  match a_lt:
+    case True{}:
+      1n
+    case False{}:
+      match b_lt:
+        case True{}:
+          2n
+        case False{}:
+          0n
+
+# 0 mutual, 1 a dominates b, 2 b dominates a.
+# Feasible (cv ≤ 0) beats infeasible. Both feasible → Pareto,
+# including unequal objective lengths (mutual non-domination).
+def compare_cd.feas(
+  +fa: List<&2, F32>,
+  +fb: List<&2, F32>,
+  +cva: F32,
+  +cvb: F32,
+  a_feas: Bool,
+  b_feas: Bool
+) -> Nat:
+  match a_feas b_feas:
+    case True{} True{}:
+      compare_pareto(fa, fb)
+    case True{} False{}:
+      1n
+    case False{} True{}:
+      2n
+    case False{} False{}:
+      compare_cd.infeas(cva, cvb, F32.is_lt(cva, cvb), F32.is_lt(cvb, cva))
+
+def compare_cd(+fa: List<&2, F32>, +fb: List<&2, F32>, +cva: F32, +cvb: F32) -> Nat:
+  compare_cd.feas(fa, fb, cva, cvb, F32.is_le(cva, 0.0), F32.is_le(cvb, 0.0))
+
+def compare_constraint(+a: Ind.Individual, +b: Ind.Individual) -> Nat:
+  compare_cd(Ind.objectives(a), Ind.objectives(b), Ind.constraint_violation(a), Ind.constraint_violation(b))
+
 def dominates.is1(p: Nat) -> Bool:
   match p:
     case 0n:
@@ -102,31 +152,36 @@ def dominates.fin(c: Nat) -> Bool:
     case 1n+p:
       dominates.is1(p)
 
+# Pareto only. Irreflexivity is closed in PROOF.bend on this predicate.
+# `sort` uses compare_cd, not this function.
 def dominates(a: Ind.Individual, b: Ind.Individual) -> Bool:
   dominates.fin(compare_pareto(Ind.objectives(a), Ind.objectives(b)))
 
 def dominates_ff(+fa: List<&2, F32>, +fb: List<&2, F32>) -> Bool:
   dominates.fin(compare_pareto(fa, fb))
 
+def dominates_cd(+fa: List<&2, F32>, +cva: F32, +fb: List<&2, F32>, +cvb: F32) -> Bool:
+  dominates.fin(compare_cd(fa, fb, cva, cvb))
+
 # Sequential OR so a first hit can skip the rest. Candidate-level
 # parallelism lives in split_walk (coarse mid-split). Walks `all`
 # rows directly — no List.get into the population.
-def is_dominated(+all: List<&2, Row>, +i: Nat, +fi: List<&2, F32>) -> Bool:
+def is_dominated(+all: List<&2, Row>, +i: Nat, +fi: List<&2, F32>, +cvi: F32) -> Bool:
   match all:
     case Nil{}:
       False{}
     case +r <> rs:
       match r:
-        case Row{+j, +fj}:
+        case Row{+j, +fj, +cvj}:
           Bool.or(
-            Bool.and(Bool.not(Nat.is_eq(i, j)), dominates_ff(fj, fi)),
-            is_dominated(rs, i, fi)
+            Bool.and(Bool.not(Nat.is_eq(i, j)), dominates_cd(fj, cvj, fi, cvi)),
+            is_dominated(rs, i, fi, cvi)
           )
 
 def row_dom(+all: List<&2, Row>, +r: Row) -> Bool:
   match r:
-    case Row{+i, +f}:
-      is_dominated(all, i, f)
+    case Row{+i, +f, +cv}:
+      is_dominated(all, i, f, cv)
 
 # Split remaining into (front indices, leftover rows). Same front
 # membership and leftover order as the old index-list peel.
