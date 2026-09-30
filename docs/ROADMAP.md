@@ -126,4 +126,4 @@ The unconstrained C# suite beside ZDT1 / ZDT2 / DTLZ2. Formulas live in [`src/pr
 - [x] Sphere, Ackley, Rosenbrock (M=1; `Run` still accepts pop ≥ 1, including the existing zero-pop law)
 - [x] `ab/dump_bend_run.py --problem` writes a real front. Omitted knobs for these names are a short smoke (partitions=4, pop=8, gens=3), not oracle gens
 - [x] Smoke: `bend src/catalog_smoke.bend` (evaluate at 0.5, short Run). Checker: `python3 ab/test_catalog_smoke.py`
-- [ ] Measured IGD / HV / Wilcoxon table for the catalog (leave empty until a real run is pasted; do not fill cells by hand)
+- [x] Measured IGD table for the catalog ([ORACLE-CATALOG.md](ORACLE-CATALOG.md), `ab/oracle_catalog.py`, seeds 1–15). pymoo Sphere is `skip:` (different box). OSY / TNK / C1-DTLZ1 are `skip:` (not in this tree). No HV / Wilcoxon.
