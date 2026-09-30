@@ -62,7 +62,7 @@ How to run the gates: [CONTRIBUTING.md](CONTRIBUTING.md).
 | `src/reference_directions.bend` | `ReferenceDirections.DasDennis` |
 | `src/survival.bend` | `ReferencePointManager` + `NondominatedSortingSurvival` |
 | `src/bounds.bend` | `IProblem` box `[lo, hi]` |
-| `src/problems.bend` | `Zdt1Problem` / `Zdt2Problem` / `Dtlz2Problem` |
+| `src/problems.bend` | `Zdt1` / `Zdt2` / `Zdt3` / `Zdt4` / `Zdt6`, `Dtlz1` / `Dtlz2` / `Dtlz3` / `Dtlz4` / `Dtlz7`, `Sphere` / `Ackley` / `Rosenbrock` |
 | `src/rng.bend` | `RandomProvider` (LCG; not `System.Random`) |
 | `src/sbx.bend` | `SimulatedBinaryCrossover` (η=30, probability=1.0) |
 | `src/polynomial_mutation.bend` | `PolynomialMutation` (η=20; per-variable p at call site, typically 1/n) |

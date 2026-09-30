@@ -7,9 +7,15 @@ OracleCompare protocol.
 
 With --problem/--partitions/--pop/--gens/--seed, generate a small Bend
 wrapper and run that (oracle-sized runs are opt-in and can be slow).
-Omitted --gens / --pop use ab/protocol.py oracle defaults: ZDT2=250/52,
-ZDT1=100/52, DTLZ2=150/92. Explicit flags win. Tournament default stays
-PymooCompatible. The checked-in smoke (no --problem) is unchanged.
+Omitted --gens / --pop for zdt1 / zdt2 / dtlz2 use ab/protocol.py oracle
+defaults: ZDT2=250/52, ZDT1=100/52, DTLZ2=150/92. Explicit flags win.
+Tournament default stays PymooCompatible. The checked-in smoke (no
+--problem) is unchanged.
+
+Catalog names (zdt3, zdt4, zdt6, dtlz1, dtlz3, dtlz4, dtlz7, sphere,
+ackley, rosenbrock) are dumpable the same way. Omitted partitions / pop /
+gens for those names are a short smoke (4 / 8 / 3), not the ZDT1 oracle
+and not a new quality budget. This script does not score IGD / HV.
 
 Native path (clang 14+; Bend 2.0.10+):
   bend <driver> -o ab/out/run_cache/<sha256(driver)>
@@ -46,7 +52,24 @@ PROBLEMS = {
     "zdt1": ("Prob.zdt1(30n)", 2),
     "zdt2": ("Prob.zdt2(30n)", 2),
     "dtlz2": ("Prob.dtlz2(3n, 10n)", 3),
+    # C# catalog. Not oracle_knobs. Omitted flags use the smoke below.
+    "zdt3": ("Prob.zdt3(30n)", 2),
+    "zdt4": ("Prob.zdt4(10n)", 2),
+    "zdt6": ("Prob.zdt6(10n)", 2),
+    "dtlz1": ("Prob.dtlz1(3n, 5n)", 3),
+    "dtlz3": ("Prob.dtlz3(3n, 10n)", 3),
+    "dtlz4": ("Prob.dtlz4(3n, 10n)", 3),
+    "dtlz7": ("Prob.dtlz7(3n, 20n)", 3),
+    "sphere": ("Prob.sphere(10n)", 1),
+    "ackley": ("Prob.ackley(30n)", 1),
+    "rosenbrock": ("Prob.rosenbrock(10n)", 1),
 }
+
+# Short completion smoke. Distinct from protocol.py ZDT1 100/52.
+CATALOG = frozenset(k for k in PROBLEMS if k not in ("zdt1", "zdt2", "dtlz2"))
+CATALOG_SMOKE_PARTITIONS = 4
+CATALOG_SMOKE_POP = 8
+CATALOG_SMOKE_GENS = 3
 
 TOURNAMENTS = {
     "pymoo": ("Tour.pymoo()", "PymooCompatible"),
@@ -54,6 +77,39 @@ TOURNAMENTS = {
 }
 
 CHECKER_PREFIXES = ("All terms check",)
+
+
+def resolve_dump_knobs(
+    problem: str | None,
+    *,
+    partitions: int | None = None,
+    pop: int | None = None,
+    gens: int | None = None,
+    seed: int | None = None,
+    tournament: str | None = None,
+) -> dict[str, int | str]:
+    """Fill a generated driver.
+
+    zdt1 / zdt2 / dtlz2 omissions stay `protocol.fill_omitted` (the quality
+    budgets). Catalog omissions are partitions=4, pop=8, gens=3 so a named
+    dump can finish without joining that protocol. Explicit values win.
+    """
+    knobs = fill_omitted(
+        problem,
+        partitions=partitions,
+        pop=pop,
+        gens=gens,
+        seed=seed,
+        tournament=tournament,
+    )
+    if problem in CATALOG:
+        if partitions is None:
+            knobs["partitions"] = CATALOG_SMOKE_PARTITIONS
+        if pop is None:
+            knobs["pop"] = CATALOG_SMOKE_POP
+        if gens is None:
+            knobs["gens"] = CATALOG_SMOKE_GENS
+    return knobs
 
 
 def generate_bend(
@@ -239,8 +295,8 @@ def main() -> int:
         "--gens",
         type=int,
         default=None,
-        help="generations (omitted: zdt2=250, dtlz2=150, else 100; "
-        "explicit value always wins)",
+        help="generations (omitted: zdt2=250, dtlz2=150, zdt1=100; "
+        "catalog problems use smoke gens=3; explicit value always wins)",
     )
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
@@ -311,7 +367,7 @@ def main() -> int:
         )
     ) or args.no_elim_dups
     if custom:
-        knobs = fill_omitted(
+        knobs = resolve_dump_knobs(
             args.problem,
             partitions=args.partitions,
             pop=args.pop,

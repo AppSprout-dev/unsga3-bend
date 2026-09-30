@@ -53,6 +53,7 @@ Shipped in the **0.1.2** hub package (algorithm + A/B helpers):
 
 - **Core** — non-dominated sort, NSGA-III normalization, Das–Dennis directions, niching / association, survival
 - **Variation + Run** — decision variables, SBX (η=30, p=1.0), polynomial mutation (η=20, p=1/n), ZDT1 / ZDT2 / DTLZ2 (3-obj), `PymooCompatible` tournament, `Unsga3Algorithm.Run`
+- **Catalog (unreleased, not in the 0.1.2 hub hash)** — ZDT3 / ZDT4 / ZDT6, DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7, Sphere / Ackley / Rosenbrock. Dumpable. Not an IGD table. See [CHANGELOG.md](CHANGELOG.md) `[Unreleased]`
 - **Parallel maps** — independent per-individual work uses Bend `a b = f(lo) f(hi)` mid-splits. Tournament, SBX, mutation, and last-front niching stay sequential so a fixed seed consumes RNG in the same order
 - **Native dumps** — `bend src/….bend -o …` then run the binary. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails
 - **Proofs** — `bend PROOF.bend` is 0 `?TODO`
@@ -66,7 +67,7 @@ Measured native phase tables (not IGD): [docs/PERF_NOTES.md](docs/PERF_NOTES.md)
 | `Normalization` | NSGA-III adaptive hyperplane (persistent across `Run`) |
 | `ReferenceDirections` | Das–Dennis directions / count |
 | `Survival` | niching association + environmental selection |
-| `problems` | `Zdt1Problem` / `Zdt2Problem` / `Dtlz2Problem` |
+| `problems` | `Zdt1` / `Zdt2` / `Zdt3` / `Zdt4` / `Zdt6`, `Dtlz1` / `Dtlz2` / `Dtlz3` / `Dtlz4` / `Dtlz7`, `Sphere` / `Ackley` / `Rosenbrock` |
 | `tournament` | `TournamentSelection` / `TournamentMode` |
 | `algorithm` | `Unsga3Algorithm.Run` |
 

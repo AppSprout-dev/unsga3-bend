@@ -140,7 +140,7 @@ python3 ab/profile_bend_run.py --problem zdt2 --partitions 12 --pop 52 --gens 25
 |--------|------|
 | `dump_bend_front.py` | v0 `Survival.select`, writes `ab/out/bend_F.csv` |
 | `protocol.py` | A/B defaults: ZDT2 gens=250, ZDT1=100, DTLZ2=150 / pop 92 (C# path / `ORACLE_GENS_*`). `fill_omitted` is what a generated driver uses when `--gens` / `--pop` are left out. RankNicheDistance is not the default |
-| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` compiles to `ab/out/run_cache/<sha256>` on miss and reuses that binary on hit; falls back to `bend <driver>` if the build fails. Stderr `compile_s` vs `run_s` splits those costs. Omitted `--gens` / `--pop` follow [`protocol.py`](protocol.py): zdt2 250/52, zdt1 100/52, **dtlz2 150/92**. Explicit flags win. The no-flag path is still the checked-in smoke, not a generated DTLZ2 run. |
+| `dump_bend_run.py` | `Unsga3Algorithm.Run` smoke (or generated custom), writes `ab/out/bend_run_F.csv`. `--native` compiles to `ab/out/run_cache/<sha256>` on miss and reuses that binary on hit; falls back to `bend <driver>` if the build fails. Stderr `compile_s` vs `run_s` splits those costs. Omitted `--gens` / `--pop` for **zdt1 / zdt2 / dtlz2** follow [`protocol.py`](protocol.py): zdt2 250/52, zdt1 100/52, **dtlz2 150/92**. Catalog names (`zdt3`, `zdt4`, `zdt6`, `dtlz1`, `dtlz3`, `dtlz4`, `dtlz7`, `sphere`, `ackley`, `rosenbrock`) dump the same way; omitted knobs are a short smoke (partitions=4, pop=8, gens=3), not that protocol. Explicit flags win. The no-flag path is still the checked-in ZDT1 smoke. No IGD for the catalog. |
 | `dump_csharp_front.py` | optional C# `Select` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing |
 | `dump_csharp_run.py` | optional C# `OracleCompare` dump; skips if `UNSGA3_CS_ROOT` / `dotnet` is missing. Writes to a per-run `ab/out/csharp_oracle/<stem>/` so a leftover CSV from another problem is not picked (old shared-dir `glob[-1]` was wrong after multi-problem runs). |
 | `csharp_core_dump/` | one-shot `dotnet` helper for layer-1 `Select` |
@@ -155,6 +155,7 @@ python3 ab/profile_bend_run.py --problem zdt2 --partitions 12 --pop 52 --gens 25
 | `dump_pymoo_nsga3.py` | optional pymoo **NSGA-III** front (same knobs); skips if pymoo missing |
 | `oracle_multiseed.py` | 15-seed IGD table: Bend `--native` + C# + pymoo NSGA-III, scored with `igd_vs_pymoo.py` |
 | `fixture_check.py` | Layer-1 bit-check: dump Bend + C# selected fronts on a JSON fixture, then `compare.py` |
+| `test_catalog_smoke.py` | `bend src/catalog_smoke.bend`: catalog dims, box ends, Evaluate(x=0.5), pop=4 gens=1 Run. No IGD |
 
 Multi-seed tables + fixture matrix: [docs/ORACLE-MULTISEED.md](../docs/ORACLE-MULTISEED.md).
 

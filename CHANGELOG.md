@@ -10,6 +10,12 @@ GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-p
 
 ## [Unreleased]
 
+### Added
+
+- Unconstrained C# problem catalog in [`src/problems.bend`](src/problems.bend): ZDT3 (n=30), ZDT4 (n=10, `x0∈[0,1]`, `x1..∈[-5,5]`), ZDT6 (n=10), DTLZ1 (M=3, k=5), DTLZ3 (k=10, DTLZ2 map with DTLZ1 `g`), DTLZ4 (α=100, k=10), DTLZ7 (k=20), Sphere (n=10), Ackley (n=30), Rosenbrock (n=10). Formulas match [AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3) `Problems/`. No hub publish and no version bump.
+- Dump names for that catalog in [`ab/dump_bend_run.py`](ab/dump_bend_run.py). Omitted `--partitions` / `--pop` / `--gens` on those names are a short smoke (4 / 8 / 3), not the ZDT1 / ZDT2 / DTLZ2 quality budgets. Explicit flags still win. No IGD / HV / Wilcoxon cells.
+- Smoke [`src/catalog_smoke.bend`](src/catalog_smoke.bend): each catalog problem evaluates at `x_i=0.5` and a pop=4, gens=1, seed=1 `Run` completes. [`ab/test_catalog_smoke.py`](ab/test_catalog_smoke.py) checks dimensions, bounds, and those objective values. It does not score a front.
+
 ## [0.1.2] - 2026-09-22
 
 Hub re-publish of the tree after forensic #24. `bend src/lib.bend --publish` (Bend 2.0.25) already ran. Not nuget.org. Not GitHub Packages. Git tag `v0.1.2` and the GitHub Release are cut after merge.
