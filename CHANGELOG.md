@@ -15,6 +15,16 @@ GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-p
 - Unconstrained C# problem catalog in [`src/problems.bend`](src/problems.bend): ZDT3 (n=30), ZDT4 (n=10, `x0∈[0,1]`, `x1..∈[-5,5]`), ZDT6 (n=10), DTLZ1 (M=3, k=5), DTLZ3 (k=10, DTLZ2 map with DTLZ1 `g`), DTLZ4 (α=100, k=10), DTLZ7 (k=20), Sphere (n=10), Ackley (n=30), Rosenbrock (n=10). Formulas match [AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3) `Problems/`. No hub publish and no version bump.
 - Dump names for that catalog in [`ab/dump_bend_run.py`](ab/dump_bend_run.py). Omitted `--partitions` / `--pop` / `--gens` on those names are a short smoke (4 / 8 / 3), not the ZDT1 / ZDT2 / DTLZ2 quality budgets. Explicit flags still win. No IGD / HV / Wilcoxon cells.
 - Smoke [`src/catalog_smoke.bend`](src/catalog_smoke.bend): each catalog problem evaluates at `x_i=0.5` and a pop=4, gens=1, seed=1 `Run` completes. [`ab/test_catalog_smoke.py`](ab/test_catalog_smoke.py) checks dimensions, bounds, and those objective values. It does not score a front.
+- `Individual` constraint vector and aggregate CV (sum of positive `g`; feasible iff CV ≤ 0). Empty constraints stay CV 0.
+- Deb constraint-domination in `NDS.sort`: feasible beats infeasible; both infeasible and unequal CV → smaller CV; equal CV is mutual non-domination (objectives are not compared). Both feasible → Pareto. Published C# `CompareConstraintDominated` still Pareto-compares an equal-CV infeasible pair; this tree does not. `NDS.dominates` stays the Pareto predicate. Zero-constraint ZDT / DTLZ stay on that path.
+- CV prefixes on both tournaments. `PymooCompatible` (A/B default): if either parent is infeasible, smaller CV wins and equal CV is a coin. `RankNicheDistance`: equal CV falls through to rank, niche count, distance, then a coin. A/B is not switched to `RankNicheDistance`.
+
+### Fixed
+
+- Offspring duplicate elimination hashes the survivor population, then accepted children. A member who lost every tournament is still a duplicate of P. After `pop·40` pair attempts, up to `max(pop·20, 1)` mutations must be a new key; remaining slots may be duplicates. The key stays `round(x*1e12)/1e12`, not C# `ToString("G12")`.
+- Odd-N SBX includes parent `N-1` (paired with parent `0`). Even-N pair lookups are unchanged. N = 1 crosses the only parent with itself.
+
+No hub publish. No version bump. No new IGD / HV / Wilcoxon cells. Lock: [`src/cd_contract.bend`](src/cd_contract.bend).
 
 ## [0.1.2] - 2026-09-22
 
