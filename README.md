@@ -17,27 +17,33 @@ The reference implementation is the existing C# library:
 
 `unsga3-bend` is a from-scratch Bend 2 port of the algorithm core, not a binding and not a republish of that package. The two stacks sit **beside** each other: C# remains the .NET package; this tree is the Bend **hub** package. The shared validation plan is the same public protocol the C# docs use: ZDT / DTLZ problems and IGD against a [pymoo](https://pymoo.org/) `UNSGA3` oracle ([C# `docs/EQUIVALENCE.md`](https://github.com/AppSprout-dev/Unsga3/blob/main/docs/EQUIVALENCE.md)).
 
-## Hub package (0.1.2)
+## Hub package (0.2.0)
 
-**0.1.2** is the current Bend content-hash hub package. `bend src/lib.bend --publish` ran again for this tree (Bend 2.0.25). Artifacts do **not** go to nuget.org or GitHub Packages.
+**0.2.0** is the current Bend content-hash hub package. `bend src/lib.bend --publish` ran again for this tree (Bend 2.0.34). Artifacts do **not** go to nuget.org or GitHub Packages.
 
-**0.1.0** was the first hub publish (`0xcd07e24a626a62e74603d48f436cd679`). GitHub **0.1.1** was a docs/ab confidence bump (multi-seed IGD tables + Layer-1 fixture check) and did not re-publish. GitHub **0.1.2** includes the RankNicheDistance fix. A/B stays `PymooCompatible`.
+**0.1.0** was the first hub publish (`0xcd07e24a626a62e74603d48f436cd679`). GitHub **0.1.1** was a docs/ab confidence bump (multi-seed IGD tables + Layer-1 fixture check) and did not re-publish. GitHub **0.1.2** (`0x527a2a4fa91b05a0250d7be0e11d232a`) includes the RankNicheDistance fix. **0.2.0** adds the unconstrained problem catalog, Deb constraint-domination, the offspring duplicate contract, and the odd-N SBX fix. A/B stays `PymooCompatible`.
 
 ### How consumers import
 
 Bend fetches a published package by content hash (`bend guide` § Modules). Consumer-facing import (package alias `Unsga3`):
 
 ```bend
-import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3
+import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Unsga3
 ```
 
 `bend src/lib.bend --publish` printed this exact line (alias `Lib`):
 
 ```bend
-import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Lib
+import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Lib
 ```
 
-The hub entry path is `/lib.bend` (what bend printed), not `/src/lib.bend`. Content hash: `0x527a2a4fa91b05a0250d7be0e11d232a`.
+The hub entry path is `/lib.bend` (what bend printed), not `/src/lib.bend`. Content hash: `0xa2f9d6ef8c474468bf1de15ebe70c512`.
+
+The named package `unified-nsga-iii@0.1.2.0` still points at the 0.1.2 hash. `unified-nsga-iii@0.2.0.0` is not linked yet (publish had no Bend login). After `bend login`:
+
+```bash
+bend link unified-nsga-iii@0.2.0.0 0xa2f9d6ef8c474468bf1de15ebe70c512
+```
 
 Develop against `src/` in this checkout with a local path:
 
@@ -49,11 +55,12 @@ import ./src/lib.bend as Unsga3
 
 ## What is in this tree
 
-Shipped in the **0.1.2** hub package (algorithm + A/B helpers):
+Shipped in the **0.2.0** hub package (algorithm + A/B helpers):
 
 - **Core** — non-dominated sort, NSGA-III normalization, Das–Dennis directions, niching / association, survival
 - **Variation + Run** — decision variables, SBX (η=30, p=1.0), polynomial mutation (η=20, p=1/n), ZDT1 / ZDT2 / DTLZ2 (3-obj), `PymooCompatible` tournament, `Unsga3Algorithm.Run`
-- **Catalog (unreleased, not in the 0.1.2 hub hash)** — ZDT3 / ZDT4 / ZDT6, DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7, Sphere / Ackley / Rosenbrock. Dumpable. Not an IGD table. See [CHANGELOG.md](CHANGELOG.md) `[Unreleased]`
+- **Catalog** — ZDT3 / ZDT4 / ZDT6, DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7, Sphere / Ackley / Rosenbrock. In the 0.2.0 hub hash. Dumpable. Not an IGD table. See [CHANGELOG.md](CHANGELOG.md)
+- **Constraints + offspring** — Deb constraint-domination (`cv` on `Individual`), CV-first tournaments, survivor-set duplicate keys, odd-N SBX (parent `N-1` with parent `0`). A/B stays `PymooCompatible`
 - **Parallel maps** — independent per-individual work uses Bend `a b = f(lo) f(hi)` mid-splits. Tournament, SBX, mutation, and last-front niching stay sequential so a fixed seed consumes RNG in the same order
 - **Native dumps** — `bend src/….bend -o …` then run the binary. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails
 - **Proofs** — `bend PROOF.bend` is 0 `?TODO`
@@ -140,7 +147,7 @@ Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `
 ```
 unsga3-bend/
 ├── AGENTS.md                 # Bend agent rules + product locks
-├── CHANGELOG.md              # 0.1.2 hub re-publish + 0.1.1 docs/ab notes
+├── CHANGELOG.md              # 0.2.0 hub re-publish (catalog + constraints)
 ├── CONTRIBUTING.md           # install / smoke / proofs / do-nots
 ├── LAWS.bend                 # core + operator + Run/ZDT claims (human-owned)
 ├── PROOF.bend                # imports LAWS; closed proofs

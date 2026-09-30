@@ -4,15 +4,32 @@ Notable changes to **unsga3-bend**.
 
 This file tracks the Bend **hub** package (content-hash) and GitHub tree versions. It is **not** the C# / NuGet changelog for PackageId `Unsga3` ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)).
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Current hub package is **0.1.2** (content hash `0x527a2a4fa91b05a0250d7be0e11d232a`). The first hub version was **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`). Git tags `v0.1.0` and `v0.1.1` and their GitHub Releases already exist. Tag `v0.1.2` and its GitHub Release after the 0.1.2 pull request merges.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Current hub package is **0.2.0** (content hash `0xa2f9d6ef8c474468bf1de15ebe70c512`). The first hub version was **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`). Git tags `v0.1.0`, `v0.1.1`, and `v0.1.2` and their GitHub Releases already exist. Tag `v0.2.0` and its GitHub Release after this pull request merges.
 
 GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-publish; its content hash stayed `0xcd07e24a626a62e74603d48f436cd679`.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-30
+
+Hub re-publish after the problem catalog (#26) and constraint-domination / offspring contract (#27). `bend src/lib.bend --publish` (Bend 2.0.34) already ran. Not nuget.org. Not GitHub Packages. Git tag `v0.2.0` and the GitHub Release are cut after merge.
+
+- Previous hub hash (0.1.2): `0x527a2a4fa91b05a0250d7be0e11d232a`
+- Content hash: `0xa2f9d6ef8c474468bf1de15ebe70c512`
+- Printed import: `import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Lib`
+- Consumer import: `import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Unsga3`
+
+Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`. A/B stays `PymooCompatible`. No new IGD / HV / Wilcoxon cells.
+
+`unified-nsga-iii@0.1.2.0` still resolves to `0x527a2a4fa91b05a0250d7be0e11d232a`. `unified-nsga-iii@0.2.0.0` is not linked: this publish had no `~/.bend/bender.json`. After `bend login`:
+
+```bash
+bend link unified-nsga-iii@0.2.0.0 0xa2f9d6ef8c474468bf1de15ebe70c512
+```
+
 ### Added
 
-- Unconstrained C# problem catalog in [`src/problems.bend`](src/problems.bend): ZDT3 (n=30), ZDT4 (n=10, `x0∈[0,1]`, `x1..∈[-5,5]`), ZDT6 (n=10), DTLZ1 (M=3, k=5), DTLZ3 (k=10, DTLZ2 map with DTLZ1 `g`), DTLZ4 (α=100, k=10), DTLZ7 (k=20), Sphere (n=10), Ackley (n=30), Rosenbrock (n=10). Formulas match [AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3) `Problems/`. No hub publish and no version bump.
+- Unconstrained C# problem catalog in [`src/problems.bend`](src/problems.bend): ZDT3 (n=30), ZDT4 (n=10, `x0∈[0,1]`, `x1..∈[-5,5]`), ZDT6 (n=10), DTLZ1 (M=3, k=5), DTLZ3 (k=10, DTLZ2 map with DTLZ1 `g`), DTLZ4 (α=100, k=10), DTLZ7 (k=20), Sphere (n=10), Ackley (n=30), Rosenbrock (n=10). Formulas match [AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3) `Problems/`.
 - Dump names for that catalog in [`ab/dump_bend_run.py`](ab/dump_bend_run.py). Omitted `--partitions` / `--pop` / `--gens` on those names are a short smoke (4 / 8 / 3), not the ZDT1 / ZDT2 / DTLZ2 quality budgets. Explicit flags still win. No IGD / HV / Wilcoxon cells.
 - Smoke [`src/catalog_smoke.bend`](src/catalog_smoke.bend): each catalog problem evaluates at `x_i=0.5` and a pop=4, gens=1, seed=1 `Run` completes. [`ab/test_catalog_smoke.py`](ab/test_catalog_smoke.py) checks dimensions, bounds, and those objective values. It does not score a front.
 - `Individual` constraint vector and aggregate CV (sum of positive `g`; feasible iff CV ≤ 0). Empty constraints stay CV 0.
@@ -24,7 +41,7 @@ GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-p
 - Offspring duplicate elimination hashes the survivor population, then accepted children. A member who lost every tournament is still a duplicate of P. After `pop·40` pair attempts, up to `max(pop·20, 1)` mutations must be a new key; remaining slots may be duplicates. The key stays `round(x*1e12)/1e12`, not C# `ToString("G12")`.
 - Odd-N SBX includes parent `N-1` (paired with parent `0`). Even-N pair lookups are unchanged. N = 1 crosses the only parent with itself.
 
-No hub publish. No version bump. No new IGD / HV / Wilcoxon cells. Lock: [`src/cd_contract.bend`](src/cd_contract.bend).
+Lock: [`src/cd_contract.bend`](src/cd_contract.bend).
 
 ## [0.1.2] - 2026-09-22
 
@@ -94,11 +111,11 @@ Landed on `main` after the hub `v0.1.0` tag and before GitHub `v0.1.1` ([#20](ht
 
 ### GitHub About (apply with org permission)
 
-`gh repo edit` from this agent returned **HTTP 403** and never applied. The description below tracks the current hub (**0.1.2**). Maintainers:
+`gh repo edit` from this agent returned **HTTP 403** and never applied. The description below tracks the current hub (**0.2.0**). Maintainers:
 
 ```bash
 gh repo edit AppSprout-dev/unsga3-bend \
-  --description "Bend 2 port of U-NSGA-III. 0.1.2 content-hash hub package (not NuGet). C# Unsga3 is the NuGet/GitHub Packages reference. A/B via ZDT/DTLZ + IGD." \
+  --description "Bend 2 port of U-NSGA-III. 0.2.0 content-hash hub package (not NuGet). C# Unsga3 is the NuGet/GitHub Packages reference. A/B via ZDT/DTLZ + IGD." \
   --homepage "https://github.com/AppSprout-dev/unsga3-bend" \
   --add-topic bend \
   --add-topic nsga3 \
@@ -111,7 +128,8 @@ gh repo edit AppSprout-dev/unsga3-bend \
 
 Replaces current description: `U-NSGA-III in Bend — greenfield rewrite; A/B vs C# Unsga3 via ZDT/DTLZ + pymoo IGD. Not a NuGet package.` (no homepage, no topics). Do **not** add a `nuget` topic.
 
-[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/AppSprout-dev/unsga3-bend/releases/tag/v0.1.0
