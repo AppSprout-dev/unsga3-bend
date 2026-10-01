@@ -799,3 +799,18 @@ Quiet default-thread sample (one warm run, same binaries): DTLZ2 `run_s=4.500`, 
 | tournament | 14 | 0.014 | 1 |
 | offspring_sbx_pm_g12 | 376 | 0.376 | 52 |
 | unaccounted | 19 | 0.019 | |
+
+## Offspring peek discarded (Phase B)
+
+Hypothesis: SBX `close_heads` and polynomial-mutation `tiny_head` were why the remaining variable spine and the box-interval spine were marked `+` on every variable. Nested patterns read the next head and rebuild that one cons, so the tail is not cloned. Same RNG draws. Same operators.
+
+Seed=1 fronts matched the before line (smoke, ZDT1 52×100, DTLZ2 92×150) before the revert. Warm `--threads 1` did not move the offspring bucket past noise, so the edit was reverted and is not in the tree.
+
+| run | | run_s | offspring ms (%) | associate ms | niche ms |
+|-----|--|------:|-----------------:|-------------:|---------:|
+| ZDT1 52×100 | before (after residual) | 0.738 | 376 (52%) | 80 | 17 |
+| ZDT1 52×100 | peek, then reverted | 0.727 | 372 (52%) | 86 | 15 |
+| DTLZ2 92×150 | before (after residual) | 3.783 | 753 (20%) | 1334 | 615 |
+| DTLZ2 92×150 | peek, then reverted | 3.700 | 733 (20%) | 1307 | 598 |
+
+The kept line is the residual-square table above. Offspring is still the SBX / polynomial-mutation / G12 work, interleaved, sequential for the RNG.
