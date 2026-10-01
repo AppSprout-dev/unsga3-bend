@@ -832,4 +832,41 @@ Host and Bend are the 0.2.x before-line machine (`bend version` = `bend 2.0.34`,
 
 DTLZ2 second-hit detail: `profile_sum_ms=3648`, `profile_wall_ms=3685`, associate_select 843 ms, associate_prepare 454 ms. The kept line is the residual-square table above.
 
-NDS objective Array, niche count Array, and offspring decision-var Array were not built. The dominate walk is M objectives (2 or 3), niche bags already removed the full-front scan, and offspring stays sequential so the RNG order does not move. Phase D (GPU bangs) is not started: this host has no Metal path, and no CPU-side bang prep landed.
+NDS objective Array, niche count Array, and offspring decision-var Array were not built. The dominate walk is M objectives (2 or 3), niche bags already removed the full-front scan, and offspring stays sequential so the RNG order does not move. The Phase C host has no Metal path. The Mac measurement is the next section.
+
+## 0.2.x Phase D — Mac Metal
+
+Measured miss. No `!` shipped on the Run associate / normalize path. This is not an algorithm change.
+
+Host: JMac-mini.local, Apple M4, 10-core GPU, Metal 4, 16 GB unified. `bend version` = `bend 2.0.34` darwin-arm64 (via `install.sh`, not pinned). Apple clang 21.0.0. Each cell is the median of 5 runs after 1 warm. CPU is `./bin --threads 1 --gpu off`. Metal is `./bin --threads 1` (GPU on). `cpu_t10` is `--threads 10` where that column is shown. No IGD.
+
+### `pow2!` checksums
+
+Every depth printed matching CPU and Metal outputs (`2^d`).
+
+| depth | cpu_t1 median_s | metal median_s | cpu_t10 |
+|------:|----------------:|---------------:|--------:|
+| 20 | 0.0057 | 0.0814 | 0.0037 |
+| 24 | 0.0357 | 0.0875 | 0.0098 |
+| 26 | 0.1316 | 0.1045 | 0.0269 |
+| 28 | 0.5101 | 0.1404 | 0.1028 |
+
+Small bangs lose to wake-up. Depth 28 Metal beats cpu_t1 by about 3.6× (0.5101 / 0.1404) and still loses to cpu_t10 (0.1028 s).
+
+### Associate-shaped uniform map
+
+Fork tree of U32 LCG leaves. Checksum matched CPU ↔ Metal.
+
+Oracle-sized: k=7 → 128 lanes × 91 iters. cpu_t1 **0.0028 s**, metal **0.077 s** (about 27× slower). A heavier leaf is the same story (about 0.0028 s vs about 0.078 s).
+
+Crossover sweep. The Metal column stays near a 0.08 s floor.
+
+| k (lanes) | r iters | cpu_t1 | metal | cpu/metal |
+|----------:|--------:|-------:|------:|----------:|
+| 10 (1024) | 8192 | 0.011 | 0.083 | 0.13× |
+| 12 (4096) | 8192 | 0.033 | 0.082 | 0.41× |
+| 14 (16384) | 8192 | 0.125 | 0.082 | **1.52×** |
+| 16 (65536) | 2048 | 0.123 | 0.083 | **1.49×** |
+| 16 (65536) | 8192 | 0.490 | 0.085 | **5.74×** |
+
+Banging associate, or a similar pop×refs map at oracle N≈52–184, would add the ~80 ms Metal wake-up on top of a CPU map that already finishes in a few milliseconds. That increases wall clock. The Run path stays CPU. Phase D is a documented miss.
