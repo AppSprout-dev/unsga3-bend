@@ -903,4 +903,163 @@ The Run path stays CPU at oracle sizes. Go-big is capability evidence only.
 
 ### AMD gate (parked)
 
-RX 5700 XT Option A (WSL ROCm) hard-stopped: Windows 10 + gfx1010 unsupported, and HSA reported no adapters. Parked. No HIP metrics.
+RX 5700 XT Option A (WSL ROCm) hard-stopped: Windows 10 + gfx1010 unsupported, and HSA reported no adapters. Parked. No HIP metrics. The associate/niche-shaped break-even is the next section. The go-big ≳10⁹-ops rule is for those uniform LCG / F32-mad kernels, not for the residual maps below.
+
+## 0.2.x Phase D — break-even (associate / niche shaped)
+
+Synthetic F32 maps that mimic `resid_sq` / distance-to-ref walks. Not a product `Run`. No bendlang#979. No HIP. No IGD.
+
+**Metal is worth it in a long-lived process when roughly `pad(N)×M×(3+inflate) ≳ 3×10⁸` (for example N ≳ 8k–16k, M ≳ 1k–3k, inflate ≳ 16–64). Oracle-sized light maps stay slower: 128×91×inflate=1 is about 0.1× even after G=100, and baseline residual-only associate (inflate=1) never wins (max 0.42×).**
+
+Host: JMac-mini.local, Apple M4, Metal 4, 16 GB. Bend 2.0.34 (`/Users/jkb/.bend/bin/bend`). Date 2026-10-01. Harness and full JSON: `/Users/jkb/Projects/bend-gpu-smoke/break-even/` (`results/raw_break_even.json`). A box copy lived under `phase-d-deep` during the dig. Prior uniform-kernel peaks are the go-big section above (~69× single-shot / ~158× amortized).
+
+### Method
+
+| Item | Choice |
+|------|--------|
+| Families | **associate**: per lane, `n_ref` refs, M=3 residual sum of squares plus `(inflate−1)` F32 MAD rounds. **niche**: distance-to-ref, running min, same inflate |
+| `n_pop` | 128, 512, 2k, 8k, 16k, 32k, 65k (padded to the next power of two for the fork tree) |
+| `n_ref` | 91, 276, 1050, 3003, 5000 |
+| `inflate` | associate 1, 4, 16, 64, 256, 1024; niche 1, 16, 64, 256 (1024 skipped for wall-clock) |
+| Timing | warm median of 3 process launches; Metal default vs `./bin --gpu off`; hang/timeout 180 s |
+| Amortized | one process, 20–100 in-kernel bangs; per-iter Metal vs CPU |
+| Ops | `approx_ops ≈ pad × n_ref × (3 + max(inflate,1))` |
+| Checksums | Metal stdout matched `--gpu off` on all 341 single-shot cells with both outputs, and on 16/16 amortized OK runs |
+
+`inflate` stands in for heavier objectives, or many generations of arithmetic batched into one map. A light per-gen product associate still looks like inflate≈1. Metal shows a ~76–82 ms per-process wake floor. Coverage: associate 202 cells, niche 139, amortized 16 curated OK runs. Skipped for wall-clock: niche inflate=1024, associate 65k×5000×1024, niche 65k×5000×256.
+
+### Thresholds (single-shot warm: `cpu_warm / metal_warm`)
+
+Associate-shaped. Smallest measured cell at each bar.
+
+| Threshold | `(N, M, inflate)` | `approx_ops` | speedup | metal_warm | cpu_warm |
+|-----------|-------------------|-------------:|--------:|-----------:|---------:|
+| **≥1×** | **16000 × 276 × 64** | ~3.0×10⁸ | **1.31×** | 78.0 ms | 101.9 ms |
+| **≥3×** | **8000 × 91 × 1024** | ~7.7×10⁸ | **3.00×** | 88.7 ms | 266.5 ms |
+| **≥10×** | **8000 × 5000 × 64** | ~2.7×10⁹ | **10.08×** | 87.4 ms | 880.7 ms |
+| peak | 32000 × 3003 × 1024 | — | **64.2×** | 540 ms | 34658 ms |
+
+inflate=1 (baseline residual only): Metal never wins. Max **0.42×** at 65k×5000 (metal ~82 ms floor, cpu ~35 ms).
+
+| inflate | smallest ≥1× `(N, M)` | speedup |
+|--------:|-----------------------|--------:|
+| 1 | *(none)* | — |
+| 4 | 65000 × 1050 | 1.01× |
+| 16 | 16000 × 1050 | 1.19× |
+| 64 | 16000 × 276 | 1.31× |
+| 256 | 16000 × 91 | 1.66× |
+| 1024 | 512 × 1050 | 1.28× |
+
+Niche-shaped.
+
+| Threshold | `(N, M, inflate)` | `approx_ops` | speedup | metal_warm | cpu_warm |
+|-----------|-------------------|-------------:|--------:|-----------:|---------:|
+| **≥1×** | **16000 × 91 × 256** | ~3.9×10⁸ | **1.33×** | 82.8 ms | 110.0 ms |
+| **≥3×** | **16000 × 276 × 256** | ~1.2×10⁹ | **3.88×** | 86.4 ms | 334.8 ms |
+| **≥10×** | **16000 × 1050 × 256** | ~4.5×10⁹ | **11.81×** | 104.1 ms | 1228.8 ms |
+| peak | 65000 × 3003 × 256 | — | **44.6×** | 315 ms | 14066 ms |
+
+inflate=1: one cell ≥1×, **65000 × 5000 at 1.46×**. No ≥3× at inflate=1.
+
+| inflate | smallest ≥1× `(N, M)` | speedup |
+|--------:|-----------------------|--------:|
+| 1 | 65000 × 5000 | 1.46× |
+| 16 | 65000 × 1050 | 1.01× |
+| 64 | 8000 × 1050 | 1.08× |
+| 256 | 16000 × 91 | 1.33× |
+
+### Heatmaps (single-shot speedup)
+
+Associate, inflate=1. GPU loses every cell.
+
+```
+pop\ref      91    276   1050   3003   5000
+128        0.04   0.04   0.05   0.05   0.04
+512        0.04   0.05   0.05   0.05   0.05
+2000       0.05   0.05   0.06   0.06   0.06
+8000       0.05   0.05   0.06   0.09   0.10
+16000      0.05   0.05   0.08   0.11   0.14
+32000      0.05   0.06   0.10   0.17   0.24
+65000      0.05   0.08   0.13   0.28   0.42
+```
+
+Associate, inflate=64. The break-even band shows up.
+
+```
+pop\ref      91    276   1050   3003   5000
+128        0.04   0.06   0.09   0.14   0.23
+512        0.06   0.10   0.20   0.46   0.69
+2000       0.10   0.21   0.64   1.68   2.64
+8000       0.25   0.66   2.38   6.32  10.08
+16000      0.45   1.31   4.54  12.55  19.68
+32000      0.84   2.44   9.06  22.79  34.35
+65000      1.60   4.78  17.03  42.73  60.62
+```
+
+Niche, inflate=256.
+
+```
+pop\ref      91    276   1050   3003   5000
+128        0.06   0.08   0.14   0.23   0.31
+512        0.10   0.16   0.42   0.88   1.12
+2000       0.22   0.49   1.60   3.30   4.26
+8000       0.71   1.95   6.31  13.09  16.82
+16000      1.33   3.88  11.81  25.55  32.41
+32000      2.63   7.06  20.49  35.50  41.60
+65000      4.92  12.15  30.03  44.64      —
+```
+
+The other inflate grids (associate 4/16/256/1024, niche 1/16/64) are in `raw_break_even.json`.
+
+### Multi-generation residency
+
+One process, G bangs. Speedup is `(cpu_total/G) / (metal_total/G)`. Batching generations does not rescue the oracle. It does flip a borderline cell, and it multiplies wins that are already past ~1× single-shot, because Metal stays near the wake floor while CPU scales with G. Every amortized OK run matched checksums.
+
+| Family | N | M | inflate | G | single-shot | amortized /iter | Flip? |
+|--------|--:|--:|--------:|--:|------------:|----------------:|-------|
+| associate | 128 | 91 | 1 | 100 | 0.045× | **0.11×** | No |
+| niche | 128 | 91 | 1 | 100 | 0.042× | **0.12×** | No |
+| niche | 16000 | 3003 | 16 | 20 | **0.73×** | **9.28×** | Yes |
+| associate | 16000 | 276 | 64 | 50 | 1.31× | **27.7×** | Amplifies |
+| associate | 8000 | 1050 | 64 | 50 | 2.38× | **32.9×** | Amplifies |
+| associate | 8000 | 5000 | 64 | 20 | 10.1× | **70.4×** | Amplifies |
+| associate | 32000 | 3003 | 64 | 20 | 22.8× | **135×** | Amplifies |
+| associate | 65000 | 5000 | 64 | 20 | 60.6× | **166×** | Amplifies |
+| niche | 8000 | 1050 | 64 | 50 | 1.08× | **22.5×** | Amplifies |
+| niche | 32000 | 3003 | 64 | 20 | 10.2× | **60.7×** | Amplifies |
+| niche | 16000 | 5000 | 256 | 20 | 32.4× | **55.4×** | Amplifies |
+
+### Product translation
+
+| Product situation | Closest harness | Prefer GPU? |
+|-------------------|-----------------|-------------|
+| Oracle DTLZ2 / small demo: N≈100–200, M≈91, light associate/niche per gen | `128×91×inflate=1`, even G=100 | No (~0.1× amortized) |
+| Mid size: N≈500–2k, M≈91–276, light per-gen maps | inflate=1 grids | No (≪1×) |
+| Large pop + dense refs, still light residual | 32k–65k × 3k–5k × inflate=1 | Associate: no. Niche: ~1.5× only at 65k×5k |
+| Heavy per-ref work, or batch G gens into one bang | inflate ≳ 16–64, N ≳ 8k, M ≳ 1k | Yes — threshold tables above |
+| Long-lived `Run`, G=50–200, already past single-shot break-even | amortized rows | Yes (often 20–160× /iter) |
+| Need ≥10× on associate-shaped | ≈ 8k×5k×64 or 16k×3k×64 single-shot | Yes; amortization goes higher |
+
+Rule of thumb for a full Run that prefers Metal:
+
+1. Keep the Bend process warm across generations (a fresh process re-pays ~80 ms).
+2. Target ≳ 3×10⁸ associate/niche-shaped F32 ops per bang, or batch generations until that lands.
+3. Prefer GPU when single-shot warm is ≥~1×, or when a borderline cell (~0.7–1×) is amortized at G≳20.
+4. Shipping default oracle sizes stay on CPU (`--gpu off --threads 1`).
+
+GO_BIG showed Metal can win hard on uniform LCG / F32 mad. These residual walks are less intense: large N×M and inflated work (or gen batching) are both required before associate/niche leave the ~80 ms floor.
+
+## Big-N Metal product path (sketch, not scheduled)
+
+Not started. Needs Jason's go. This is not code on this branch, and it is not a commit to build it. The measured break-even above is the gate. Default shipping `Run` stays **`--gpu off --threads 1`** at oracle and demo sizes.
+
+If a later product path chases GPU for real U-NSGA-III, it looks like this:
+
+1. **Gate.** Explicit opt-in (env or flag) only when N×M×intensity is past the break-even rule. Small runs stay on CPU. No silent GPU.
+2. **Kernel candidates.** Uniform F32 associate residual and niche distance maps first (the families measured here). Divergent NDS stays on CPU.
+3. **Process residency.** Keep the Bend process warm across generations. When per-gen intensity is light, batch generations into fewer bangs. Per-gen process restart re-pays the ~80 ms wake.
+4. **Correctness.** Same checksum and seed=1 front-identity protocol as the CPU dig, before any merge.
+5. **A/B.** IGD vs C# / pymoo stays on the existing protocol. A GPU path keeps the same fronts unless it is explicitly versioned.
+6. **Non-goals for v0 of that path.** Rewriting all of `Run` on GPU. The Array host-rebuild (Phase C, discarded as noise). HIP on the RX 5700 XT (parked: Win10 + gfx1010 unsupported, HSA reported no adapters; bendlang#979 stays on the shelf). CUDA only if someone asks later. First host remains the Mac mini M4 / Metal.
+
+Not started — needs Jason's go.
