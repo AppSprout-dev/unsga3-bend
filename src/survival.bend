@@ -847,19 +847,27 @@ def row_before(a: CvRow, b: CvRow) -> Bool:
       +cb = Ind.constraint_violation(other)
       Bool.or(F32.is_lt(ca, cb), Bool.and(F32.is_eq(ca, cb), Bool.not(Nat.is_le(j, i))))
 
-def insert_row.on(+x: CvRow, +h: CvRow, t: List<&2, CvRow>, before: Bool) -> List<&2, CvRow>:
-  match before:
-    case True{}:
-      x <> h <> t
-    case False{}:
-      h <> t
+# Insertion sort step. One def: the recursive call is only the
+# `before = False` arm, and that arm's tail is the original rest.
+# `before = True` conses onto that same rest (no second insert).
+# phase 0 reads the next cons; phase 1 places the row. Fuel is 1+2|xs|.
+def insert_row.go(fuel: Nat, phase: Nat, before: Bool, +x: CvRow, xs: List<&2, CvRow>, +h: CvRow) -> List<&2, CvRow>:
+  match fuel phase before:
+    case 0n p b:
+      x <> xs
+    case 1n+f 0n b:
+      match xs:
+        case Nil{}:
+          x <> Nil{}
+        case +head <> tail:
+          insert_row.go(f, 1n, row_before(x, head), x, tail, head)
+    case 1n+f 1n+ph True{}:
+      x <> h <> xs
+    case 1n+f 1n+ph False{}:
+      h <> insert_row.go(f, 0n, False{}, x, xs, h)
 
-def insert_row(+x: CvRow, xs: List<&2, CvRow>) -> List<&2, CvRow>:
-  match xs:
-    case Nil{}:
-      x <> Nil{}
-    case +h <> t:
-      insert_row.on(x, h, insert_row(x, t), row_before(x, h))
+def insert_row(+x: CvRow, +xs: List<&2, CvRow>) -> List<&2, CvRow>:
+  insert_row.go(Nat.add(1n, Nat.mul(2n, Util.list_len(CvRow, xs))), 0n, False{}, x, xs, x)
 
 def sort_rows(xs: List<&2, CvRow>) -> List<&2, CvRow>:
   match xs:

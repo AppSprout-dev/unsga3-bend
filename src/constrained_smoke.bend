@@ -73,6 +73,35 @@ def surv_text(name: String, trip: Norm.State & List<&2, Ind.Individual> & Rng.St
 def surv_line(name: String, +pop: List<&2, Ind.Individual>, +m: Nat) -> String:
   surv_text(name, Surv.select_st(pop, 2n, Refs.das_dennis(m, 1n), Norm.new_state(m), Rng.from_nat(1n)))
 
+def obj1(ind: Ind.Individual) -> F32:
+  Maybe.default(&2, F32, List.get(&2, F32, Ind.objectives(ind), 1n), 0.0)
+
+# Three infeasible fillers. One filler hides a duplicated CvRow past the take.
+def fill_text(name: String, trip: Norm.State & List<&2, Ind.Individual> & Rng.State) -> String:
+  (st, +sel, rng2) = trip
+  +a = at_ind(sel, 0n)
+  +b = at_ind(sel, 1n)
+  +c = at_ind(sel, 2n)
+  +d = at_ind(sel, 3n)
+  "fill " ++ name
+    ++ " n=" ++ show_nat(Util.list_len(Ind.Individual, sel))
+    ++ " s0f=" ++ bit(Ind.feasible(a))
+    ++ " s1f=" ++ bit(Ind.feasible(b))
+    ++ " s2f=" ++ bit(Ind.feasible(c))
+    ++ " s3f=" ++ bit(Ind.feasible(d))
+    ++ " s1cv=" ++ F32.show(Ind.constraint_violation(b))
+    ++ " s2cv=" ++ F32.show(Ind.constraint_violation(c))
+    ++ " s3cv=" ++ F32.show(Ind.constraint_violation(d))
+    ++ " s1f1=" ++ F32.show(obj1(b))
+    ++ " s2f1=" ++ F32.show(obj1(c))
+    ++ " s3f1=" ++ F32.show(obj1(d))
+    ++ " s1lnk=" ++ bit(Ind.niche_linked(b))
+    ++ " s2lnk=" ++ bit(Ind.niche_linked(c))
+    ++ " s3lnk=" ++ bit(Ind.niche_linked(d))
+
+def fill_line(name: String, +pop: List<&2, Ind.Individual>, +m: Nat) -> String:
+  fill_text(name, Surv.select_st(pop, 4n, Refs.das_dennis(m, 1n), Norm.new_state(m), Rng.from_nat(1n)))
+
 def parts_for.go(two: Bool) -> Nat:
   match two:
     case True{}:
@@ -112,6 +141,21 @@ def survs() -> List<&2, String>:
     <> surv_line("tnk", eval_at(tnk, [3.0, 3.0]) <> eval_at(tnk, [0.1, 0.1]) <> [eval_at(tnk, [1.0, 1.0])], 2n)
     <> [surv_line("c1", eval_at(c1, ones(7n, 0.0)) <> eval_at(c1, ones(7n, 0.5)) <> [eval_at(c1, ones(7n, 0.2))], 3n)]
 
+# lo, mid, hi, worse, feasible. Target 4 is below the pool, so survival
+# keeps the feasible member and the three lowest-CV infeasible rows.
+# The lowest CV is inserted in front of the other infeasible rows.
+def fills() -> String:
+  +osy = Prob.osy()
+  fill_line(
+    "osy",
+    eval_at(osy, [0.0, 0.0, 1.0, 0.0, 1.0, 0.0])
+      <> eval_at(osy, [0.0, 0.0, 1.0, 3.0, 1.0, 0.0])
+      <> eval_at(osy, [0.0, 0.0, 1.0, 6.0, 1.0, 0.0])
+      <> eval_at(osy, [0.0, 0.0, 1.0, 8.0, 1.0, 0.0])
+      <> [eval_at(osy, [5.0, 1.0, 5.0, 0.0, 5.0, 0.0])],
+    2n
+  )
+
 def run_osy() -> String:
   run_line("osy", Prob.osy(), [5.0, 1.0, 5.0, 0.0, 5.0, 0.0])
 
@@ -135,6 +179,7 @@ def main() -> IO(Unit):
   do IO<Unit>:
     emit(pts())
     emit(survs())
+    IO.print(fills())
     IO.print(run_osy())
     IO.print(run_tnk())
     IO.print(run_c1())

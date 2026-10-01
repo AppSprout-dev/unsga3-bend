@@ -63,7 +63,7 @@ class ConstrainedSmokeTest(unittest.TestCase):
         cls.by_name = {}
         for ln in cls.lines:
             parts = ln.split()
-            if len(parts) >= 2 and parts[0] in ("pt", "surv", "run"):
+            if len(parts) >= 2 and parts[0] in ("pt", "surv", "run", "fill"):
                 cls.by_name[parts[0] + " " + parts[1]] = _fields(ln)
 
     def test_osy_points(self) -> None:
@@ -133,6 +133,30 @@ class ConstrainedSmokeTest(unittest.TestCase):
         self.assertAlmostEqual(ideal[1], 0.125, places=5)
         self.assertAlmostEqual(ideal[2], 0.25, places=5)
         self.assertLess(float(c1["s1cv"]), 100.0)
+
+    def test_survival_fills_infeasible_by_ascending_cv(self) -> None:
+        row = self.by_name["fill osy"]
+        self.assertEqual(row["n"], "4")
+        self.assertEqual(row["s0f"], "1")
+        self.assertEqual(row["s1f"], "0")
+        self.assertEqual(row["s2f"], "0")
+        self.assertEqual(row["s3f"], "0")
+        s1 = float(row["s1cv"])
+        s2 = float(row["s2cv"])
+        s3 = float(row["s3cv"])
+        self.assertAlmostEqual(s1, 1.0, places=5)
+        self.assertAlmostEqual(s2, 1.75, places=5)
+        self.assertAlmostEqual(s3, 2.5, places=5)
+        self.assertLess(s1, s2)
+        self.assertLess(s2, s3)
+        f1 = (float(row["s1f1"]), float(row["s2f1"]), float(row["s3f1"]))
+        self.assertEqual(len(set(f1)), 3)
+        self.assertAlmostEqual(f1[0], 2.0, places=5)
+        self.assertAlmostEqual(f1[1], 11.0, places=5)
+        self.assertAlmostEqual(f1[2], 38.0, places=5)
+        self.assertEqual(row["s1lnk"], "0")
+        self.assertEqual(row["s2lnk"], "0")
+        self.assertEqual(row["s3lnk"], "0")
 
     def test_seeded_runs_keep_a_feasible_member(self) -> None:
         for name, nm in (("osy", "2"), ("tnk", "2"), ("c1", "3")):
