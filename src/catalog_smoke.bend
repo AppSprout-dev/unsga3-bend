@@ -93,5 +93,12 @@ def emit(xs: List<&2, String>) -> IO(Unit):
         IO.print(h)
         emit(t)
 
+# x_i=1 hits F32 cos(π/2)<0 on the DTLZ2 map. DTLZ3 must stay ≥0.
+def axis_dtlz3() -> String:
+  +f = Ind.objectives(Prob.evaluate(Prob.dtlz3(3n, 10n), Ind.from_variables(List.replicate(F32, 12n, 1.0), 3n)))
+  "axis dtlz3 f=" ++ Util.show_f32s(f)
+
 def main() -> IO(Unit):
-  emit(lines())
+  do IO<Unit>:
+    IO.print(axis_dtlz3())
+    emit(lines())

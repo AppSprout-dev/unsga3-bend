@@ -329,9 +329,26 @@ def dtlz1_fs.go(+x: List<&2, F32>, +m: Nat, +g: F32, fuel: Nat, +i: Nat) -> List
 def dtlz1_f(+x: List<&2, F32>, +m: Nat) -> List<&2, F32>:
   dtlz1_fs.go(x, m, dtlz1_g(x, m), m, 0n)
 
+# F32 cos(π/2) is -4.371139e-8, not 0. The DTLZ2 map multiplies that
+# factor by (1+g). DTLZ3's g stays large on local fronts, so an in-bound
+# x=1 (SBX / polynomial mutation clamp to the box) gets a strictly
+# negative objective. Every feasible point has f≥0, so nothing dominates
+# that row. It stays on the ND front and pins an ASF extreme at (1+g).
+# DTLZ2's (1+g) is ~1, so the same raw trig is left alone (published
+# fronts). Clamp only this map back to the mathematical range f≥0.
+def nn_obj(+v: F32) -> F32:
+  Bool.pick(F32, F32.is_lt(v, 0.0), 0.0, v)
+
+def nn_objs(xs: List<&2, F32>) -> List<&2, F32>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case h <> t:
+      nn_obj(h) <> nn_objs(t)
+
 # C# Dtlz3Problem: DTLZ2 map with DTLZ1's g.
 def dtlz3_f(+x: List<&2, F32>, +m: Nat) -> List<&2, F32>:
-  dtlz2_fs.go(x, m, dtlz1_g(x, m), m, 0n)
+  nn_objs(dtlz2_fs.go(x, m, dtlz1_g(x, m), m, 0n))
 
 # Fuel shrinks first so the recursive call terminates. The g-tail stays raw.
 def map_prefix_pow.go(fuel: Nat, xs: List<&2, F32>, +alpha: F32) -> List<&2, F32>:

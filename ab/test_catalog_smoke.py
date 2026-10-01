@@ -224,6 +224,23 @@ class CatalogSmokeTest(unittest.TestCase):
             self.assertEqual(int(float(run["len"])), 4, name)
             self.assertGreaterEqual(int(float(run["nd"])), 1, name)
 
+    def test_dtlz3_axis_objectives_are_nonnegative(self) -> None:
+        # x_i=1. F32 cos(π/2) is negative; (1+g) on DTLZ3 amplifies it.
+        # The map must report the mathematical f≥0 or that row cannot be dominated.
+        axis = [ln for ln in self.lines if ln.startswith("axis ")]
+        self.assertEqual(axis, [ln for ln in axis if ln.startswith("axis dtlz3 ")])
+        self.assertEqual(len(axis), 1)
+        body = axis[0].split(" ", 2)[2]
+        got = [float(p) for p in parse_kv(body)["f"].split(",") if p != ""]
+        self.assertEqual(len(got), 3)
+        for v in got:
+            self.assertGreaterEqual(v, 0.0)
+        # cos(π/2)*cos(π/2) is a positive F32 dust; the mixed sign that
+        # used to be strictly negative is the middle objective.
+        self.assertLess(got[0], 1e-9)
+        self.assertEqual(got[1], 0.0)
+        self.assertTrue(math.isclose(got[2], 251.0, rel_tol=0.0, abs_tol=1e-3))
+
 
 if __name__ == "__main__":
     raise SystemExit(unittest.main())
