@@ -2,7 +2,7 @@
 
 Measured fronts for the unconstrained catalog in [`src/problems.bend`](../src/problems.bend). This is **not** the ZDT1 / ZDT2 / DTLZ2 quality table ([ORACLE-MULTISEED.md](ORACLE-MULTISEED.md)). Those budgets were not re-run, and their published cells are unchanged.
 
-**No invented numbers.** Every IGD cell below is a real `igd=` line from [`ab/igd_vs_pymoo.py`](../ab/igd_vs_pymoo.py), or the `skip:` line the dumper printed. The per-seed tables are the stdout of [`ab/oracle_catalog.py`](../ab/oracle_catalog.py) from the run recorded in this file.
+**No invented numbers.** Every IGD cell below is a real `igd=` line from [`ab/igd_vs_pymoo.py`](../ab/igd_vs_pymoo.py), or the `skip:` line the dumper printed. The per-seed tables are the stdout of [`ab/oracle_catalog.py`](../ab/oracle_catalog.py) from the run recorded in this file, except the DTLZ3 Bend column, which is the 2026-10-01 remeasure in [DTLZ3_AXIS.md](DTLZ3_AXIS.md).
 
 ## Protocol
 
@@ -47,7 +47,7 @@ python3 ab/oracle_catalog.py
 - .NET: 10.0.401
 - Host: 4-core, clang 18.1.3, Linux 6.12.94+
 - Seeds requested: **1–15**
-- Seeds actually run: **1–15** on Bend and C# for all ten problems, and on pymoo for every problem except Sphere (450 cells: 435 `igd=`, 15 `skip:`)
+- Seeds actually run: **1–15** on Bend and C# for all ten problems, and on pymoo for every problem except Sphere (450 cells: 435 `igd=`, 15 `skip:`). DTLZ3 Bend cells in the table below were replaced on 2026-10-01; see that section. C# and pymoo DTLZ3 cells are still this run.
 
 Independent re-score of five CSVs matched `summary.jsonl` exactly: Bend ZDT3 seed 1, C# DTLZ1 seed 1, pymoo DTLZ4 seed 7, Bend Sphere seed 1, C# DTLZ3 seed 1.
 
@@ -61,14 +61,14 @@ Medians are the middle of the 15 scored values (same `median` as `oracle_catalog
 | ZDT4 | 15 / 15 / 15 | 1.114062 | 1.436214 | 2.729499 | 10/15 |
 | ZDT6 | 15 / 15 / 15 | 0.428493 | 0.458743 | 1.886953 | 10/15 |
 | DTLZ1 | 15 / 15 / 15 | 0.041311 | 0.039917 | 0.300591 | 10/15 |
-| DTLZ3 | 15 / 15 / 15 | 26.249240 | 8.879998 | 8.366071 | 0/15 |
+| DTLZ3 | 15 / 15 / 15 | 8.239578 | 8.879998 | 8.366071 | 11/15 |
 | DTLZ4 | 15 / 15 / 15 | 0.005314 | 0.005176 | 0.005338 | 7/15 |
 | DTLZ7 | 15 / 15 / 15 | 0.086268 | 0.079355 | 0.174674 | 1/15 |
 | Sphere | 15 / 15 / 0 | 0.082017 | 0.115043 |  | 9/15 |
 | Ackley | 15 / 15 / 15 | 15.227343 | 15.805896 | 17.081400 | 9/15 |
 | Rosenbrock | 15 / 15 / 15 | 11.394421 | 14.083640 | 85.959115 | 8/15 |
 
-ZDT4 at the ZDT1 generation budget keeps Bend median IGD 1.114062, and the Bend `n` column is below 52 on 14 of 15 seeds. DTLZ3 at the DTLZ2 budget has Bend IGD above C# on all 15 seeds (median 26.249240 vs 8.879998). DTLZ4 `pf_rows=91`. Sphere pymoo is the only algorithm skip. Ackley and Rosenbrock are the short smoke (`n=1` on every scored front).
+ZDT4 at the ZDT1 generation budget keeps Bend median IGD 1.114062, and the Bend `n` column is below 52 on 14 of 15 seeds. DTLZ3 Bend was remeasured on 2026-10-01 after the axis-cosine clamp ([DTLZ3_AXIS.md](DTLZ3_AXIS.md)); median IGD is 8.239578 and Bend ≤ C# on 11/15 seeds. The 2026-09-30 Bend median was 26.249240 (0/15). C# and pymoo in that row were not re-run. DTLZ4 `pf_rows=91`. Sphere pymoo is the only algorithm skip. Ackley and Rosenbrock are the short smoke (`n=1` on every scored front).
 
 ## Constrained problems
 
@@ -181,26 +181,28 @@ PF yardstick: pf_source=`analytic-dtlz1-half-simplex`, pf_rows=91, partitions=12
 
 ### DTLZ3 (n_var=12, n_obj=3, p=12, pop=92, gens=150, PymooCompatible / pymoo NSGA-III; sibling `dtlz2`)
 
+Bend cells are the 2026-10-01 remeasure after the F32 axis clamp (`dump_bend_run.py --native --threads 4`, Bend 2.0.34, scored by `igd_vs_pymoo.py`). C# and pymoo cells are the 2026-09-30 run and were not repeated. Cause and the pre-fix Bend column: [DTLZ3_AXIS.md](DTLZ3_AXIS.md).
+
 | seed | Bend IGD | C# IGD | pymoo NSGA-III IGD | Bend/C# | Bend/pymoo | Bend n | C# n | pymoo n |
 |-----:|---------:|-------:|-------------------:|--------:|-----------:|-------:|-----:|--------:|
-| 1 | 19.077455 | 16.438212 | 5.032098 | 1.161 | 3.791 | 92 | 61 | 43 |
-| 2 | 26.249240 | 17.450459 | 20.061152 | 1.504 | 1.308 | 92 | 53 | 63 |
-| 3 | 17.415274 | 8.614599 | 9.222801 | 2.022 | 1.888 | 92 | 59 | 53 |
-| 4 | 48.393597 | 13.753291 | 7.100755 | 3.519 | 6.815 | 92 | 63 | 47 |
-| 5 | 14.704428 | 8.879998 | 8.366071 | 1.656 | 1.758 | 92 | 73 | 44 |
-| 6 | 30.198614 | 4.597384 | 8.893172 | 6.569 | 3.396 | 92 | 71 | 40 |
-| 7 | 28.329716 | 11.963956 | 15.122474 | 2.368 | 1.873 | 92 | 77 | 54 |
-| 8 | 29.036933 | 7.117607 | 4.063408 | 4.080 | 7.146 | 92 | 70 | 56 |
-| 9 | 17.517529 | 15.670052 | 2.185604 | 1.118 | 8.015 | 92 | 88 | 23 |
-| 10 | 24.818307 | 8.213816 | 7.084399 | 3.022 | 3.503 | 92 | 73 | 47 |
-| 11 | 35.574511 | 6.943016 | 8.131713 | 5.124 | 4.375 | 92 | 54 | 46 |
-| 12 | 34.802930 | 5.351800 | 12.176215 | 6.503 | 2.858 | 92 | 88 | 60 |
-| 13 | 22.706025 | 9.323371 | 5.063550 | 2.435 | 4.484 | 92 | 74 | 55 |
-| 14 | 22.005184 | 7.473292 | 10.168770 | 2.945 | 2.164 | 92 | 60 | 55 |
-| 15 | 33.705468 | 10.739241 | 22.118049 | 3.139 | 1.524 | 92 | 78 | 52 |
+| 1 | 12.820729 | 16.438212 | 5.032098 | 0.780 | 2.548 | 77 | 61 | 43 |
+| 2 | 10.552080 | 17.450459 | 20.061152 | 0.605 | 0.526 | 27 | 53 | 63 |
+| 3 | 4.235343 | 8.614599 | 9.222801 | 0.492 | 0.459 | 55 | 59 | 53 |
+| 4 | 8.723205 | 13.753291 | 7.100755 | 0.634 | 1.228 | 57 | 63 | 47 |
+| 5 | 5.888764 | 8.879998 | 8.366071 | 0.663 | 0.704 | 62 | 73 | 44 |
+| 6 | 14.755559 | 4.597384 | 8.893172 | 3.210 | 1.659 | 84 | 71 | 40 |
+| 7 | 9.243434 | 11.963956 | 15.122474 | 0.773 | 0.611 | 61 | 77 | 54 |
+| 8 | 7.299384 | 7.117607 | 4.063408 | 1.026 | 1.796 | 40 | 70 | 56 |
+| 9 | 5.023930 | 15.670052 | 2.185604 | 0.321 | 2.299 | 61 | 88 | 23 |
+| 10 | 11.456296 | 8.213816 | 7.084399 | 1.395 | 1.617 | 73 | 73 | 47 |
+| 11 | 2.911215 | 6.943016 | 8.131713 | 0.419 | 0.358 | 44 | 54 | 46 |
+| 12 | 10.265392 | 5.351800 | 12.176215 | 1.918 | 0.843 | 51 | 88 | 60 |
+| 13 | 6.445288 | 9.323371 | 5.063550 | 0.691 | 1.273 | 63 | 74 | 55 |
+| 14 | 6.200517 | 7.473292 | 10.168770 | 0.830 | 0.610 | 44 | 60 | 55 |
+| 15 | 8.239578 | 10.739241 | 22.118049 | 0.767 | 0.373 | 81 | 78 | 52 |
 
-Seeds actually scored: Bend [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]; C# [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]; pymoo [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].
-Median IGD (Bend 26.249240, C# 8.879998, pymoo NSGA-III 8.366071).
+Seeds actually scored: Bend [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] (2026-10-01); C# [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] (2026-09-30); pymoo [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] (2026-09-30).
+Median IGD (Bend 8.239578, C# 8.879998, pymoo NSGA-III 8.366071).
 PF yardstick: pf_source=`pymoo-das-dennis`, pf_rows=91, partitions=12.
 
 ### DTLZ4 (n_var=12, n_obj=3, p=12, pop=92, gens=150, PymooCompatible / pymoo NSGA-III; sibling `dtlz2`)

@@ -10,6 +10,10 @@ GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-p
 
 ## [Unreleased]
 
+### Fixed
+
+- DTLZ3 evaluation clamps a negative F32 `cos(π/2)` factor back to the mathematical `f ≥ 0`. In-bound `x = 1` was a strictly negative objective, so no feasible point could dominate it, and that row pinned a huge ASF extreme. Same DTLZ2 budget, seeds 1–15: Bend median IGD 26.249240 → 8.239578 ([docs/DTLZ3_AXIS.md](docs/DTLZ3_AXIS.md)). DTLZ2 / ZDT1 / ZDT2 seed 1 published cells unchanged. No hub republish.
+
 ### Added
 
 - Catalog IGD driver [`ab/oracle_catalog.py`](ab/oracle_catalog.py). ZDT3 / ZDT4 / ZDT6 use the ZDT1 budget (p=12, pop=52, gens=100). DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7 use the DTLZ2 budget (p=12, pop=92, gens=150). Sphere / Ackley / Rosenbrock are a short smoke (p=1, pop=20, gens=40) at library-default `n`. Tournament stays `PymooCompatible`. Every cell is a real `igd=` or `skip:`.

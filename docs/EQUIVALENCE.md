@@ -40,7 +40,7 @@ Pareto sets in [`ab/igd_vs_pymoo.py`](../ab/igd_vs_pymoo.py): ZDT3 segments, ZDT
 
 OSY, TNK, and C1-DTLZ1 are not in this tree. Constrained IGD is a skip. C# owns those demos and publishes no IGD table for them.
 
-The 2026-09-30 run (seeds 1–15) is recorded in [ORACLE-CATALOG.md](ORACLE-CATALOG.md). Every cell there is an `igd=` or `skip:` line from that run. Do not invent IGD / HV / Wilcoxon numbers. The ZDT1 / ZDT2 / DTLZ2 tables in [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md) are a different protocol and were not recomputed for this catalog.
+The 2026-09-30 run (seeds 1–15) is recorded in [ORACLE-CATALOG.md](ORACLE-CATALOG.md). Every cell there is an `igd=` or `skip:` line from that run, except the DTLZ3 Bend column, which was remeasured on 2026-10-01 after the axis-cosine clamp ([DTLZ3_AXIS.md](DTLZ3_AXIS.md)). C# and pymoo DTLZ3 cells were not re-run. Do not invent IGD / HV / Wilcoxon numbers. The ZDT1 / ZDT2 / DTLZ2 tables in [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md) are a different protocol and were not recomputed for this catalog.
 
 ## Constraints
 
