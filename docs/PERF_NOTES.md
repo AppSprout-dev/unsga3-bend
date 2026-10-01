@@ -660,6 +660,67 @@ On this host the Bend default is slower than `--threads 1` for both oracles (ZDT
 
 Largest warm bucket on DTLZ2 is `niche` (36% at both thread settings; 2001 ms at `--threads 1`, 2135 ms at the default). Next on DTLZ2 is `associate` (31% / 1692 ms at `--threads 1`; 21% / 1276 ms at the default). On ZDT1 the largest bucket is `offspring_sbx_pm_g12` (49% / 369 ms at `--threads 1`; 35% / 379 ms at the default). `evaluate` stays at or under 3%.
 
+## After per-ref niche bags (Phase B)
+
+Hypothesis: the rng last-front fill was re-walking every remaining row and `List.get` on the counts spine (one bin per Das–Dennis ray) on every pick. Group the rows into per-ref bags once, keep the niche count on the bag, and re-sort bags by the earliest remaining row so the min-count ref list stays first-seen order. Same pick rules. Same RNG draws. Deterministic `niche_loop` (no rng) is unchanged.
+
+Host and Bend are the 0.2.x before-line machine (`bend version` = `bend 2.0.34`, 4-core Xeon, clang 18.1.3). Yardstick is the warm second `--threads 1` run. Default threads were not remeasured for this hypothesis. Seed=1 oracle dumps are byte-identical to the before line: checked-in smoke, ZDT1 52×100, DTLZ2 92×150. No IGD.
+
+| run | | run_s | niche ms (%) | associate ms (%) | offspring ms (%) |
+|-----|--|------:|-------------:|-----------------:|-----------------:|
+| DTLZ2 92×150 | before | 5.492 | 2001 (36%) | 1692 (31%) | 739 (13%) |
+| DTLZ2 92×150 | after | 4.119 | 602 (14%) | 1702 (41%) | 746 (18%) |
+| ZDT1 52×100 | before | 0.761 | 33 (4%) | 92 (12%) | 369 (49%) |
+| ZDT1 52×100 | after | 0.750 | 23 (3%) | 95 (12%) | 370 (50%) |
+
+DTLZ2 niche 2001 → 602 ms. Warm `run_s` 5.492 → 4.119. Associate did not move (1692 → 1702) and is now the largest DTLZ2 bucket. ZDT1 wall is flat (niche was already 33 ms).
+
+### DTLZ2 `--threads 1` after bags
+
+- warm: `compile_s` omitted, `run_s=4.119`, `profile_sum_ms=4074`, `profile_wall_ms=4118` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 1 | 0.001 | 0 |
+| evaluate | 12 | 0.012 | 0 |
+| nds_select | 602 | 0.602 | 14 |
+| nds_prepare | 143 | 0.143 | 3 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **745** | **0.745** | **18** |
+| normalize_select | 146 | 0.146 | 3 |
+| normalize_prepare | 62 | 0.062 | 1 |
+| normalize | 208 | 0.208 | 5 |
+| associate_select | 1113 | 1.113 | 27 |
+| associate_prepare | 589 | 0.589 | 14 |
+| associate | 1702 | 1.702 | 41 |
+| niche | 602 | 0.602 | 14 |
+| tournament | 58 | 0.058 | 1 |
+| offspring_sbx_pm_g12 | 746 | 0.746 | 18 |
+| unaccounted | 44 | 0.044 | |
+
+### ZDT1 `--threads 1` after bags
+
+- warm: `compile_s` omitted, `run_s=0.750`, `profile_sum_ms=734`, `profile_wall_ms=749` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 12 | 0.012 | 1 |
+| nds_select | 153 | 0.153 | 20 |
+| nds_prepare | 24 | 0.024 | 3 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **177** | **0.177** | **24** |
+| normalize_select | 24 | 0.024 | 3 |
+| normalize_prepare | 14 | 0.014 | 1 |
+| normalize | 38 | 0.038 | 5 |
+| associate_select | 60 | 0.060 | 8 |
+| associate_prepare | 35 | 0.035 | 4 |
+| associate | 95 | 0.095 | 12 |
+| niche | 23 | 0.023 | 3 |
+| tournament | 19 | 0.019 | 2 |
+| offspring_sbx_pm_g12 | 370 | 0.370 | 50 |
+| unaccounted | 15 | 0.015 | |
+
 ```bash
 export PATH="$HOME/.bend/bin:$PATH"
 export BEND_NO_TELEMETRY=1

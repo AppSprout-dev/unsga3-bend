@@ -142,7 +142,9 @@ Not C# / feature 0.3. One branch, logical commits, one PR after measured verific
 **Contract:** same RNG order / same fronts (byte-identical seed=1 oracle dumps when claiming the same ops). No invented IGD. Warm-native `ab/profile_bend_run.py` yardstick (`run_s` + phase ms). When parallelism is claimed, also `--threads 1` vs omit / N. GPU claims need `--gpu off` vs bang on the same kernel.
 
 - [x] **Phase A** — CPU baseline, no algorithm change. Re-measure tip 0.2.1 ZDT1 52×100 and DTLZ2 92×150 seed=1 warm, `--threads 1` and default. Frozen into [PERF_NOTES.md](PERF_NOTES.md) as the 0.2.x before line.
-- [ ] **Phase B** — DTLZ2 niche → associate → ZDT1 offspring list-walk. One hypothesis per commit. Smoke + seed=1 front match. Before/after tables.
+- [x] **Phase B — niche** — DTLZ2 last-front fill groups `NRow`s into per-ref bags (counts on the bag; re-sort by the earliest remaining row so min-count ref order stays first-seen). Pick rules unchanged. Seed=1 fronts byte-identical. `--threads 1` warm: DTLZ2 niche 2001 ms → 602 ms, `run_s` 5.492 → 4.119. ZDT1 niche was already 33 ms (23 ms after). [PERF_NOTES.md](PERF_NOTES.md).
+- [ ] **Phase B — associate** — mid-split distance maps exist; hunt residual `List.get` / take-drop. One hypothesis. Smoke + seed=1 front match. Before/after table.
+- [ ] **Phase B — offspring** — ZDT1 SBX/PM/G12 list-walk only if it removes work without an RNG reorder. Smoke + seed=1 front match. Before/after table.
 - [ ] **Phase C** — Array host-rebuild spike on the sequential host between generations. Lists keep the forks. Discard if fronts drift or the wall is flat.
 - [ ] **Phase D** — GPU uniform-kernel dig (associate distances, col min/max, Das–Dennis, heavier `evaluate_all`). Bang only that kernel. NDS / niche / tournament stay CPU. Bench CPU `--threads 1 --gpu off` vs bang. Ship only if the wall drops. Document misses honestly.
 

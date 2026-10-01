@@ -3,7 +3,9 @@
 # `a b = f(lo) f(hi)`. Nearest-ref stays sequential (associate_raw already
 # splits per individual). Last-front fill builds `NRow{i, ref, dist}` once
 # so the sequential niche loop never `List.get`s an Assignment (or a fat
-# Individual) per remaining candidate. Same pick rules / same RNG order.
+# Individual) per remaining candidate. Run's rng fill groups those rows
+# into per-ref bags so each pick walks bags, not the whole front and not
+# `List.get` on the counts spine. Same pick rules / same RNG order.
 # Associate normalized individuals to Das–Dennis rays; select `target_size`
 # from a combined pool (fill complete fronts, niche-preserve the last).
 # Deterministic when C# rng is null (`select`): lowest ref among min-count
@@ -90,13 +92,6 @@ def first_row_i(rows: List<&2, NRow>) -> Nat:
       0n
     case +row <> _:
       nrow_i(row)
-
-def first_row_r(rows: List<&2, NRow>) -> Nat:
-  match rows:
-    case Nil{}:
-      0n
-    case +row <> _:
-      nrow_r(row)
 
 def get_nrow(rows: List<&2, NRow>, i: Nat) -> NRow:
   Maybe.default(&2, NRow, List.get(&2, NRow, rows, i), NRow{0n, 0n, 0.0})
@@ -624,14 +619,6 @@ def pick_member.by.rows(group: List<&2, NRow>, empty_niche: Bool, +fallback: Nat
 def pick_member.rows(+counts: List<&2, Nat>, +rows: List<&2, NRow>, +r: Nat) -> Nat:
   pick_member.by.rows(in_ref_rows(r, rows), Nat.is_eq(Util.get_nat(counts, r), 0n), first_row_i(rows))
 
-def pick_ref.rng.rows(+counts: List<&2, Nat>, +rows: List<&2, NRow>, rng: Rng.State) -> Rng.State:
-  +refs = uniq_refs(rows)
-  pick_ref.rng.after(
-    refs_at_seq(counts, min_count_rows(counts, rows), refs),
-    first_row_r(rows),
-    rng
-  )
-
 def pick_among.nrows(+rows: List<&2, NRow>, n: Nat, +fallback: Nat, rng: Rng.State) -> Rng.State:
   match n:
     case 0n:
@@ -652,21 +639,6 @@ def pick_member.rng.empty.rows(+group: List<&2, NRow>, empty_niche: Bool, rng: R
       Rng.with_k(rng, argmin_dist_rows(group))
     case False{}:
       pick_near.rng.rows(group, rng)
-
-def pick_member.rng.by.rows(group: List<&2, NRow>, empty_niche: Bool, +fallback: Nat, rng: Rng.State) -> Rng.State:
-  match group:
-    case Nil{}:
-      Rng.with_k(rng, fallback)
-    case g0 <> gs:
-      pick_member.rng.empty.rows({g0 <> gs : List<&2, NRow>}, empty_niche, rng)
-
-def pick_member.rng.rows(+counts: List<&2, Nat>, +rows: List<&2, NRow>, +r: Nat, rng: Rng.State) -> Rng.State:
-  pick_member.rng.by.rows(
-    in_ref_rows(r, rows),
-    Nat.is_eq(Util.get_nat(counts, r), 0n),
-    first_row_i(rows),
-    rng
-  )
 
 def niche_loop(fuel: Nat, k: Nat, rows: List<&2, NRow>, +counts: List<&2, Nat>, selected: List<&2, Nat>) -> List<&2, Nat>:
   match fuel k rows:
@@ -727,25 +699,220 @@ def fill.wrap(+fronts: List<&2, List<&2, Nat>>, +target: Nat, +asgs: List<&2, As
     n_dirs
   )
 
-def niche_loop.rng(fuel: Nat, k: Nat, rows: List<&2, NRow>, +counts: List<&2, Nat>, selected: List<&2, Nat>, rng: Rng.State) -> List<&2, Nat> & Rng.State:
-  match fuel k rows:
-    case 0n kk r:
+# Occupied last-front reference. Members stay in original row order.
+# `pos` is that row's place in the last front, so a per-pick sort by the
+# earliest remaining member restores first-seen ref order (deleting an
+# early row can move its ref behind one that started later). `count` is
+# the niche histogram, not the member length. Counts live on the bag, so
+# a pick does not `List.get` the counts spine.
+type MRow is Data:
+  MRow{
+    pos: Nat
+    row: NRow
+  }
+
+type Bag is Data:
+  Bag{
+    ref: Nat
+    count: Nat
+    members: List<&2, MRow>
+  }
+
+def head_is_ref(bags: List<&2, Bag>, +r: Nat) -> Bool:
+  match bags:
+    case Nil{}:
+      False{}
+    case Bag{+ref, count, members} <> _:
+      Nat.is_eq(ref, r)
+
+def bag_put.go(
+  bags: List<&2, Bag>,
+  +row: NRow,
+  +seeded: Nat,
+  +pos: Nat,
+  +rev: List<&2, Bag>,
+  same: Bool
+) -> List<&2, Bag>:
+  match bags same:
+    case Nil{} p:
+      List.append(&2, Bag, List.reverse(&2, Bag, rev), [Bag{nrow_r(row), seeded, [MRow{pos, row}]}])
+    case Bag{+ref, +count, +members} <> rest True{}:
+      List.append(
+        &2,
+        Bag,
+        List.reverse(&2, Bag, rev),
+        Bag{ref, count, List.append(&2, MRow, members, [MRow{pos, row}])} <> rest
+      )
+    case Bag{+ref, +count, +members} <> +rest False{}:
+      bag_put.go(rest, row, seeded, pos, Bag{ref, count, members} <> rev, head_is_ref(rest, nrow_r(row)))
+
+def bag_put(+bags: List<&2, Bag>, +row: NRow, +seeded: Nat, +pos: Nat) -> List<&2, Bag>:
+  bag_put.go(bags, row, seeded, pos, Nil{}, head_is_ref(bags, nrow_r(row)))
+
+def bags_of.go(+counts: List<&2, Nat>, rows: List<&2, NRow>, +acc: List<&2, Bag>, +pos: Nat) -> List<&2, Bag>:
+  match rows:
+    case Nil{}:
+      acc
+    case +row <> rest:
+      bags_of.go(counts, rest, bag_put(acc, row, Util.get_nat(counts, nrow_r(row)), pos), 1n+pos)
+
+def bags_of(+counts: List<&2, Nat>, +rows: List<&2, NRow>) -> List<&2, Bag>:
+  bags_of.go(counts, rows, Nil{}, 0n)
+
+def first_bag_ref(bags: List<&2, Bag>) -> Nat:
+  match bags:
+    case Nil{}:
+      0n
+    case Bag{+ref, count, members} <> _:
+      ref
+
+def min_bag_count.go(bags: List<&2, Bag>, +acc: Nat) -> Nat:
+  match bags:
+    case Nil{}:
+      acc
+    case Bag{ref, +count, members} <> rest:
+      min_bag_count.go(rest, Util.nat_min(acc, count))
+
+def min_bag_count(bags: List<&2, Bag>) -> Nat:
+  min_bag_count.go(bags, 4294967295n)
+
+def refs_of_count.go(bags: List<&2, Bag>, +need: Nat, +acc: List<&2, Nat>) -> List<&2, Nat>:
+  match bags:
+    case Nil{}:
+      List.reverse(&2, Nat, acc)
+    case Bag{+ref, +count, members} <> rest:
+      refs_of_count.go(rest, need, keep_nat(ref, acc, Nat.is_eq(count, need)))
+
+def refs_of_count(+bags: List<&2, Bag>) -> List<&2, Nat>:
+  refs_of_count.go(bags, min_bag_count(bags), Nil{})
+
+def pick_ref.rng.bags(+bags: List<&2, Bag>, rng: Rng.State) -> Rng.State:
+  pick_ref.rng.after(refs_of_count(bags), first_bag_ref(bags), rng)
+
+def bag_count_go(bags: List<&2, Bag>, +r: Nat, hit: Bool) -> Nat:
+  match bags hit:
+    case Nil{} p:
+      0n
+    case Bag{ref, +count, members} <> rest True{}:
+      count
+    case Bag{ref, count, members} <> +rest False{}:
+      bag_count_go(rest, r, head_is_ref(rest, r))
+
+def bag_count_of(+bags: List<&2, Bag>, +r: Nat) -> Nat:
+  bag_count_go(bags, r, head_is_ref(bags, r))
+
+def mrows_rows(ms: List<&2, MRow>) -> List<&2, NRow>:
+  match ms:
+    case Nil{}:
+      Nil{}
+    case MRow{pos, +row} <> rest:
+      row <> mrows_rows(rest)
+
+def bag_members_go(bags: List<&2, Bag>, +r: Nat, hit: Bool) -> List<&2, NRow>:
+  match bags hit:
+    case Nil{} p:
+      Nil{}
+    case Bag{ref, count, +members} <> rest True{}:
+      mrows_rows(members)
+    case Bag{ref, count, members} <> +rest False{}:
+      bag_members_go(rest, r, head_is_ref(rest, r))
+
+def bag_members_of(+bags: List<&2, Bag>, +r: Nat) -> List<&2, NRow>:
+  bag_members_go(bags, r, head_is_ref(bags, r))
+
+def drop_mrow.put(+row: MRow, rest: List<&2, MRow>, drop: Bool) -> List<&2, MRow>:
+  match drop:
+    case True{}:
+      rest
+    case False{}:
+      row <> rest
+
+def drop_mrow(ms: List<&2, MRow>, +pick: Nat) -> List<&2, MRow>:
+  match ms:
+    case Nil{}:
+      Nil{}
+    case MRow{+pos, +row} <> rest:
+      drop_mrow.put(MRow{pos, row}, drop_mrow(rest, pick), Nat.is_eq(nrow_i(row), pick))
+
+def bags_kept(+ref: Nat, +count: Nat, members: List<&2, MRow>, rest: List<&2, Bag>) -> List<&2, Bag>:
+  match members:
+    case Nil{}:
+      rest
+    case +m <> +ms:
+      Bag{ref, 1n+count, {m <> ms : List<&2, MRow>}} <> rest
+
+def bags_refill.go(bags: List<&2, Bag>, +r: Nat, +pick: Nat, hit: Bool) -> List<&2, Bag>:
+  match bags hit:
+    case Nil{} p:
+      Nil{}
+    case Bag{+ref, +count, +members} <> rest True{}:
+      bags_kept(ref, count, drop_mrow(members, pick), rest)
+    case Bag{+ref, +count, +members} <> +rest False{}:
+      Bag{ref, count, members} <> bags_refill.go(rest, r, pick, head_is_ref(rest, r))
+
+def bags_refill(+bags: List<&2, Bag>, +r: Nat, +pick: Nat) -> List<&2, Bag>:
+  bags_refill.go(bags, r, pick, head_is_ref(bags, r))
+
+def head_pos.ms(ms: List<&2, MRow>) -> Nat:
+  match ms:
+    case Nil{}:
+      4294967295n
+    case MRow{+pos, row} <> _:
+      pos
+
+def head_pos(b: Bag) -> Nat:
+  match b:
+    case Bag{ref, count, +members}:
+      head_pos.ms(members)
+
+def insert_before(acc: List<&2, Bag>, +b: Bag) -> Bool:
+  match acc:
+    case Nil{}:
+      True{}
+    case +h <> _:
+      Nat.is_le(head_pos(b), head_pos(h))
+
+def insert_bag(acc: List<&2, Bag>, +b: Bag, before: Bool) -> List<&2, Bag>:
+  match acc before:
+    case Nil{} p:
+      [b]
+    case +h <> t True{}:
+      b <> {h <> t : List<&2, Bag>}
+    case +h <> +t False{}:
+      h <> insert_bag(t, b, insert_before(t, b))
+
+def sort_put(+acc: List<&2, Bag>, +b: Bag) -> List<&2, Bag>:
+  insert_bag(acc, b, insert_before(acc, b))
+
+def sort_go(bags: List<&2, Bag>, +acc: List<&2, Bag>) -> List<&2, Bag>:
+  match bags:
+    case Nil{}:
+      acc
+    case +b <> rest:
+      sort_go(rest, sort_put(acc, b))
+
+def sort_bags(+bags: List<&2, Bag>) -> List<&2, Bag>:
+  sort_go(bags, Nil{})
+
+def niche_loop.bags(fuel: Nat, k: Nat, bags: List<&2, Bag>, selected: List<&2, Nat>, rng: Rng.State) -> List<&2, Nat> & Rng.State:
+  match fuel k bags:
+    case 0n kk bs:
       (selected, rng)
-    case f 0n r:
+    case f 0n bs:
       (selected, rng)
     case f kk Nil{}:
       (selected, rng)
-    case 1n+f 1n+krest +r0 <> +rs:
-      +rows2 = {r0 <> rs : List<&2, NRow>}
-      +rng1 = pick_ref.rng.rows(counts, rows2, rng)
+    case 1n+f 1n+krest +b0 <> +bs:
+      +bags2 = sort_bags({b0 <> bs : List<&2, Bag>})
+      +rng1 = pick_ref.rng.bags(bags2, rng)
       +r = Rng.last_nat(rng1)
-      +rng2 = pick_member.rng.rows(counts, rows2, r, rng1)
+      +rng2 = pick_member.rng.empty.rows(bag_members_of(bags2, r), Nat.is_eq(bag_count_of(bags2, r), 0n), rng1)
       +pick = Rng.last_nat(rng2)
-      niche_loop.rng(
+      +next = bags_refill(bags2, r, pick)
+      niche_loop.bags(
         f,
         krest,
-        drop_nrow(rows2, pick),
-        Util.inc_at(counts, r),
+        next,
         List.append(&2, Nat, selected, [pick]),
         rng2
       )
@@ -759,11 +926,10 @@ def fill.rng(fuel: Nat, fronts: List<&2, List<&2, Nat>>, fits: Bool, +acc: List<
     case 1n+f +fr <> +rest False{}:
       +need = Nat.sub(target, Util.list_len(Nat, acc))
       +rows = nrows_of(asgs, fr)
-      niche_loop.rng(
+      niche_loop.bags(
         1n+Util.list_len(NRow, rows),
         need,
-        rows,
-        seed_counts(asgs, acc, Util.zeros_nat(n_dirs)),
+        bags_of(seed_counts(asgs, acc, Util.zeros_nat(n_dirs)), rows),
         acc,
         rng
       )
