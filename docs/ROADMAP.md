@@ -135,6 +135,17 @@ Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
 - [ ] `bend link unified-nsga-iii@0.2.1.0 0x2bc7fb472c80bd6a0e04725c117edb2a` (after merge)
 - [ ] Git tag `v0.2.1` and GitHub Release (after merge)
 
+## 0.2.x Bend speed (patch lane)
+
+Not C# / feature 0.3. One branch, logical commits, one PR after measured verification and Jason's go.
+
+**Contract:** same RNG order / same fronts (byte-identical seed=1 oracle dumps when claiming the same ops). No invented IGD. Warm-native `ab/profile_bend_run.py` yardstick (`run_s` + phase ms). When parallelism is claimed, also `--threads 1` vs omit / N. GPU claims need `--gpu off` vs bang on the same kernel.
+
+- [ ] **Phase A (in progress)** — CPU baseline, no algorithm change. Re-measure tip 0.2.1 ZDT1 52×100 and DTLZ2 92×150 seed=1 warm, `--threads 1` and default. Freeze into [PERF_NOTES.md](PERF_NOTES.md) as the 0.2.x before line.
+- [ ] **Phase B** — DTLZ2 niche → associate → ZDT1 offspring list-walk. One hypothesis per commit. Smoke + seed=1 front match. Before/after tables.
+- [ ] **Phase C** — Array host-rebuild spike on the sequential host between generations. Lists keep the forks. Discard if fronts drift or the wall is flat.
+- [ ] **Phase D** — GPU uniform-kernel dig (associate distances, col min/max, Das–Dennis, heavier `evaluate_all`). Bang only that kernel. NDS / niche / tournament stay CPU. Bench CPU `--threads 1 --gpu off` vs bang. Ship only if the wall drops. Document misses honestly.
+
 ## Problem catalog (implemented, not oracle-tabled)
 
 The unconstrained C# suite beside ZDT1 / ZDT2 / DTLZ2. Formulas live in [`src/problems.bend`](../src/problems.bend). These names can be dumped. They are **not** rows of the ZDT1 / ZDT2 / DTLZ2 quality protocol ([EQUIVALENCE.md](EQUIVALENCE.md), [`ab/protocol.py`](../ab/protocol.py)). No IGD / HV / Wilcoxon numbers are recorded here.
