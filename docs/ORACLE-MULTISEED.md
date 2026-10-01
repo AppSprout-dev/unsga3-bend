@@ -4,7 +4,7 @@ Confidence tables for **unsga3-bend** vs C# [Unsga3](https://github.com/AppSprou
 
 **No invented numbers.** Every IGD cell is a real `igd=` line from a dumped front. Reproduce with [`ab/oracle_multiseed.py`](../ab/oracle_multiseed.py) and [`ab/fixture_check.py`](../ab/fixture_check.py).
 
-These tables shipped with GitHub **0.1.1** (docs/ab only; that tag did not hub-publish). Current hub package is **0.2.1** (`import 0x2bc7fb472c80bd6a0e04725c117edb2a/lib.bend as Unsga3`). `unified-nsga-iii@0.2.0.0` still names `0xa2f9d6ef8c474468bf1de15ebe70c512`. The runs use `PymooCompatible`. The 0.1.2 RankNicheDistance fix is outside this default. These cells were not re-run for the 0.2.0 catalog or constraint path. Catalog measurements are a separate protocol: [ORACLE-CATALOG.md](ORACLE-CATALOG.md).
+These tables shipped with GitHub **0.1.1** (docs/ab only; that tag did not hub-publish). Current hub package is **0.2.2** (`import 0xd1de66b5d9157913a654c39186289f3d/lib.bend as Unsga3`). `unified-nsga-iii@0.2.0.0` still names `0xa2f9d6ef8c474468bf1de15ebe70c512`. The runs use `PymooCompatible`. The 0.1.2 RankNicheDistance fix is outside this default. These cells were not re-run for the 0.2.0 catalog, the 0.2.1 constraint path, or the 0.2.2 speed dig. Catalog measurements are a separate protocol: [ORACLE-CATALOG.md](ORACLE-CATALOG.md).
 
 ## Protocol knobs
 

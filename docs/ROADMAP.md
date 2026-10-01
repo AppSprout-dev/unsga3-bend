@@ -1,12 +1,12 @@
 # Roadmap
 
-Living plan for **unsga3-bend**. This is a Bend rewrite, not a NuGet package. PackageId `Unsga3` stays the C# / NuGet / GitHub Packages stack. This tree is the Bend hub package beside it. Current hub version: **0.2.1** (content hash `0x2bc7fb472c80bd6a0e04725c117edb2a`). Previous hub version: **0.2.0** (`0xa2f9d6ef8c474468bf1de15ebe70c512`). Earlier hub versions: **0.1.2** (`0x527a2a4fa91b05a0250d7be0e11d232a`), **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`).
+Living plan for **unsga3-bend**. This is a Bend rewrite, not a NuGet package. PackageId `Unsga3` stays the C# / NuGet / GitHub Packages stack. This tree is the Bend hub package beside it. Current hub version: **0.2.2** (content hash `0xd1de66b5d9157913a654c39186289f3d`). Previous hub version: **0.2.1** (`0x2bc7fb472c80bd6a0e04725c117edb2a`). Earlier hub versions: **0.2.0** (`0xa2f9d6ef8c474468bf1de15ebe70c512`), **0.1.2** (`0x527a2a4fa91b05a0250d7be0e11d232a`), **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`).
 
 Public protocol: [EQUIVALENCE.md](EQUIVALENCE.md). How to check the tree: [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## 0.1.0 scope (hub)
 
-Treat as **shipped** for a first hub visitor: v0 core, Pass 2 `Run` + samples, parallel maps, native `-o` dumps, closed `PROOF.bend`, ZDT2 quality protocol gens=250. GitHub **0.1.1** adds measured 15-seed IGD + Layer-1 fixture pass ([ORACLE-MULTISEED.md](ORACLE-MULTISEED.md)) and did not change the 0.1.0 hub hash. **0.1.2** re-published the hub (`import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3`) and includes the RankNicheDistance fix. **0.2.0** re-published again (`import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Unsga3`) and adds the unconstrained catalog, Deb constraint-domination, the offspring duplicate contract, and the odd-N SBX fix. **0.2.1** re-published again (`import 0x2bc7fb472c80bd6a0e04725c117edb2a/lib.bend as Unsga3`) after the DTLZ3 axis clamp, OSY / TNK / C1-DTLZ1, and the CV-fill overflow fix. A/B stays `PymooCompatible`.
+Treat as **shipped** for a first hub visitor: v0 core, Pass 2 `Run` + samples, parallel maps, native `-o` dumps, closed `PROOF.bend`, ZDT2 quality protocol gens=250. GitHub **0.1.1** adds measured 15-seed IGD + Layer-1 fixture pass ([ORACLE-MULTISEED.md](ORACLE-MULTISEED.md)) and did not change the 0.1.0 hub hash. **0.1.2** re-published the hub (`import 0x527a2a4fa91b05a0250d7be0e11d232a/lib.bend as Unsga3`) and includes the RankNicheDistance fix. **0.2.0** re-published again (`import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Unsga3`) and adds the unconstrained catalog, Deb constraint-domination, the offspring duplicate contract, and the odd-N SBX fix. **0.2.1** re-published again (`import 0x2bc7fb472c80bd6a0e04725c117edb2a/lib.bend as Unsga3`) after the DTLZ3 axis clamp, OSY / TNK / C1-DTLZ1, and the CV-fill overflow fix. **0.2.2** re-published again (`import 0xd1de66b5d9157913a654c39186289f3d/lib.bend as Unsga3`) after the speed-dig keeps in `survival.bend` (niche bags, associate residual). A/B stays `PymooCompatible`.
 
 ## v0 — core (implemented)
 
@@ -128,12 +128,32 @@ Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
 
 Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
 
-`unified-nsga-iii@0.2.0.0` still names the 0.2.0 hash. After merge, `bend link unified-nsga-iii@0.2.1.0 0x2bc7fb472c80bd6a0e04725c117edb2a`. Git tag `v0.2.1` and the GitHub Release are cut after merge.
+`unified-nsga-iii@0.2.0.0` still names the 0.2.0 hash. Git tag `v0.2.1` and the GitHub Release exist: https://github.com/AppSprout-dev/unsga3-bend/releases/tag/v0.2.1.
 
 - [x] `bend src/lib.bend --publish` (content hash `0x2bc7fb472c80bd6a0e04725c117edb2a`)
 - [x] Consumer import (`import 0x2bc7fb472c80bd6a0e04725c117edb2a/lib.bend as Unsga3`)
-- [ ] `bend link unified-nsga-iii@0.2.1.0 0x2bc7fb472c80bd6a0e04725c117edb2a` (after merge)
-- [ ] Git tag `v0.2.1` and GitHub Release (after merge)
+- [ ] `bend link unified-nsga-iii@0.2.1.0 0x2bc7fb472c80bd6a0e04725c117edb2a`
+- [x] Git tag `v0.2.1` and GitHub Release (https://github.com/AppSprout-dev/unsga3-bend/releases/tag/v0.2.1)
+
+## Hub publish — 0.2.2
+
+**0.2.2** re-published the hub: `bend src/lib.bend --publish` (Bend 2.0.34). This is the cleanup cut for the speed dig already on main (#34): niche bags and the associate residual in `survival.bend`. Seed=1 fronts are unchanged. No new IGD. Phase D is measured docs; no `!` on default `Run`. Big-N Metal is Bend 0.3. The content hash changed because `survival.bend` is in the import closure. `src/lib.bend` does not re-export new symbols. A/B stays `PymooCompatible`. Not nuget.org. Not GitHub Packages.
+
+The last commit of a shipping PR carries the version bump, the changelog section, and this hash. Merge once. Then `bend link`, the git tag, and the GitHub Release. 0.2.2 is the exception: #34 reached main before that commit.
+
+- Content hash: `0xd1de66b5d9157913a654c39186289f3d`
+- Printed import: `import 0xd1de66b5d9157913a654c39186289f3d/lib.bend as Lib`
+- Consumer import: `import 0xd1de66b5d9157913a654c39186289f3d/lib.bend as Unsga3`
+- Previous hub hash (0.2.1): `0x2bc7fb472c80bd6a0e04725c117edb2a`
+
+Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
+
+`unified-nsga-iii@0.2.0.0` still names the 0.2.0 hash. Once this commit is main's tip: `bend link unified-nsga-iii@0.2.2.0 0xd1de66b5d9157913a654c39186289f3d`, tag `v0.2.2`, and the GitHub Release.
+
+- [x] `bend src/lib.bend --publish` (content hash `0xd1de66b5d9157913a654c39186289f3d`)
+- [x] Consumer import (`import 0xd1de66b5d9157913a654c39186289f3d/lib.bend as Unsga3`)
+- [ ] `bend link unified-nsga-iii@0.2.2.0 0xd1de66b5d9157913a654c39186289f3d` (once this commit is main's tip)
+- [ ] Git tag `v0.2.2` and GitHub Release (once this commit is main's tip)
 
 ## 0.2.x Bend speed (patch lane)
 
@@ -171,5 +191,5 @@ The unconstrained C# suite beside ZDT1 / ZDT2 / DTLZ2. Formulas live in [`src/pr
 - [x] `ab/dump_bend_run.py --problem` writes a real front. Omitted knobs for these names are a short smoke (partitions=4, pop=8, gens=3), not oracle gens
 - [x] Smoke: `bend src/catalog_smoke.bend` (evaluate at 0.5, short Run). Checker: `python3 ab/test_catalog_smoke.py`
 - [x] Measured IGD table for the catalog ([ORACLE-CATALOG.md](ORACLE-CATALOG.md), `ab/oracle_catalog.py`, seeds 1–15). pymoo Sphere is `skip:` (different box). The constrained rows in that file are the 2026-09-30 skips. Later cells are in [CONSTRAINED-SURFACES.md](CONSTRAINED-SURFACES.md). No HV / Wilcoxon.
-- [x] OSY, TNK, and C1-DTLZ1 (C# formulas, bounds, constraints). Feasible-only niching plus CV fill. Smoke: `bend src/constrained_smoke.bend -o`. In the 0.2.1 hub hash (`src/lib.bend` does not re-export new symbols; the import closure does).
+- [x] OSY, TNK, and C1-DTLZ1 (C# formulas, bounds, constraints). Feasible-only niching plus CV fill. Smoke: `bend src/constrained_smoke.bend -o`. In the 0.2.1 hub hash and the 0.2.2 hash (`src/lib.bend` does not re-export new symbols; the import closure does).
 - [x] GD+ in [`ab/indicators.py`](../ab/indicators.py) (C# `GenerationalDistancePlus`). Hand case in `ab/test_gd_plus.py`. Bend has no indicator module; A/B IGD stays on the Python path.
