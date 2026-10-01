@@ -17,29 +17,29 @@ The reference implementation is the existing C# library:
 
 `unsga3-bend` is a from-scratch Bend 2 port of the algorithm core, not a binding and not a republish of that package. The two stacks sit **beside** each other: C# remains the .NET package; this tree is the Bend **hub** package. The shared validation plan is the same public protocol the C# docs use: ZDT / DTLZ problems and IGD against a [pymoo](https://pymoo.org/) `UNSGA3` oracle ([C# `docs/EQUIVALENCE.md`](https://github.com/AppSprout-dev/Unsga3/blob/main/docs/EQUIVALENCE.md)).
 
-## Hub package (0.2.0)
+## Hub package (0.2.1)
 
-**0.2.0** is the current Bend content-hash hub package. `bend src/lib.bend --publish` ran again for this tree (Bend 2.0.34). Artifacts do **not** go to nuget.org or GitHub Packages.
+**0.2.1** is the current Bend content-hash hub package. `bend src/lib.bend --publish` ran again for this tree (Bend 2.0.34) and the content hash changed. Artifacts do **not** go to nuget.org or GitHub Packages.
 
-**0.1.0** was the first hub publish (`0xcd07e24a626a62e74603d48f436cd679`). GitHub **0.1.1** was a docs/ab confidence bump (multi-seed IGD tables + Layer-1 fixture check) and did not re-publish. GitHub **0.1.2** (`0x527a2a4fa91b05a0250d7be0e11d232a`) includes the RankNicheDistance fix. **0.2.0** adds the unconstrained problem catalog, Deb constraint-domination, the offspring duplicate contract, and the odd-N SBX fix. A/B stays `PymooCompatible`. Git tag `v0.2.0` and the GitHub Release exist. The checkout also has OSY / TNK / C1-DTLZ1; that did not republish the hub hash.
+**0.1.0** was the first hub publish (`0xcd07e24a626a62e74603d48f436cd679`). GitHub **0.1.1** was a docs/ab confidence bump (multi-seed IGD tables + Layer-1 fixture check) and did not re-publish. GitHub **0.1.2** (`0x527a2a4fa91b05a0250d7be0e11d232a`) includes the RankNicheDistance fix. **0.2.0** (`0xa2f9d6ef8c474468bf1de15ebe70c512`) adds the unconstrained problem catalog, Deb constraint-domination, the offspring duplicate contract, and the odd-N SBX fix. **0.2.1** (`0x2bc7fb472c80bd6a0e04725c117edb2a`) adds the DTLZ3 axis clamp, OSY / TNK / C1-DTLZ1, and the CV-fill overflow fix. A/B stays `PymooCompatible`. Git tag `v0.2.0` and its GitHub Release exist. Git tag `v0.2.1` and the GitHub Release are cut after merge.
 
 ### How consumers import
 
 Bend fetches a published package by content hash (`bend guide` § Modules). Consumer-facing import (package alias `Unsga3`):
 
 ```bend
-import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Unsga3
+import 0x2bc7fb472c80bd6a0e04725c117edb2a/lib.bend as Unsga3
 ```
 
 `bend src/lib.bend --publish` printed this exact line (alias `Lib`):
 
 ```bend
-import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Lib
+import 0x2bc7fb472c80bd6a0e04725c117edb2a/lib.bend as Lib
 ```
 
-The hub entry path is `/lib.bend` (what bend printed), not `/src/lib.bend`. Content hash: `0xa2f9d6ef8c474468bf1de15ebe70c512`.
+The hub entry path is `/lib.bend` (what bend printed), not `/src/lib.bend`. Content hash: `0x2bc7fb472c80bd6a0e04725c117edb2a`.
 
-The named package `unified-nsga-iii@0.1.2.0` still points at the 0.1.2 hash. `unified-nsga-iii@0.2.0.0` resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`.
+The named package `unified-nsga-iii@0.1.2.0` still points at the 0.1.2 hash. `unified-nsga-iii@0.2.0.0` still resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`. After merge, `bend link unified-nsga-iii@0.2.1.0 0x2bc7fb472c80bd6a0e04725c117edb2a`.
 
 Develop against `src/` in this checkout with a local path:
 
@@ -51,12 +51,12 @@ import ./src/lib.bend as Unsga3
 
 ## What is in this tree
 
-Shipped in the **0.2.0** hub package (algorithm + A/B helpers):
+Shipped in the **0.2.1** hub package (algorithm + A/B helpers):
 
 - **Core** — non-dominated sort, NSGA-III normalization, Das–Dennis directions, niching / association, survival
 - **Variation + Run** — decision variables, SBX (η=30, p=1.0), polynomial mutation (η=20, p=1/n), ZDT1 / ZDT2 / DTLZ2 (3-obj), `PymooCompatible` tournament, `Unsga3Algorithm.Run`
-- **Catalog** — ZDT3 / ZDT4 / ZDT6, DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7, Sphere / Ackley / Rosenbrock. In the 0.2.0 hub hash. Dumpable. Measured IGD: [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md)
-- **Constrained demos** — OSY, TNK, C1-DTLZ1 in this checkout (not a new hub hash). Feasible-only survival and hyperplane. Smoke binary: `bend src/constrained_smoke.bend -o`. Cells: [docs/CONSTRAINED-SURFACES.md](docs/CONSTRAINED-SURFACES.md)
+- **Catalog** — ZDT3 / ZDT4 / ZDT6, DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7, Sphere / Ackley / Rosenbrock. In this hub hash, including the DTLZ3 axis clamp. Dumpable. Measured IGD: [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md)
+- **Constrained demos** — OSY, TNK, C1-DTLZ1 in this hub hash. Feasible-only survival and hyperplane. Smoke binary: `bend src/constrained_smoke.bend -o`. Cells: [docs/CONSTRAINED-SURFACES.md](docs/CONSTRAINED-SURFACES.md)
 - **Constraints + offspring** — Deb constraint-domination (`cv` on `Individual`), CV-first tournaments, survivor-set duplicate keys, odd-N SBX (parent `N-1` with parent `0`). A/B stays `PymooCompatible`
 - **Parallel maps** — independent per-individual work uses Bend `a b = f(lo) f(hi)` mid-splits. Tournament, SBX, mutation, and last-front niching stay sequential so a fixed seed consumes RNG in the same order
 - **Native dumps** — `bend src/….bend -o …` then run the binary. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails
@@ -144,7 +144,7 @@ Modules are `.bend` files: `import Base`, `import ./x.bend as M`. Laws live in `
 ```
 unsga3-bend/
 ├── AGENTS.md                 # Bend agent rules + product locks
-├── CHANGELOG.md              # 0.2.0 hub re-publish (catalog + constraints)
+├── CHANGELOG.md              # 0.2.1 hub re-publish (DTLZ3 clamp, constrained surfaces, CV-fill)
 ├── CONTRIBUTING.md           # install / smoke / proofs / do-nots
 ├── LAWS.bend                 # core + operator + Run/ZDT claims (human-owned)
 ├── PROOF.bend                # imports LAWS; closed proofs

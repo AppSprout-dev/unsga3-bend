@@ -4,27 +4,40 @@ Notable changes to **unsga3-bend**.
 
 This file tracks the Bend **hub** package (content-hash) and GitHub tree versions. It is **not** the C# / NuGet changelog for PackageId `Unsga3` ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)).
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Current hub package is **0.2.0** (content hash `0xa2f9d6ef8c474468bf1de15ebe70c512`). The first hub version was **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`). Git tags `v0.1.0`, `v0.1.1`, `v0.1.2`, and `v0.2.0` and their GitHub Releases already exist. `unified-nsga-iii@0.2.0.0` resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Current hub package is **0.2.1** (content hash `0x2bc7fb472c80bd6a0e04725c117edb2a`). The first hub version was **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`). Git tags `v0.1.0`, `v0.1.1`, `v0.1.2`, and `v0.2.0` and their GitHub Releases already exist. Tag `v0.2.1` and its GitHub Release are cut after merge. `unified-nsga-iii@0.2.0.0` still resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`. After merge: `bend link unified-nsga-iii@0.2.1.0 0x2bc7fb472c80bd6a0e04725c117edb2a`.
 
 GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-publish; its content hash stayed `0xcd07e24a626a62e74603d48f436cd679`.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-01
+
+Tree cut after the DTLZ3 axis clamp (#30), constrained demos and GD+ (#31), and the CV-fill overflow fix with measured IGD (#32). `bend src/lib.bend --publish` (Bend 2.0.34) ran for this cut. The printed content hash **changed**. `src/lib.bend` does not re-export new symbols; the hash is the import closure, and that closure includes the edits in `problems.bend`, `survival.bend`, `algorithm.bend`, `individual.bend`, `normalization.bend`, and `tournament.bend` since `v0.2.0`. Not nuget.org. Not GitHub Packages. Git tag `v0.2.1` and the GitHub Release will be cut after merge.
+
+- Previous hub hash (0.2.0): `0xa2f9d6ef8c474468bf1de15ebe70c512`
+- Content hash: `0x2bc7fb472c80bd6a0e04725c117edb2a`
+- Printed import: `import 0x2bc7fb472c80bd6a0e04725c117edb2a/lib.bend as Lib`
+- Consumer import: `import 0x2bc7fb472c80bd6a0e04725c117edb2a/lib.bend as Unsga3`
+
+Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`. A/B stays `PymooCompatible`. This cut does not recompute the measured IGD tables already on main.
+
+`unified-nsga-iii@0.2.0.0` still resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`. After merge: `bend link unified-nsga-iii@0.2.1.0 0x2bc7fb472c80bd6a0e04725c117edb2a`.
+
 ### Fixed
 
-- Constrained CV fill no longer builds an exponential infeasible list. Inserting a row in front used to recurse through a tail that already contained that row, then cons it again. Each smaller CV doubled the list. Native OSY and C1-DTLZ1 at `constrained_knobs` died with `bend: memory fault (machine stack overflow?)`. TNK died with `bend: runtime fail-stop`. The insert conses onto the original tail. Regression: [`src/constrained_budget.bend`](src/constrained_budget.bend) (OSY/TNK pop=52 gens=250, C1-DTLZ1 pop=92 gens=150, seed 1, `PymooCompatible`). Seeds 1–15 IGD: [docs/CONSTRAINED-SURFACES.md](docs/CONSTRAINED-SURFACES.md). No hub republish. No 0.2.1 cut.
-- DTLZ3 evaluation clamps a negative F32 `cos(π/2)` factor back to the mathematical `f ≥ 0`. In-bound `x = 1` was a strictly negative objective, so no feasible point could dominate it, and that row pinned a huge ASF extreme. Same DTLZ2 budget, seeds 1–15: Bend median IGD 26.249240 → 8.239578 ([docs/DTLZ3_AXIS.md](docs/DTLZ3_AXIS.md)). DTLZ2 / ZDT1 / ZDT2 seed 1 published cells unchanged. No hub republish.
+- Constrained CV fill no longer builds an exponential infeasible list. Inserting a row in front used to recurse through a tail that already contained that row, then cons it again. Each smaller CV doubled the list. Native OSY and C1-DTLZ1 at `constrained_knobs` died with `bend: memory fault (machine stack overflow?)`. TNK died with `bend: runtime fail-stop`. The insert conses onto the original tail. Regression: [`src/constrained_budget.bend`](src/constrained_budget.bend) (OSY/TNK pop=52 gens=250, C1-DTLZ1 pop=92 gens=150, seed 1, `PymooCompatible`). Seeds 1–15 IGD: [docs/CONSTRAINED-SURFACES.md](docs/CONSTRAINED-SURFACES.md).
+- DTLZ3 evaluation clamps a negative F32 `cos(π/2)` factor back to the mathematical `f ≥ 0`. In-bound `x = 1` was a strictly negative objective, so no feasible point could dominate it, and that row pinned a huge ASF extreme. Same DTLZ2 budget, seeds 1–15: Bend median IGD 26.249240 → 8.239578 ([docs/DTLZ3_AXIS.md](docs/DTLZ3_AXIS.md)). DTLZ2 / ZDT1 / ZDT2 seed 1 published cells unchanged.
 
 ### Added
 
 - Catalog IGD driver [`ab/oracle_catalog.py`](ab/oracle_catalog.py). ZDT3 / ZDT4 / ZDT6 use the ZDT1 budget (p=12, pop=52, gens=100). DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7 use the DTLZ2 budget (p=12, pop=92, gens=150). Sphere / Ackley / Rosenbrock are a short smoke (p=1, pop=20, gens=40) at library-default `n`. Tournament stays `PymooCompatible`. Every cell is a real `igd=` or `skip:`.
 - Pareto sets for those names in [`ab/igd_vs_pymoo.py`](ab/igd_vs_pymoo.py): C# `ParetoFronts` for ZDT3, ZDT4, ZDT6, DTLZ1, and the DTLZ2 sphere shared by DTLZ3 / DTLZ4. DTLZ7 uses pymoo `pareto_front()` or `skip:` (C# has no DTLZ7 front). Single-objective IGD is distance to `f = 0`.
 - Optional C# catalog dump [`ab/dump_csharp_catalog.py`](ab/dump_csharp_catalog.py). `tools/OracleCompare` still accepts only zdt1, zdt2, and dtlz2. pymoo NSGA-III dump accepts catalog names and skips when the box is not the Bend/C# box.
-- Catalog results in [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md), copied from the 2026-09-30 `ab/oracle_catalog.py` run (seeds 1–15). 435 `igd=` cells. pymoo Sphere is `skip:` because that pymoo problem is a different box. That snapshot's OSY / TNK / C1-DTLZ1 rows are historical skips. No hub republish. ZDT1 / ZDT2 / DTLZ2 quality numbers are not retuned.
+- Catalog results in [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md), copied from the 2026-09-30 `ab/oracle_catalog.py` run (seeds 1–15). 435 `igd=` cells. pymoo Sphere is `skip:` because that pymoo problem is a different box. That snapshot's OSY / TNK / C1-DTLZ1 rows are historical skips. ZDT1 / ZDT2 / DTLZ2 quality numbers are not retuned.
 - Constrained demos OSY, TNK, and C1-DTLZ1 in [`src/problems.bend`](src/problems.bend) (C# formulas, bounds, `g ≤ 0`). A mixed pool niches the feasible subset and fills a shortfall by ascending CV (`lnk` false on fillers). The hyperplane uses the feasible subset when any member is infeasible; an all-feasible pool stays on the previous normalize / select path. Smoke: `bend src/constrained_smoke.bend -o` and [`ab/test_constrained_smoke.py`](ab/test_constrained_smoke.py). Dump names `osy` / `tnk` / `c1dtlz1` emit `feas_nd`. Omitted dump knobs stay 4/8/3. Quality sizes are `constrained_knobs` (PymooCompatible). Measured cells: [docs/CONSTRAINED-SURFACES.md](docs/CONSTRAINED-SURFACES.md).
 - GD+ in [`ab/indicators.py`](ab/indicators.py), matching C# `PerformanceIndicators.GenerationalDistancePlus` (Euclidean of `max(a_j − z_j, 0)`). Hand case: [`ab/test_gd_plus.py`](ab/test_gd_plus.py). No Bend indicator module. A/B IGD stays in [`ab/igd_vs_pymoo.py`](ab/igd_vs_pymoo.py).
-- Hub name `unified-nsga-iii@0.2.0.0` resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`. GitHub Release `v0.2.0` already exists. No hub republish: `src/lib.bend` does not re-export the new constructors, and the published hash is unchanged.
-- `gh repo edit` for the About text already printed in this file was tried again and returned **HTTP 403**. The command is unchanged. The ROADMAP About checkbox stays open.
+- Hub name `unified-nsga-iii@0.2.0.0` still resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`. GitHub Release `v0.2.0` already exists. This cut's name is linked after merge (`bend link unified-nsga-iii@0.2.1.0 0x2bc7fb472c80bd6a0e04725c117edb2a`).
+- `gh repo edit` for the About text in this file was tried from an earlier tree and returned **HTTP 403**. The command below now says **0.2.1**. It is not applied in this cut. The ROADMAP About checkbox stays open.
 
 ## [0.2.0] - 2026-09-30
 
@@ -123,11 +136,11 @@ Landed on `main` after the hub `v0.1.0` tag and before GitHub `v0.1.1` ([#20](ht
 
 ### GitHub About (apply with org permission)
 
-`gh repo edit` from this agent returned **HTTP 403** and never applied. The description below tracks the current hub (**0.2.0**). Maintainers:
+`gh repo edit` from an earlier agent returned **HTTP 403** and never applied. The description below tracks the current hub (**0.2.1**). Maintainers:
 
 ```bash
 gh repo edit AppSprout-dev/unsga3-bend \
-  --description "Bend 2 port of U-NSGA-III. 0.2.0 content-hash hub package (not NuGet). C# Unsga3 is the NuGet/GitHub Packages reference. A/B via ZDT/DTLZ + IGD." \
+  --description "Bend 2 port of U-NSGA-III. 0.2.1 content-hash hub package (not NuGet). C# Unsga3 is the NuGet/GitHub Packages reference. A/B via ZDT/DTLZ + IGD." \
   --homepage "https://github.com/AppSprout-dev/unsga3-bend" \
   --add-topic bend \
   --add-topic nsga3 \
@@ -140,7 +153,8 @@ gh repo edit AppSprout-dev/unsga3-bend \
 
 Replaces current description: `U-NSGA-III in Bend — greenfield rewrite; A/B vs C# Unsga3 via ZDT/DTLZ + pymoo IGD. Not a NuGet package.` (no homepage, no topics). Do **not** add a `nuget` topic.
 
-[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.0...v0.1.1
