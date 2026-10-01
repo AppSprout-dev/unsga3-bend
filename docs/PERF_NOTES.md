@@ -814,3 +814,22 @@ Seed=1 fronts matched the before line (smoke, ZDT1 52×100, DTLZ2 92×150) befor
 | DTLZ2 92×150 | peek, then reverted | 3.700 | 733 (20%) | 1307 | 598 |
 
 The kept line is the residual-square table above. Offspring is still the SBX / polynomial-mutation / G12 work, interleaved, sequential for the RNG.
+
+## Associate direction Array discarded (Phase C)
+
+Hypothesis: the sequential nearest-ref walk was still cons-peeling every Das–Dennis row and recomputing `||w||^2`. Packing that individual's directions into one `Array<F32>` (components, then `||w||^2`, stride `M+1`) would turn those reads into flat loads. The table was built inside `nearest_one`, once per individual, because `associate_raw.go` still mid-splits on lists (`assoc_raw_len` unfolds that take/drop) and an `Array` cannot ride the fork. F32 association matches `vec_dot` / `resid_sq` (left-to-right `add`, last step `add(_, 0.0)`). Strict `<` tie-break unchanged.
+
+Seed=1 fronts matched the residual-square line before the revert: checked-in smoke, ZDT1 52×100, DTLZ2 92×150 (`--threads 1`). `bend PROOF.bend --check-only` stayed the same 14 unsafe Das–Dennis names. The edit was reverted. It is not in the tree.
+
+Host and Bend are the 0.2.x before-line machine (`bend version` = `bend 2.0.34`, 4-core Xeon, clang 18.1.3). The table is the second warm `--threads 1` hit. The first hit of that same binary was slower across buckets (DTLZ2 `run_s` 3.869, associate 1342 ms; ZDT1 `run_s` 0.734, associate 75 ms). 1334 → 1297 ms sits inside that spread, and nds / niche / offspring moved by a similar few percent, so this is not an associate win.
+
+| run | | run_s | associate ms (%) | nds ms | niche ms | offspring ms |
+|-----|--|------:|-----------------:|-------:|---------:|-------------:|
+| ZDT1 52×100 | before (after residual) | 0.738 | 80 (11%) | 181 | 17 | 376 |
+| ZDT1 52×100 | direction Array, then reverted | 0.736 | 92 (12%) | 177 | 28 | 367 |
+| DTLZ2 92×150 | before (after residual) | 3.783 | 1334 (35%) | 757 | 615 | 753 |
+| DTLZ2 92×150 | direction Array, then reverted | 3.687 | 1297 (35%) | 730 | 593 | 738 |
+
+DTLZ2 second-hit detail: `profile_sum_ms=3648`, `profile_wall_ms=3685`, associate_select 843 ms, associate_prepare 454 ms. The kept line is the residual-square table above.
+
+NDS objective Array, niche count Array, and offspring decision-var Array were not built. The dominate walk is M objectives (2 or 3), niche bags already removed the full-front scan, and offspring stays sequential so the RNG order does not move. Phase D (GPU bangs) is not started: this host has no Metal path, and no CPU-side bang prep landed.
