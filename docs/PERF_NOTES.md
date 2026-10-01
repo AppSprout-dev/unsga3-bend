@@ -1049,9 +1049,9 @@ Rule of thumb for a full Run that prefers Metal:
 
 GO_BIG showed Metal can win hard on uniform LCG / F32 mad. These residual walks are less intense: large N×M and inflated work (or gen batching) are both required before associate/niche leave the ~80 ms floor.
 
-## Big-N Metal product path (sketch, not scheduled)
+## Big-N Metal product path (sketch)
 
-Not started. Needs Jason's go. This is not code on this branch, and it is not a commit to build it. The measured break-even above is the gate. Default shipping `Run` stays **`--gpu off --threads 1`** at oracle and demo sizes.
+Bend **0.3** lane in [ROADMAP.md](ROADMAP.md) (`## 0.3 — Big-N Metal`). Not C# Unsga3 feature 0.3. Not started; needs Jason's go before code. The measured break-even above is the gate. Default shipping `Run` stays **`--gpu off --threads 1`** at oracle and demo sizes.
 
 If a later product path chases GPU for real U-NSGA-III, it looks like this:
 
@@ -1062,4 +1062,4 @@ If a later product path chases GPU for real U-NSGA-III, it looks like this:
 5. **A/B.** IGD vs C# / pymoo stays on the existing protocol. A GPU path keeps the same fronts unless it is explicitly versioned.
 6. **Non-goals for v0 of that path.** Rewriting all of `Run` on GPU. The Array host-rebuild (Phase C, discarded as noise). HIP on the RX 5700 XT (parked: Win10 + gfx1010 unsupported, HSA reported no adapters; bendlang#979 stays on the shelf). CUDA only if someone asks later. First host remains the Mac mini M4 / Metal.
 
-Not started — needs Jason's go.
+Not started. The open checkboxes live under Bend 0.3 in [ROADMAP.md](ROADMAP.md). Needs Jason's go before code.

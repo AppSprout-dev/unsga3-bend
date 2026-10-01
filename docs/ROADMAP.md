@@ -137,7 +137,7 @@ Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
 
 ## 0.2.x Bend speed (patch lane)
 
-Not C# / feature 0.3. One branch, logical commits, one PR after measured verification and Jason's go.
+Not the C# Unsga3 feature lane. Bend big-N Metal is the 0.3 section below, not unfinished work in this patch lane.
 
 **Contract:** same RNG order / same fronts (byte-identical seed=1 oracle dumps when claiming the same ops). No invented IGD. Warm-native `ab/profile_bend_run.py` yardstick (`run_s` + phase ms). When parallelism is claimed, also `--threads 1` vs omit / N. GPU claims need `--gpu off` vs bang on the same kernel.
 
@@ -147,7 +147,19 @@ Not C# / feature 0.3. One branch, logical commits, one PR after measured verific
 - [x] **Phase B — offspring** — discarded. SBX / polynomial mutation already walk variables; peeking the next head without cloning the tail did not move the bucket (ZDT1 offspring 376 → 372 ms, DTLZ2 753 → 733 ms). Fronts matched. Change reverted. [PERF_NOTES.md](PERF_NOTES.md).
 - [x] **Phase C** — discarded. Per-individual `Array<F32>` of direction components plus `||w||^2` inside sequential `nearest_one` (the population fork stays on lists). Seed=1 fronts byte-identical. `--threads 1` warm associate stayed inside the same-build noise (DTLZ2 1334 → 1297 ms, `run_s` 3.783 → 3.687; ZDT1 associate 80 → 92 ms). Change reverted. [PERF_NOTES.md](PERF_NOTES.md).
 - [x] **Phase D** — measured; no-ship `!` into default Run. Shallow/deep/go-big on Apple M4, bend 2.0.34: oracle sizes lose to `--gpu off --threads 1`; uniform go-big peaks at 69.3× single-shot / 158× amortized. Break-even (2026-10-01, synthetic F32 maps, not a product `Run`): Metal in a long-lived process when roughly `pad(N)×M×(3+inflate) ≳ 3×10⁸`. Associate inflate=1 never wins (max 0.42×). Oracle 128×91×1 stays ~0.1× at G=100. [PERF_NOTES.md](PERF_NOTES.md).
-- [ ] **Big-N Metal product path** — sketch only, not started, needs Jason's go. Explicit opt-in past the break-even rule; associate/niche F32 maps first; NDS stays CPU; default Run stays `--gpu off --threads 1`. Not this dig's code. [PERF_NOTES.md](PERF_NOTES.md).
+- [x] **Big-N Metal** — measured break-even and the sketch live in [PERF_NOTES.md](PERF_NOTES.md). Product path moved to Bend 0.3 (below), not unfinished 0.2.x work.
+
+## 0.3 — Big-N Metal (not started)
+
+Bend big-N Metal lane for large populations, dense reference directions, or heavy / gen-batched maps. This is **not** C# Unsga3 feature 0.3 and not a NuGet version. Needs Jason's go before any code. Measured break-even and the sketch: [PERF_NOTES.md](PERF_NOTES.md) (`Big-N Metal product path`). Default `Run` stays `--gpu off --threads 1` until that go. First host is the Mac mini M4 / Metal.
+
+- [ ] Opt-in gate past the break-even rule (`pad(N)×M×(3+inflate) ≳ 3×10⁸`). Small runs stay on CPU.
+- [ ] Uniform F32 associate residual and niche distance maps first.
+- [ ] Divergent NDS stays on CPU.
+- [ ] Warm Bend process across generations; batch light generations into fewer bangs.
+- [ ] Seed=1 front identity and checksums match the CPU dig before any merge.
+- [ ] IGD vs C# / pymoo stays on the existing protocol. Fronts stay the same unless a GPU path is explicitly versioned.
+- [ ] Non-goals for v0: full `Run` on GPU; the discarded Array host-rebuild; HIP / bendlang#979 (parked, out of scope); CUDA only if someone asks.
 
 ## Problem catalog (implemented, not oracle-tabled)
 
