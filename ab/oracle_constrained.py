@@ -7,8 +7,9 @@ not copy those numbers.
 
 Bend dumps the feasible non-dominated set (``Algo.feas_nd``). pymoo
 NSGA-III, when installed, dumps the same filter. C# is ``skip:`` unless
-``UNSGA3_CS_ROOT`` is set — and even then this tree has no constrained
-C# dumper (``OracleCompare`` does not accept these names).
+``UNSGA3_CS_ROOT`` is set. When it is, ``dump_csharp_run.py`` calls
+``tools/OracleCompare`` (``--pymoo-mode``). A checkout whose
+OracleCompare rejects these names stays ``skip:``.
 
 Every cell is ``igd=`` or ``skip:``. No HV / Wilcoxon.
 """
@@ -124,10 +125,40 @@ def dump_pymoo(problem: str, knobs: dict, seed: int, dest: Path) -> str | None:
     return None
 
 
-def csharp_cell() -> str:
+def dump_csharp(problem: str, knobs: dict, seed: int, dest: Path) -> str | None:
     if not os.environ.get("UNSGA3_CS_ROOT"):
         return "skip: UNSGA3_CS_ROOT unset; this tree does not clone Unsga3"
-    return "skip: no constrained C# dumper (OracleCompare does not accept these names)"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    proc = run(
+        [
+            sys.executable,
+            str(ROOT / "ab" / "dump_csharp_run.py"),
+            "--problem",
+            problem,
+            "--partitions",
+            str(knobs["partitions"]),
+            "--pop",
+            str(knobs["pop"]),
+            "--gens",
+            str(knobs["gens"]),
+            "--seed",
+            str(seed),
+            "--tournament",
+            "pymoo",
+            "--out",
+            str(dest),
+        ]
+    )
+    err = (proc.stderr or "") + (proc.stdout or "")
+    sys.stderr.write(proc.stderr or "")
+    # An empty file is a finished Run with no feasible rows. igd_of
+    # reports `skip: no feasible points`. A missing file is a dump failure.
+    if dest.is_file():
+        return None
+    for ln in err.splitlines():
+        if ln.startswith("skip:"):
+            return ln.strip()
+    return f"skip: csharp dump failed rc={proc.returncode}"
 
 
 def main() -> int:
@@ -145,12 +176,15 @@ def main() -> int:
         knobs = constrained_knobs(problem)
         for seed in args.seeds:
             bend_path = OUT / f"bend_{problem}_s{seed}.csv"
+            csharp_path = OUT / f"csharp_{problem}_s{seed}.csv"
             pymoo_path = OUT / f"pymoo_{problem}_s{seed}.csv"
             bend_err = dump_bend(problem, knobs, seed, bend_path)
             bend_cell = bend_err or igd_of(bend_path, problem, int(knobs["partitions"]))
+            csharp_err = dump_csharp(problem, knobs, seed, csharp_path)
+            csharp_cell = csharp_err or igd_of(csharp_path, problem, int(knobs["partitions"]))
             pymoo_err = dump_pymoo(problem, knobs, seed, pymoo_path)
             pymoo_cell = pymoo_err or igd_of(pymoo_path, problem, int(knobs["partitions"]))
-            row = f"| {problem} | {seed} | {bend_cell} | {csharp_cell()} | {pymoo_cell} |"
+            row = f"| {problem} | {seed} | {bend_cell} | {csharp_cell} | {pymoo_cell} |"
             lines.append(row)
             print(row, flush=True)
     text = "\n".join(lines) + "\n"
