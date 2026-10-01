@@ -535,3 +535,141 @@ python3 ab/dump_csharp_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 15
 python3 ab/igd_vs_pymoo.py --front ab/out/bend_dtlz2_F.csv --problem dtlz2 --partitions 12
 python3 ab/igd_vs_pymoo.py --front ab/out/csharp_dtlz2_F.csv --problem dtlz2 --partitions 12
 ```
+
+---
+
+## 0.2.x before line (tip 0.2.1)
+
+CPU baseline only. No algorithm change. Tree under test is tip **0.2.1** (`4e81b32`). These cells are the before line for the 0.2.x speed lane. No IGD / HV / Wilcoxon.
+
+**Host:** 4-core Intel Xeon (KVM), `nproc=4`, `getconf _NPROCESSORS_ONLN=4`, affinity `0-3`. Ubuntu clang **18.1.3**.
+
+**Bend:** `bend version` prints `bend 2.0.34`. `bend --version` is not a flag in this build (`unknown option --version`; help lists `bend version`). Installed with the current `https://bend-lang.com/install.sh` (it downloaded the 2.0.34 linux-x64 tarball). Not pinned in this repo.
+
+**Protocol:** `ab/profile_bend_run.py`, seed=1, `PymooCompatible`. Each config was invoked twice. Tables below are the **second** invocation (`compile_s` omitted, cache hit). `pct` is the integer the profiler printed, of that run’s `profile_sum_ms`. `--threads` omitted is the Bend binary default (CPU count). This host has 4 online CPUs; these runs did not sample `/proc` `Threads:`.
+
+Cold `bend … -o` once per driver (threads is a runtime flag, so the default-thread runs reused the same binary):
+
+| driver | cold `compile_s` | first-binary `run_s` (not the before line) |
+|--------|-----------------:|-------------------------------------------:|
+| ZDT1 52×100 | 8.967 | 0.768 (`--threads 1`, 52 front rows) |
+| DTLZ2 92×150 | 8.466 | 5.491 (`--threads 1`, 92 front rows) |
+
+### Headline (warm second run)
+
+| run | threads | run_s | nds ms (%) | niche ms (%) | associate ms (%) | offspring ms (%) |
+|-----|---------|------:|-----------:|-------------:|-----------------:|-----------------:|
+| ZDT1 52×100 | 1 | 0.761 | 177 (23%) | 33 (4%) | 92 (12%) | 369 (49%) |
+| ZDT1 52×100 | default | 1.101 | 328 (30%) | 48 (4%) | 142 (13%) | 379 (35%) |
+| DTLZ2 92×150 | 1 | 5.492 | 737 (13%) | 2001 (36%) | 1692 (31%) | 739 (13%) |
+| DTLZ2 92×150 | default | 6.033 | 1155 (19%) | 2135 (36%) | 1276 (21%) | 763 (12%) |
+
+On this host the Bend default is slower than `--threads 1` for both oracles (ZDT1 1.101 s vs 0.761 s; DTLZ2 6.033 s vs 5.492 s).
+
+### ZDT1 n=30, partitions=12, pop=52, gens=100, seed=1, `--threads 1`
+
+- warm: `compile_s` omitted, `run_s=0.761`, `profile_sum_ms=741`, `profile_wall_ms=760` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 1 | 0.001 | 0 |
+| evaluate | 12 | 0.012 | 1 |
+| nds_select | 152 | 0.152 | 20 |
+| nds_prepare | 25 | 0.025 | 3 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **177** | **0.177** | **23** |
+| normalize_select | 28 | 0.028 | 3 |
+| normalize_prepare | 19 | 0.019 | 2 |
+| normalize | 47 | 0.047 | 6 |
+| associate_select | 57 | 0.057 | 7 |
+| associate_prepare | 35 | 0.035 | 4 |
+| associate | 92 | 0.092 | 12 |
+| niche | 33 | 0.033 | 4 |
+| tournament | 10 | 0.010 | 1 |
+| offspring_sbx_pm_g12 | 369 | 0.369 | 49 |
+| unaccounted | 19 | 0.019 | |
+
+### ZDT1 n=30, partitions=12, pop=52, gens=100, seed=1, `--threads` omitted
+
+- warm: `compile_s` omitted, `run_s=1.101`, `profile_sum_ms=1061`, `profile_wall_ms=1098` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 1 | 0.001 | 0 |
+| evaluate | 33 | 0.033 | 3 |
+| nds_select | 268 | 0.268 | 25 |
+| nds_prepare | 60 | 0.060 | 5 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **328** | **0.328** | **30** |
+| normalize_select | 60 | 0.060 | 5 |
+| normalize_prepare | 47 | 0.047 | 4 |
+| normalize | 107 | 0.107 | 10 |
+| associate_select | 78 | 0.078 | 7 |
+| associate_prepare | 64 | 0.064 | 6 |
+| associate | 142 | 0.142 | 13 |
+| niche | 48 | 0.048 | 4 |
+| tournament | 23 | 0.023 | 2 |
+| offspring_sbx_pm_g12 | 379 | 0.379 | 35 |
+| unaccounted | 37 | 0.037 | |
+
+### DTLZ2 M=3 k=10, partitions=12, pop=92, gens=150, seed=1, `--threads 1`
+
+- warm: `compile_s` omitted, `run_s=5.492`, `profile_sum_ms=5453`, `profile_wall_ms=5490` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 13 | 0.013 | 0 |
+| nds_select | 596 | 0.596 | 10 |
+| nds_prepare | 141 | 0.141 | 2 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **737** | **0.737** | **13** |
+| normalize_select | 143 | 0.143 | 2 |
+| normalize_prepare | 64 | 0.064 | 1 |
+| normalize | 207 | 0.207 | 3 |
+| associate_select | 1107 | 1.107 | 20 |
+| associate_prepare | 585 | 0.585 | 10 |
+| associate | 1692 | 1.692 | 31 |
+| niche | 2001 | 2.001 | 36 |
+| tournament | 64 | 0.064 | 1 |
+| offspring_sbx_pm_g12 | 739 | 0.739 | 13 |
+| unaccounted | 37 | 0.037 | |
+
+### DTLZ2 M=3 k=10, partitions=12, pop=92, gens=150, seed=1, `--threads` omitted
+
+- warm: `compile_s` omitted, `run_s=6.033`, `profile_sum_ms=5901`, `profile_wall_ms=6030` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 65 | 0.065 | 1 |
+| nds_select | 912 | 0.912 | 15 |
+| nds_prepare | 243 | 0.243 | 4 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **1155** | **1.155** | **19** |
+| normalize_select | 262 | 0.262 | 4 |
+| normalize_prepare | 176 | 0.176 | 2 |
+| normalize | 438 | 0.438 | 7 |
+| associate_select | 789 | 0.789 | 13 |
+| associate_prepare | 487 | 0.487 | 8 |
+| associate | 1276 | 1.276 | 21 |
+| niche | 2135 | 2.135 | 36 |
+| tournament | 69 | 0.069 | 1 |
+| offspring_sbx_pm_g12 | 763 | 0.763 | 12 |
+| unaccounted | 129 | 0.129 | |
+
+Largest warm bucket on DTLZ2 is `niche` (36% at both thread settings; 2001 ms at `--threads 1`, 2135 ms at the default). Next on DTLZ2 is `associate` (31% / 1692 ms at `--threads 1`; 21% / 1276 ms at the default). On ZDT1 the largest bucket is `offspring_sbx_pm_g12` (49% / 369 ms at `--threads 1`; 35% / 379 ms at the default). `evaluate` stays at or under 3%.
+
+```bash
+export PATH="$HOME/.bend/bin:$PATH"
+export BEND_NO_TELEMETRY=1
+
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 --threads 1
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 --threads 1
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 --threads 1
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 --threads 1
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1
+```
