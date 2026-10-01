@@ -851,6 +851,11 @@ def row_before(a: CvRow, b: CvRow) -> Bool:
 # `before = False` arm, and that arm's tail is the original rest.
 # `before = True` conses onto that same rest (no second insert).
 # phase 0 reads the next cons; phase 1 places the row. Fuel is 1+2|xs|.
+# Recursing through a tail that already contains `x`, then consing `x`
+# again, duplicates the row. Each smaller CV doubles the list. At the
+# constrained budgets that exponential spine overflows the native stack
+# (`memory fault (machine stack overflow?)` on OSY / C1-DTLZ1; TNK
+# fail-stops). `src/constrained_budget.bend` runs those budgets.
 def insert_row.go(fuel: Nat, phase: Nat, before: Bool, +x: CvRow, xs: List<&2, CvRow>, +h: CvRow) -> List<&2, CvRow>:
   match fuel phase before:
     case 0n p b:
