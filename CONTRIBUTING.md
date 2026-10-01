@@ -1,6 +1,6 @@
 # Contributing
 
-This repository is **standalone public OSS**. It is **not** a NuGet package and **not** PackageId `Unsga3`. The C# library ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)) stays the NuGet / GitHub Packages stack. Current Bend hub version is **0.2.1** (content hash `0x2bc7fb472c80bd6a0e04725c117edb2a`; `import 0x2bc7fb472c80bd6a0e04725c117edb2a/lib.bend as Unsga3`). Previous hub publish was **0.2.0** (`0xa2f9d6ef8c474468bf1de15ebe70c512`). Earlier hub publishes were **0.1.2** (`0x527a2a4fa91b05a0250d7be0e11d232a`) and **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`). `unified-nsga-iii@0.2.0.0` still names the 0.2.0 hash. After merge: `bend link unified-nsga-iii@0.2.1.0 0x2bc7fb472c80bd6a0e04725c117edb2a`.
+This repository is **standalone public OSS**. It is **not** a NuGet package and **not** PackageId `Unsga3`. The C# library ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)) stays the NuGet / GitHub Packages stack. Current Bend hub version is **0.2.2** (content hash `0xd1de66b5d9157913a654c39186289f3d`; `import 0xd1de66b5d9157913a654c39186289f3d/lib.bend as Unsga3`). Previous hub publish was **0.2.1** (`0x2bc7fb472c80bd6a0e04725c117edb2a`). Earlier hub publishes were **0.2.0** (`0xa2f9d6ef8c474468bf1de15ebe70c512`), **0.1.2** (`0x527a2a4fa91b05a0250d7be0e11d232a`), and **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`). `unified-nsga-iii@0.2.0.0` still names the 0.2.0 hash. Once this commit is main's tip: `bend link unified-nsga-iii@0.2.2.0 0xd1de66b5d9157913a654c39186289f3d`.
 
 Read [AGENTS.md](AGENTS.md) for language + product locks. Protocol: [docs/EQUIVALENCE.md](docs/EQUIVALENCE.md). License: [LICENSE](LICENSE) (MIT).
 
@@ -38,6 +38,10 @@ See [ab/README.md](ab/README.md) and [`ab/protocol.py`](ab/protocol.py).
 - Scripts print `skip: …` when an oracle is missing. **Do not invent IGD / HV / Wilcoxon numbers.**
 - Multi-seed IGD + Layer-1 fixture check: `python3 ab/oracle_multiseed.py`, `python3 ab/fixture_check.py` — [docs/ORACLE-MULTISEED.md](docs/ORACLE-MULTISEED.md).
 - Catalog IGD (ZDT3/4/6, DTLZ1/3/4/7, short Sphere/Ackley/Rosenbrock): `python3 ab/oracle_catalog.py` — [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md). ZDT1 / ZDT2 / DTLZ2 budgets stay in `oracle_knobs`. OSY / TNK / C1-DTLZ1 use `constrained_knobs` and [docs/CONSTRAINED-SURFACES.md](docs/CONSTRAINED-SURFACES.md), not the catalog table.
+
+## Hub version cut
+
+The last commit of a shipping PR carries the version bump, the CHANGELOG section, and the content hash printed by `bend src/lib.bend --publish`. Merge that once. Then `bend link unified-nsga-iii@<version> <hash>`, tag `vX.Y.Z`, and the GitHub Release. 0.2.2 is the exception cleanup: the speed dig (#34) reached main before that commit.
 
 ## Do not
 

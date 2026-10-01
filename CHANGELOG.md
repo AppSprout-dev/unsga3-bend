@@ -4,15 +4,44 @@ Notable changes to **unsga3-bend**.
 
 This file tracks the Bend **hub** package (content-hash) and GitHub tree versions. It is **not** the C# / NuGet changelog for PackageId `Unsga3` ([AppSprout-dev/Unsga3](https://github.com/AppSprout-dev/Unsga3)).
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Current hub package is **0.2.1** (content hash `0x2bc7fb472c80bd6a0e04725c117edb2a`). The first hub version was **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`). Git tags `v0.1.0`, `v0.1.1`, `v0.1.2`, and `v0.2.0` and their GitHub Releases already exist. Tag `v0.2.1` and its GitHub Release are cut after merge. `unified-nsga-iii@0.2.0.0` still resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`. After merge: `bend link unified-nsga-iii@0.2.1.0 0x2bc7fb472c80bd6a0e04725c117edb2a`.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Current hub package is **0.2.2** (content hash `0xd1de66b5d9157913a654c39186289f3d`). The first hub version was **0.1.0** (`0xcd07e24a626a62e74603d48f436cd679`). Git tags `v0.1.0` through `v0.2.1` and their GitHub Releases already exist. Tag `v0.2.2`, `bend link unified-nsga-iii@0.2.2.0 0xd1de66b5d9157913a654c39186289f3d`, and the GitHub Release follow this commit once it is main's tip. `unified-nsga-iii@0.2.0.0` still resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`.
 
 GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-publish; its content hash stayed `0xcd07e24a626a62e74603d48f436cd679`.
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-01
+
+Hub re-publish of the speed dig already on main (#34). That dig landed before its version bump; this section is the cleanup cut. `bend src/lib.bend --publish` (Bend 2.0.34) printed the hash below. The hash changed because `survival.bend` is in the import closure. `src/lib.bend` does not re-export new symbols. Not nuget.org. Not GitHub Packages. Seed=1 fronts for the kept CPU edits match the 0.2.1 line. No new IGD / HV / Wilcoxon cells. A/B stays `PymooCompatible`.
+
+A shipping PR's last commit carries the version bump, this section, and the published hash. Merge that once. Then `bend link`, the git tag, and the GitHub Release.
+
+- Previous hub hash (0.2.1): `0x2bc7fb472c80bd6a0e04725c117edb2a`
+- Content hash: `0xd1de66b5d9157913a654c39186289f3d`
+- Printed import: `import 0xd1de66b5d9157913a654c39186289f3d/lib.bend as Lib`
+- Consumer import: `import 0xd1de66b5d9157913a654c39186289f3d/lib.bend as Unsga3`
+
+Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
+
+`unified-nsga-iii@0.2.0.0` still resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`. Once this commit is main's tip: `bend link unified-nsga-iii@0.2.2.0 0xd1de66b5d9157913a654c39186289f3d`.
+
+### Changed
+
+- Last-front niching groups `NRow`s into per-ref bags (counts on the bag; re-sort by the earliest remaining row). Pick rules and RNG order are unchanged ([`src/survival.bend`](src/survival.bend)).
+- Associate perpendicular distance squares `f - t*w` in one walk, the same F32 order as scale-then-subtract. Population take/drop is unchanged.
+
+### Performance
+
+- Warm `--threads 1` on the 0.2.x Xeon before line (Bend 2.0.34), kept Phase B only. DTLZ2 92×150: niche 2001 ms → 615 ms, associate 1692 ms → 1334 ms, `run_s` 5.492 → 3.783. ZDT1 52×100: associate 92 ms → 80 ms, `run_s` 0.761 → 0.738. Offspring peek and the direction-Array spike were measured and discarded. Tables: [docs/PERF_NOTES.md](docs/PERF_NOTES.md).
+
+### Docs
+
+- Phase D Metal (Mac mini M4, bend 2.0.34) is a measured miss for default `Run` at oracle sizes. No `!` on that path. Break-even and the go-big capability notes are in [docs/PERF_NOTES.md](docs/PERF_NOTES.md).
+- Big-N Metal is Bend 0.3 in [docs/ROADMAP.md](docs/ROADMAP.md) (unchecked, not C# Unsga3 feature 0.3). HIP / bendlang#979 stays parked.
+
 ## [0.2.1] - 2026-10-01
 
-Tree cut after the DTLZ3 axis clamp (#30), constrained demos and GD+ (#31), and the CV-fill overflow fix with measured IGD (#32). `bend src/lib.bend --publish` (Bend 2.0.34) ran for this cut. The printed content hash **changed**. `src/lib.bend` does not re-export new symbols; the hash is the import closure, and that closure includes the edits in `problems.bend`, `survival.bend`, `algorithm.bend`, `individual.bend`, `normalization.bend`, and `tournament.bend` since `v0.2.0`. Not nuget.org. Not GitHub Packages. Git tag `v0.2.1` and the GitHub Release will be cut after merge.
+Tree cut after the DTLZ3 axis clamp (#30), constrained demos and GD+ (#31), and the CV-fill overflow fix with measured IGD (#32). `bend src/lib.bend --publish` (Bend 2.0.34) ran for this cut. The printed content hash **changed**. `src/lib.bend` does not re-export new symbols; the hash is the import closure, and that closure includes the edits in `problems.bend`, `survival.bend`, `algorithm.bend`, `individual.bend`, `normalization.bend`, and `tournament.bend` since `v0.2.0`. Not nuget.org. Not GitHub Packages. Git tag `v0.2.1` and the GitHub Release exist: https://github.com/AppSprout-dev/unsga3-bend/releases/tag/v0.2.1.
 
 - Previous hub hash (0.2.0): `0xa2f9d6ef8c474468bf1de15ebe70c512`
 - Content hash: `0x2bc7fb472c80bd6a0e04725c117edb2a`
@@ -136,11 +165,11 @@ Landed on `main` after the hub `v0.1.0` tag and before GitHub `v0.1.1` ([#20](ht
 
 ### GitHub About (apply with org permission)
 
-`gh repo edit` from an earlier agent returned **HTTP 403** and never applied. The description below tracks the current hub (**0.2.1**). Maintainers:
+`gh repo edit` from an earlier agent returned **HTTP 403** and never applied. The description below tracks the current hub (**0.2.2**). Maintainers:
 
 ```bash
 gh repo edit AppSprout-dev/unsga3-bend \
-  --description "Bend 2 port of U-NSGA-III. 0.2.1 content-hash hub package (not NuGet). C# Unsga3 is the NuGet/GitHub Packages reference. A/B via ZDT/DTLZ + IGD." \
+  --description "Bend 2 port of U-NSGA-III. 0.2.2 content-hash hub package (not NuGet). C# Unsga3 is the NuGet/GitHub Packages reference. A/B via ZDT/DTLZ + IGD." \
   --homepage "https://github.com/AppSprout-dev/unsga3-bend" \
   --add-topic bend \
   --add-topic nsga3 \
@@ -153,7 +182,8 @@ gh repo edit AppSprout-dev/unsga3-bend \
 
 Replaces current description: `U-NSGA-III in Bend — greenfield rewrite; A/B vs C# Unsga3 via ZDT/DTLZ + pymoo IGD. Not a NuGet package.` (no homepage, no topics). Do **not** add a `nuget` topic.
 
-[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/AppSprout-dev/unsga3-bend/compare/v0.1.1...v0.1.2
