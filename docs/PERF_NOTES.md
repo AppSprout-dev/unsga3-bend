@@ -869,4 +869,38 @@ Crossover sweep. The Metal column stays near a 0.08 s floor.
 | 16 (65536) | 2048 | 0.123 | 0.083 | **1.49×** |
 | 16 (65536) | 8192 | 0.490 | 0.085 | **5.74×** |
 
-Banging associate, or a similar pop×refs map at oracle N≈52–184, would add the ~80 ms Metal wake-up on top of a CPU map that already finishes in a few milliseconds. That increases wall clock. The Run path stays CPU. Phase D is a documented miss.
+Banging associate, or a similar pop×refs map at oracle N≈52–184, would add the ~80 ms Metal wake-up on top of a CPU map that already finishes in a few milliseconds. That increases wall clock. The Run path stays CPU. Deeper repeats and go-big kernels are the next two sections.
+
+## 0.2.x Phase D — deep oracle-shaped (still no-ship)
+
+Same Mac mini (Apple M4, Metal 4, bend 2.0.34) as the section above. Repeating the bang amortizes the ~80 ms wake. On the associate-shaped 128×91 map, 100 repeats land at about 1.3 ms/iter. Metal is still about 5–10× slower than `--gpu off` on the associate, niche, offspring, and fold stand-ins. Those sizes have no break-even. The fastest light path is `--gpu off --threads 1`.
+
+| stand-in | Metal vs `--gpu off` | break-even at oracle size |
+|----------|----------------------|---------------------------|
+| associate, niche, offspring, fold | ~5–10× slower | none |
+| fastest light path | `--gpu off --threads 1` | |
+
+| map | repeats | wake | after amortize |
+|-----|--------:|------|----------------|
+| assoc 128×91 | 100 | ~80 ms | ~1.3 ms/iter |
+
+No `!` on the Run path.
+
+## 0.2.x Phase D — go-big (capability only)
+
+Same host. These kernels are far above oracle unsga3 pop×refs. They show Metal can win. They do not change the Run decision. Checksums match on the amortized U32 winner. No IGD.
+
+| kernel | shape | result |
+|--------|-------|--------|
+| `u32_k24_i4096` | 16.7M lanes × 4k U32 LCG | best single-shot **69.3×** (Metal ~130 ms vs CPU ~9000 ms) |
+| same kernel, 20 bangs | checksums match | best amortized **158×** |
+| `f32mad_k20_i16384` | F32 mad | best **40.9×** |
+| `nested_o6_i14_w4096` | nested bang | best **5.8×** |
+
+Break-even rule of thumb: ≳10⁹ uniform ops per bang. U32 at k=14 wins from inner ≥ 65536. F32 mad wins from inner ≥ 16384. `--gpu 4GB` is slower than the default cap on the winners.
+
+The Run path stays CPU at oracle sizes. Go-big is capability evidence only.
+
+### AMD gate (parked)
+
+RX 5700 XT Option A (WSL ROCm) hard-stopped: Windows 10 + gfx1010 unsupported, and HSA reported no adapters. Parked. No HIP metrics.
