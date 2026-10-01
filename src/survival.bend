@@ -1,8 +1,10 @@
 # Survival / niching — C# ReferencePointManager + NondominatedSortingSurvival.
 # Independent maps (associate / histograms / gather) use mid-split
 # `a b = f(lo) f(hi)`. Nearest-ref stays sequential (associate_raw already
-# splits per individual). Last-front fill builds `NRow{i, ref, dist}` once
-# so the sequential niche loop never `List.get`s an Assignment (or a fat
+# splits per individual). Perpendicular distance squares `f - t*w` in one
+# walk (same F32 order as scale-then-subtract). Last-front fill builds
+# `NRow{i, ref, dist}` once so the sequential niche loop never `List.get`s
+# an Assignment (or a fat
 # Individual) per remaining candidate. Run's rng fill groups those rows
 # into per-ref bags so each pick walks bags, not the whole front and not
 # `List.get` on the counts spine. Same pick rules / same RNG order.
@@ -204,9 +206,23 @@ def near_rows(+lim: F32, rows: List<&2, NRow>) -> List<&2, NRow>:
     case +row <> rest:
       Util.keep_if(NRow, row, near_rows(lim, rest), F32.is_le(nrow_d(row), lim))
 
+# Same F32 steps as `vec_sqnorm(vec_sub(f, vec_scale(t, w)))`: left-to-right
+# `r*r` with `r = f - t*w`, no scaled-vector and residual-vector spines.
+def resid_sq(+t: F32, f: List<&2, F32>, w: List<&2, F32>) -> F32:
+  match f w:
+    case Nil{} Nil{}:
+      0.0
+    case x <> xs y <> ys:
+      +r = F32.sub(x, F32.mul(t, y))
+      F32.add(F32.mul(r, r), resid_sq(t, xs, ys))
+    case Nil{} y <> ys:
+      0.0
+    case x <> xs Nil{}:
+      0.0
+
 def perp.big(+f: List<&2, F32>, +w: List<&2, F32>, +ww: F32) -> F32:
   +t = F32.div(Util.vec_dot(f, w), ww)
-  F32.sqrt(Util.vec_sqnorm(Util.vec_sub(f, Util.vec_scale(t, w))))
+  F32.sqrt(resid_sq(t, f, w))
 
 def perp.zero(+f: List<&2, F32>, tiny: Bool) -> F32:
   match tiny:

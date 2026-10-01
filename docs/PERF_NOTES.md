@@ -734,3 +734,68 @@ python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 1
 python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1
 python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1
 ```
+
+## After residual square (Phase B associate)
+
+Hypothesis: `perp.big` built a scaled vector and a residual vector on every direction (`vec_scale`, then `vec_sub`, then `vec_sqnorm`). `resid_sq` squares `f_i - t*w_i` left to right, the same F32 steps, and does not allocate those spines. `||w||^2` is still computed per individual. Take/drop on the population stays: `assoc_raw_len` and `niche_count_sum` unfold that shape, so a one-pass split would be a proof edit.
+
+Host and Bend are the 0.2.x before-line machine (`bend version` = `bend 2.0.34`, 4-core Xeon, clang 18.1.3). Seed=1 dumps are byte-identical to the before line (and to the post-bag dumps): checked-in smoke, ZDT1 52×100, DTLZ2 92×150. No IGD.
+
+The recorded `--threads 1` line is a quiet warm cache hit (the second of a back-to-back pair). An earlier warm hit on a busy host was slower in every bucket (DTLZ2 `run_s` 4.101, associate 1438 ms); that sample is not the table. One quiet default-thread run is noted under the table and is not a paired before/after (the bag commit did not remeasure default).
+
+| run | | run_s | niche ms (%) | associate ms (%) | offspring ms (%) |
+|-----|--|------:|-------------:|-----------------:|-----------------:|
+| DTLZ2 92×150 | before (after bags) | 4.119 | 602 (14%) | 1702 (41%) | 746 (18%) |
+| DTLZ2 92×150 | after | 3.783 | 615 (16%) | 1334 (35%) | 753 (20%) |
+| ZDT1 52×100 | before (after bags) | 0.750 | 23 (3%) | 95 (12%) | 370 (50%) |
+| ZDT1 52×100 | after | 0.738 | 17 (2%) | 80 (11%) | 376 (52%) |
+
+DTLZ2 associate 1702 → 1334 ms. Warm `run_s` 4.119 → 3.783. The other DTLZ2 buckets stayed in the noise of the bag table (niche 602 → 615, offspring 746 → 753, nds 745 → 757). ZDT1 associate 95 → 80 ms; the wall moves 0.750 → 0.738. Offspring is still about half of ZDT1.
+
+Quiet default-thread sample (one warm run, same binaries): DTLZ2 `run_s=4.500`, associate 1210 ms, niche 680 ms, offspring 770 ms. ZDT1 `run_s=1.087`, associate 136 ms, offspring 382 ms. Default is still slower than `--threads 1` on this host.
+
+### DTLZ2 `--threads 1` after residual square
+
+- warm: `compile_s` omitted, `run_s=3.783`, `profile_sum_ms=3747`, `profile_wall_ms=3782` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 1 | 0.001 | 0 |
+| evaluate | 11 | 0.011 | 0 |
+| nds_select | 613 | 0.613 | 16 |
+| nds_prepare | 144 | 0.144 | 3 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **757** | **0.757** | **20** |
+| normalize_select | 152 | 0.152 | 4 |
+| normalize_prepare | 68 | 0.068 | 1 |
+| normalize | 220 | 0.220 | 5 |
+| associate_select | 870 | 0.870 | 23 |
+| associate_prepare | 464 | 0.464 | 12 |
+| associate | 1334 | 1.334 | 35 |
+| niche | 615 | 0.615 | 16 |
+| tournament | 56 | 0.056 | 1 |
+| offspring_sbx_pm_g12 | 753 | 0.753 | 20 |
+| unaccounted | 35 | 0.035 | |
+
+### ZDT1 `--threads 1` after residual square
+
+- warm: `compile_s` omitted, `run_s=0.738`, `profile_sum_ms=717`, `profile_wall_ms=736` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 6 | 0.006 | 0 |
+| nds_select | 155 | 0.155 | 21 |
+| nds_prepare | 26 | 0.026 | 3 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **181** | **0.181** | **25** |
+| normalize_select | 24 | 0.024 | 3 |
+| normalize_prepare | 19 | 0.019 | 2 |
+| normalize | 43 | 0.043 | 5 |
+| associate_select | 52 | 0.052 | 7 |
+| associate_prepare | 28 | 0.028 | 3 |
+| associate | 80 | 0.080 | 11 |
+| niche | 17 | 0.017 | 2 |
+| tournament | 14 | 0.014 | 1 |
+| offspring_sbx_pm_g12 | 376 | 0.376 | 52 |
+| unaccounted | 19 | 0.019 | |
