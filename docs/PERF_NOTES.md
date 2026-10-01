@@ -535,3 +535,531 @@ python3 ab/dump_csharp_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 15
 python3 ab/igd_vs_pymoo.py --front ab/out/bend_dtlz2_F.csv --problem dtlz2 --partitions 12
 python3 ab/igd_vs_pymoo.py --front ab/out/csharp_dtlz2_F.csv --problem dtlz2 --partitions 12
 ```
+
+---
+
+## 0.2.x before line (tip 0.2.1)
+
+CPU baseline only. No algorithm change. Tree under test is tip **0.2.1** (`4e81b32`). These cells are the before line for the 0.2.x speed lane. No IGD / HV / Wilcoxon.
+
+**Host:** 4-core Intel Xeon (KVM), `nproc=4`, `getconf _NPROCESSORS_ONLN=4`, affinity `0-3`. Ubuntu clang **18.1.3**.
+
+**Bend:** `bend version` prints `bend 2.0.34`. `bend --version` is not a flag in this build (`unknown option --version`; help lists `bend version`). Installed with the current `https://bend-lang.com/install.sh` (it downloaded the 2.0.34 linux-x64 tarball). Not pinned in this repo.
+
+**Protocol:** `ab/profile_bend_run.py`, seed=1, `PymooCompatible`. Each config was invoked twice. Tables below are the **second** invocation (`compile_s` omitted, cache hit). `pct` is the integer the profiler printed, of that run’s `profile_sum_ms`. `--threads` omitted is the Bend binary default (CPU count). This host has 4 online CPUs; these runs did not sample `/proc` `Threads:`.
+
+Cold `bend … -o` once per driver (threads is a runtime flag, so the default-thread runs reused the same binary):
+
+| driver | cold `compile_s` | first-binary `run_s` (not the before line) |
+|--------|-----------------:|-------------------------------------------:|
+| ZDT1 52×100 | 8.967 | 0.768 (`--threads 1`, 52 front rows) |
+| DTLZ2 92×150 | 8.466 | 5.491 (`--threads 1`, 92 front rows) |
+
+### Headline (warm second run)
+
+| run | threads | run_s | nds ms (%) | niche ms (%) | associate ms (%) | offspring ms (%) |
+|-----|---------|------:|-----------:|-------------:|-----------------:|-----------------:|
+| ZDT1 52×100 | 1 | 0.761 | 177 (23%) | 33 (4%) | 92 (12%) | 369 (49%) |
+| ZDT1 52×100 | default | 1.101 | 328 (30%) | 48 (4%) | 142 (13%) | 379 (35%) |
+| DTLZ2 92×150 | 1 | 5.492 | 737 (13%) | 2001 (36%) | 1692 (31%) | 739 (13%) |
+| DTLZ2 92×150 | default | 6.033 | 1155 (19%) | 2135 (36%) | 1276 (21%) | 763 (12%) |
+
+On this host the Bend default is slower than `--threads 1` for both oracles (ZDT1 1.101 s vs 0.761 s; DTLZ2 6.033 s vs 5.492 s).
+
+### ZDT1 n=30, partitions=12, pop=52, gens=100, seed=1, `--threads 1`
+
+- warm: `compile_s` omitted, `run_s=0.761`, `profile_sum_ms=741`, `profile_wall_ms=760` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 1 | 0.001 | 0 |
+| evaluate | 12 | 0.012 | 1 |
+| nds_select | 152 | 0.152 | 20 |
+| nds_prepare | 25 | 0.025 | 3 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **177** | **0.177** | **23** |
+| normalize_select | 28 | 0.028 | 3 |
+| normalize_prepare | 19 | 0.019 | 2 |
+| normalize | 47 | 0.047 | 6 |
+| associate_select | 57 | 0.057 | 7 |
+| associate_prepare | 35 | 0.035 | 4 |
+| associate | 92 | 0.092 | 12 |
+| niche | 33 | 0.033 | 4 |
+| tournament | 10 | 0.010 | 1 |
+| offspring_sbx_pm_g12 | 369 | 0.369 | 49 |
+| unaccounted | 19 | 0.019 | |
+
+### ZDT1 n=30, partitions=12, pop=52, gens=100, seed=1, `--threads` omitted
+
+- warm: `compile_s` omitted, `run_s=1.101`, `profile_sum_ms=1061`, `profile_wall_ms=1098` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 1 | 0.001 | 0 |
+| evaluate | 33 | 0.033 | 3 |
+| nds_select | 268 | 0.268 | 25 |
+| nds_prepare | 60 | 0.060 | 5 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **328** | **0.328** | **30** |
+| normalize_select | 60 | 0.060 | 5 |
+| normalize_prepare | 47 | 0.047 | 4 |
+| normalize | 107 | 0.107 | 10 |
+| associate_select | 78 | 0.078 | 7 |
+| associate_prepare | 64 | 0.064 | 6 |
+| associate | 142 | 0.142 | 13 |
+| niche | 48 | 0.048 | 4 |
+| tournament | 23 | 0.023 | 2 |
+| offspring_sbx_pm_g12 | 379 | 0.379 | 35 |
+| unaccounted | 37 | 0.037 | |
+
+### DTLZ2 M=3 k=10, partitions=12, pop=92, gens=150, seed=1, `--threads 1`
+
+- warm: `compile_s` omitted, `run_s=5.492`, `profile_sum_ms=5453`, `profile_wall_ms=5490` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 13 | 0.013 | 0 |
+| nds_select | 596 | 0.596 | 10 |
+| nds_prepare | 141 | 0.141 | 2 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **737** | **0.737** | **13** |
+| normalize_select | 143 | 0.143 | 2 |
+| normalize_prepare | 64 | 0.064 | 1 |
+| normalize | 207 | 0.207 | 3 |
+| associate_select | 1107 | 1.107 | 20 |
+| associate_prepare | 585 | 0.585 | 10 |
+| associate | 1692 | 1.692 | 31 |
+| niche | 2001 | 2.001 | 36 |
+| tournament | 64 | 0.064 | 1 |
+| offspring_sbx_pm_g12 | 739 | 0.739 | 13 |
+| unaccounted | 37 | 0.037 | |
+
+### DTLZ2 M=3 k=10, partitions=12, pop=92, gens=150, seed=1, `--threads` omitted
+
+- warm: `compile_s` omitted, `run_s=6.033`, `profile_sum_ms=5901`, `profile_wall_ms=6030` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 65 | 0.065 | 1 |
+| nds_select | 912 | 0.912 | 15 |
+| nds_prepare | 243 | 0.243 | 4 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **1155** | **1.155** | **19** |
+| normalize_select | 262 | 0.262 | 4 |
+| normalize_prepare | 176 | 0.176 | 2 |
+| normalize | 438 | 0.438 | 7 |
+| associate_select | 789 | 0.789 | 13 |
+| associate_prepare | 487 | 0.487 | 8 |
+| associate | 1276 | 1.276 | 21 |
+| niche | 2135 | 2.135 | 36 |
+| tournament | 69 | 0.069 | 1 |
+| offspring_sbx_pm_g12 | 763 | 0.763 | 12 |
+| unaccounted | 129 | 0.129 | |
+
+Largest warm bucket on DTLZ2 is `niche` (36% at both thread settings; 2001 ms at `--threads 1`, 2135 ms at the default). Next on DTLZ2 is `associate` (31% / 1692 ms at `--threads 1`; 21% / 1276 ms at the default). On ZDT1 the largest bucket is `offspring_sbx_pm_g12` (49% / 369 ms at `--threads 1`; 35% / 379 ms at the default). `evaluate` stays at or under 3%.
+
+## After per-ref niche bags (Phase B)
+
+Hypothesis: the rng last-front fill was re-walking every remaining row and `List.get` on the counts spine (one bin per Das–Dennis ray) on every pick. Group the rows into per-ref bags once, keep the niche count on the bag, and re-sort bags by the earliest remaining row so the min-count ref list stays first-seen order. Same pick rules. Same RNG draws. Deterministic `niche_loop` (no rng) is unchanged.
+
+Host and Bend are the 0.2.x before-line machine (`bend version` = `bend 2.0.34`, 4-core Xeon, clang 18.1.3). Yardstick is the warm second `--threads 1` run. Default threads were not remeasured for this hypothesis. Seed=1 oracle dumps are byte-identical to the before line: checked-in smoke, ZDT1 52×100, DTLZ2 92×150. No IGD.
+
+| run | | run_s | niche ms (%) | associate ms (%) | offspring ms (%) |
+|-----|--|------:|-------------:|-----------------:|-----------------:|
+| DTLZ2 92×150 | before | 5.492 | 2001 (36%) | 1692 (31%) | 739 (13%) |
+| DTLZ2 92×150 | after | 4.119 | 602 (14%) | 1702 (41%) | 746 (18%) |
+| ZDT1 52×100 | before | 0.761 | 33 (4%) | 92 (12%) | 369 (49%) |
+| ZDT1 52×100 | after | 0.750 | 23 (3%) | 95 (12%) | 370 (50%) |
+
+DTLZ2 niche 2001 → 602 ms. Warm `run_s` 5.492 → 4.119. Associate did not move (1692 → 1702) and is now the largest DTLZ2 bucket. ZDT1 wall is flat (niche was already 33 ms).
+
+### DTLZ2 `--threads 1` after bags
+
+- warm: `compile_s` omitted, `run_s=4.119`, `profile_sum_ms=4074`, `profile_wall_ms=4118` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 1 | 0.001 | 0 |
+| evaluate | 12 | 0.012 | 0 |
+| nds_select | 602 | 0.602 | 14 |
+| nds_prepare | 143 | 0.143 | 3 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **745** | **0.745** | **18** |
+| normalize_select | 146 | 0.146 | 3 |
+| normalize_prepare | 62 | 0.062 | 1 |
+| normalize | 208 | 0.208 | 5 |
+| associate_select | 1113 | 1.113 | 27 |
+| associate_prepare | 589 | 0.589 | 14 |
+| associate | 1702 | 1.702 | 41 |
+| niche | 602 | 0.602 | 14 |
+| tournament | 58 | 0.058 | 1 |
+| offspring_sbx_pm_g12 | 746 | 0.746 | 18 |
+| unaccounted | 44 | 0.044 | |
+
+### ZDT1 `--threads 1` after bags
+
+- warm: `compile_s` omitted, `run_s=0.750`, `profile_sum_ms=734`, `profile_wall_ms=749` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 12 | 0.012 | 1 |
+| nds_select | 153 | 0.153 | 20 |
+| nds_prepare | 24 | 0.024 | 3 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **177** | **0.177** | **24** |
+| normalize_select | 24 | 0.024 | 3 |
+| normalize_prepare | 14 | 0.014 | 1 |
+| normalize | 38 | 0.038 | 5 |
+| associate_select | 60 | 0.060 | 8 |
+| associate_prepare | 35 | 0.035 | 4 |
+| associate | 95 | 0.095 | 12 |
+| niche | 23 | 0.023 | 3 |
+| tournament | 19 | 0.019 | 2 |
+| offspring_sbx_pm_g12 | 370 | 0.370 | 50 |
+| unaccounted | 15 | 0.015 | |
+
+```bash
+export PATH="$HOME/.bend/bin:$PATH"
+export BEND_NO_TELEMETRY=1
+
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 --threads 1
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1 --threads 1
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1
+python3 ab/profile_bend_run.py --problem zdt1 --partitions 12 --pop 52 --gens 100 --seed 1
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 --threads 1
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1 --threads 1
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1
+python3 ab/profile_bend_run.py --problem dtlz2 --partitions 12 --pop 92 --gens 150 --seed 1
+```
+
+## After residual square (Phase B associate)
+
+Hypothesis: `perp.big` built a scaled vector and a residual vector on every direction (`vec_scale`, then `vec_sub`, then `vec_sqnorm`). `resid_sq` squares `f_i - t*w_i` left to right, the same F32 steps, and does not allocate those spines. `||w||^2` is still computed per individual. Take/drop on the population stays: `assoc_raw_len` and `niche_count_sum` unfold that shape, so a one-pass split would be a proof edit.
+
+Host and Bend are the 0.2.x before-line machine (`bend version` = `bend 2.0.34`, 4-core Xeon, clang 18.1.3). Seed=1 dumps are byte-identical to the before line (and to the post-bag dumps): checked-in smoke, ZDT1 52×100, DTLZ2 92×150. No IGD.
+
+The recorded `--threads 1` line is a quiet warm cache hit (the second of a back-to-back pair). An earlier warm hit on a busy host was slower in every bucket (DTLZ2 `run_s` 4.101, associate 1438 ms); that sample is not the table. One quiet default-thread run is noted under the table and is not a paired before/after (the bag commit did not remeasure default).
+
+| run | | run_s | niche ms (%) | associate ms (%) | offspring ms (%) |
+|-----|--|------:|-------------:|-----------------:|-----------------:|
+| DTLZ2 92×150 | before (after bags) | 4.119 | 602 (14%) | 1702 (41%) | 746 (18%) |
+| DTLZ2 92×150 | after | 3.783 | 615 (16%) | 1334 (35%) | 753 (20%) |
+| ZDT1 52×100 | before (after bags) | 0.750 | 23 (3%) | 95 (12%) | 370 (50%) |
+| ZDT1 52×100 | after | 0.738 | 17 (2%) | 80 (11%) | 376 (52%) |
+
+DTLZ2 associate 1702 → 1334 ms. Warm `run_s` 4.119 → 3.783. The other DTLZ2 buckets stayed in the noise of the bag table (niche 602 → 615, offspring 746 → 753, nds 745 → 757). ZDT1 associate 95 → 80 ms; the wall moves 0.750 → 0.738. Offspring is still about half of ZDT1.
+
+Quiet default-thread sample (one warm run, same binaries): DTLZ2 `run_s=4.500`, associate 1210 ms, niche 680 ms, offspring 770 ms. ZDT1 `run_s=1.087`, associate 136 ms, offspring 382 ms. Default is still slower than `--threads 1` on this host.
+
+### DTLZ2 `--threads 1` after residual square
+
+- warm: `compile_s` omitted, `run_s=3.783`, `profile_sum_ms=3747`, `profile_wall_ms=3782` (92 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 1 | 0.001 | 0 |
+| evaluate | 11 | 0.011 | 0 |
+| nds_select | 613 | 0.613 | 16 |
+| nds_prepare | 144 | 0.144 | 3 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **757** | **0.757** | **20** |
+| normalize_select | 152 | 0.152 | 4 |
+| normalize_prepare | 68 | 0.068 | 1 |
+| normalize | 220 | 0.220 | 5 |
+| associate_select | 870 | 0.870 | 23 |
+| associate_prepare | 464 | 0.464 | 12 |
+| associate | 1334 | 1.334 | 35 |
+| niche | 615 | 0.615 | 16 |
+| tournament | 56 | 0.056 | 1 |
+| offspring_sbx_pm_g12 | 753 | 0.753 | 20 |
+| unaccounted | 35 | 0.035 | |
+
+### ZDT1 `--threads 1` after residual square
+
+- warm: `compile_s` omitted, `run_s=0.738`, `profile_sum_ms=717`, `profile_wall_ms=736` (52 front rows)
+
+| phase | ms | s | pct |
+|-------|---:|---:|----:|
+| init_pop | 0 | 0.000 | 0 |
+| evaluate | 6 | 0.006 | 0 |
+| nds_select | 155 | 0.155 | 21 |
+| nds_prepare | 26 | 0.026 | 3 |
+| nds_final | 0 | 0.000 | 0 |
+| **nds** | **181** | **0.181** | **25** |
+| normalize_select | 24 | 0.024 | 3 |
+| normalize_prepare | 19 | 0.019 | 2 |
+| normalize | 43 | 0.043 | 5 |
+| associate_select | 52 | 0.052 | 7 |
+| associate_prepare | 28 | 0.028 | 3 |
+| associate | 80 | 0.080 | 11 |
+| niche | 17 | 0.017 | 2 |
+| tournament | 14 | 0.014 | 1 |
+| offspring_sbx_pm_g12 | 376 | 0.376 | 52 |
+| unaccounted | 19 | 0.019 | |
+
+## Offspring peek discarded (Phase B)
+
+Hypothesis: SBX `close_heads` and polynomial-mutation `tiny_head` were why the remaining variable spine and the box-interval spine were marked `+` on every variable. Nested patterns read the next head and rebuild that one cons, so the tail is not cloned. Same RNG draws. Same operators.
+
+Seed=1 fronts matched the before line (smoke, ZDT1 52×100, DTLZ2 92×150) before the revert. Warm `--threads 1` did not move the offspring bucket past noise, so the edit was reverted and is not in the tree.
+
+| run | | run_s | offspring ms (%) | associate ms | niche ms |
+|-----|--|------:|-----------------:|-------------:|---------:|
+| ZDT1 52×100 | before (after residual) | 0.738 | 376 (52%) | 80 | 17 |
+| ZDT1 52×100 | peek, then reverted | 0.727 | 372 (52%) | 86 | 15 |
+| DTLZ2 92×150 | before (after residual) | 3.783 | 753 (20%) | 1334 | 615 |
+| DTLZ2 92×150 | peek, then reverted | 3.700 | 733 (20%) | 1307 | 598 |
+
+The kept line is the residual-square table above. Offspring is still the SBX / polynomial-mutation / G12 work, interleaved, sequential for the RNG.
+
+## Associate direction Array discarded (Phase C)
+
+Hypothesis: the sequential nearest-ref walk was still cons-peeling every Das–Dennis row and recomputing `||w||^2`. Packing that individual's directions into one `Array<F32>` (components, then `||w||^2`, stride `M+1`) would turn those reads into flat loads. The table was built inside `nearest_one`, once per individual, because `associate_raw.go` still mid-splits on lists (`assoc_raw_len` unfolds that take/drop) and an `Array` cannot ride the fork. F32 association matches `vec_dot` / `resid_sq` (left-to-right `add`, last step `add(_, 0.0)`). Strict `<` tie-break unchanged.
+
+Seed=1 fronts matched the residual-square line before the revert: checked-in smoke, ZDT1 52×100, DTLZ2 92×150 (`--threads 1`). `bend PROOF.bend --check-only` stayed the same 14 unsafe Das–Dennis names. The edit was reverted. It is not in the tree.
+
+Host and Bend are the 0.2.x before-line machine (`bend version` = `bend 2.0.34`, 4-core Xeon, clang 18.1.3). The table is the second warm `--threads 1` hit. The first hit of that same binary was slower across buckets (DTLZ2 `run_s` 3.869, associate 1342 ms; ZDT1 `run_s` 0.734, associate 75 ms). 1334 → 1297 ms sits inside that spread, and nds / niche / offspring moved by a similar few percent, so this is not an associate win.
+
+| run | | run_s | associate ms (%) | nds ms | niche ms | offspring ms |
+|-----|--|------:|-----------------:|-------:|---------:|-------------:|
+| ZDT1 52×100 | before (after residual) | 0.738 | 80 (11%) | 181 | 17 | 376 |
+| ZDT1 52×100 | direction Array, then reverted | 0.736 | 92 (12%) | 177 | 28 | 367 |
+| DTLZ2 92×150 | before (after residual) | 3.783 | 1334 (35%) | 757 | 615 | 753 |
+| DTLZ2 92×150 | direction Array, then reverted | 3.687 | 1297 (35%) | 730 | 593 | 738 |
+
+DTLZ2 second-hit detail: `profile_sum_ms=3648`, `profile_wall_ms=3685`, associate_select 843 ms, associate_prepare 454 ms. The kept line is the residual-square table above.
+
+NDS objective Array, niche count Array, and offspring decision-var Array were not built. The dominate walk is M objectives (2 or 3), niche bags already removed the full-front scan, and offspring stays sequential so the RNG order does not move. The Phase C host has no Metal path. The Mac measurement is the next section.
+
+## 0.2.x Phase D — Mac Metal
+
+Measured miss. No `!` shipped on the Run associate / normalize path. This is not an algorithm change.
+
+Host: JMac-mini.local, Apple M4, 10-core GPU, Metal 4, 16 GB unified. `bend version` = `bend 2.0.34` darwin-arm64 (via `install.sh`, not pinned). Apple clang 21.0.0. Each cell is the median of 5 runs after 1 warm. CPU is `./bin --threads 1 --gpu off`. Metal is `./bin --threads 1` (GPU on). `cpu_t10` is `--threads 10` where that column is shown. No IGD.
+
+### `pow2!` checksums
+
+Every depth printed matching CPU and Metal outputs (`2^d`).
+
+| depth | cpu_t1 median_s | metal median_s | cpu_t10 |
+|------:|----------------:|---------------:|--------:|
+| 20 | 0.0057 | 0.0814 | 0.0037 |
+| 24 | 0.0357 | 0.0875 | 0.0098 |
+| 26 | 0.1316 | 0.1045 | 0.0269 |
+| 28 | 0.5101 | 0.1404 | 0.1028 |
+
+Small bangs lose to wake-up. Depth 28 Metal beats cpu_t1 by about 3.6× (0.5101 / 0.1404) and still loses to cpu_t10 (0.1028 s).
+
+### Associate-shaped uniform map
+
+Fork tree of U32 LCG leaves. Checksum matched CPU ↔ Metal.
+
+Oracle-sized: k=7 → 128 lanes × 91 iters. cpu_t1 **0.0028 s**, metal **0.077 s** (about 27× slower). A heavier leaf is the same story (about 0.0028 s vs about 0.078 s).
+
+Crossover sweep. The Metal column stays near a 0.08 s floor.
+
+| k (lanes) | r iters | cpu_t1 | metal | cpu/metal |
+|----------:|--------:|-------:|------:|----------:|
+| 10 (1024) | 8192 | 0.011 | 0.083 | 0.13× |
+| 12 (4096) | 8192 | 0.033 | 0.082 | 0.41× |
+| 14 (16384) | 8192 | 0.125 | 0.082 | **1.52×** |
+| 16 (65536) | 2048 | 0.123 | 0.083 | **1.49×** |
+| 16 (65536) | 8192 | 0.490 | 0.085 | **5.74×** |
+
+Banging associate, or a similar pop×refs map at oracle N≈52–184, would add the ~80 ms Metal wake-up on top of a CPU map that already finishes in a few milliseconds. That increases wall clock. The Run path stays CPU. Deeper repeats and go-big kernels are the next two sections.
+
+## 0.2.x Phase D — deep oracle-shaped (still no-ship)
+
+Same Mac mini (Apple M4, Metal 4, bend 2.0.34) as the section above. Repeating the bang amortizes the ~80 ms wake. On the associate-shaped 128×91 map, 100 repeats land at about 1.3 ms/iter. Metal is still about 5–10× slower than `--gpu off` on the associate, niche, offspring, and fold stand-ins. Those sizes have no break-even. The fastest light path is `--gpu off --threads 1`.
+
+| stand-in | Metal vs `--gpu off` | break-even at oracle size |
+|----------|----------------------|---------------------------|
+| associate, niche, offspring, fold | ~5–10× slower | none |
+| fastest light path | `--gpu off --threads 1` | |
+
+| map | repeats | wake | after amortize |
+|-----|--------:|------|----------------|
+| assoc 128×91 | 100 | ~80 ms | ~1.3 ms/iter |
+
+No `!` on the Run path.
+
+## 0.2.x Phase D — go-big (capability only)
+
+Same host. These kernels are far above oracle unsga3 pop×refs. They show Metal can win. They do not change the Run decision. Checksums match on the amortized U32 winner. No IGD.
+
+| kernel | shape | result |
+|--------|-------|--------|
+| `u32_k24_i4096` | 16.7M lanes × 4k U32 LCG | best single-shot **69.3×** (Metal ~130 ms vs CPU ~9000 ms) |
+| same kernel, 20 bangs | checksums match | best amortized **158×** |
+| `f32mad_k20_i16384` | F32 mad | best **40.9×** |
+| `nested_o6_i14_w4096` | nested bang | best **5.8×** |
+
+Break-even rule of thumb: ≳10⁹ uniform ops per bang. U32 at k=14 wins from inner ≥ 65536. F32 mad wins from inner ≥ 16384. `--gpu 4GB` is slower than the default cap on the winners.
+
+The Run path stays CPU at oracle sizes. Go-big is capability evidence only.
+
+### AMD gate (parked)
+
+RX 5700 XT Option A (WSL ROCm) hard-stopped: Windows 10 + gfx1010 unsupported, and HSA reported no adapters. Parked. No HIP metrics. The associate/niche-shaped break-even is the next section. The go-big ≳10⁹-ops rule is for those uniform LCG / F32-mad kernels, not for the residual maps below.
+
+## 0.2.x Phase D — break-even (associate / niche shaped)
+
+Synthetic F32 maps that mimic `resid_sq` / distance-to-ref walks. Not a product `Run`. No bendlang#979. No HIP. No IGD.
+
+**Metal is worth it in a long-lived process when roughly `pad(N)×M×(3+inflate) ≳ 3×10⁸` (for example N ≳ 8k–16k, M ≳ 1k–3k, inflate ≳ 16–64). Oracle-sized light maps stay slower: 128×91×inflate=1 is about 0.1× even after G=100, and baseline residual-only associate (inflate=1) never wins (max 0.42×).**
+
+Host: JMac-mini.local, Apple M4, Metal 4, 16 GB. Bend 2.0.34 (`/Users/jkb/.bend/bin/bend`). Date 2026-10-01. Harness and full JSON: `/Users/jkb/Projects/bend-gpu-smoke/break-even/` (`results/raw_break_even.json`). A box copy lived under `phase-d-deep` during the dig. Prior uniform-kernel peaks are the go-big section above (~69× single-shot / ~158× amortized).
+
+### Method
+
+| Item | Choice |
+|------|--------|
+| Families | **associate**: per lane, `n_ref` refs, M=3 residual sum of squares plus `(inflate−1)` F32 MAD rounds. **niche**: distance-to-ref, running min, same inflate |
+| `n_pop` | 128, 512, 2k, 8k, 16k, 32k, 65k (padded to the next power of two for the fork tree) |
+| `n_ref` | 91, 276, 1050, 3003, 5000 |
+| `inflate` | associate 1, 4, 16, 64, 256, 1024; niche 1, 16, 64, 256 (1024 skipped for wall-clock) |
+| Timing | warm median of 3 process launches; Metal default vs `./bin --gpu off`; hang/timeout 180 s |
+| Amortized | one process, 20–100 in-kernel bangs; per-iter Metal vs CPU |
+| Ops | `approx_ops ≈ pad × n_ref × (3 + max(inflate,1))` |
+| Checksums | Metal stdout matched `--gpu off` on all 341 single-shot cells with both outputs, and on 16/16 amortized OK runs |
+
+`inflate` stands in for heavier objectives, or many generations of arithmetic batched into one map. A light per-gen product associate still looks like inflate≈1. Metal shows a ~76–82 ms per-process wake floor. Coverage: associate 202 cells, niche 139, amortized 16 curated OK runs. Skipped for wall-clock: niche inflate=1024, associate 65k×5000×1024, niche 65k×5000×256.
+
+### Thresholds (single-shot warm: `cpu_warm / metal_warm`)
+
+Associate-shaped. Smallest measured cell at each bar.
+
+| Threshold | `(N, M, inflate)` | `approx_ops` | speedup | metal_warm | cpu_warm |
+|-----------|-------------------|-------------:|--------:|-----------:|---------:|
+| **≥1×** | **16000 × 276 × 64** | ~3.0×10⁸ | **1.31×** | 78.0 ms | 101.9 ms |
+| **≥3×** | **8000 × 91 × 1024** | ~7.7×10⁸ | **3.00×** | 88.7 ms | 266.5 ms |
+| **≥10×** | **8000 × 5000 × 64** | ~2.7×10⁹ | **10.08×** | 87.4 ms | 880.7 ms |
+| peak | 32000 × 3003 × 1024 | — | **64.2×** | 540 ms | 34658 ms |
+
+inflate=1 (baseline residual only): Metal never wins. Max **0.42×** at 65k×5000 (metal ~82 ms floor, cpu ~35 ms).
+
+| inflate | smallest ≥1× `(N, M)` | speedup |
+|--------:|-----------------------|--------:|
+| 1 | *(none)* | — |
+| 4 | 65000 × 1050 | 1.01× |
+| 16 | 16000 × 1050 | 1.19× |
+| 64 | 16000 × 276 | 1.31× |
+| 256 | 16000 × 91 | 1.66× |
+| 1024 | 512 × 1050 | 1.28× |
+
+Niche-shaped.
+
+| Threshold | `(N, M, inflate)` | `approx_ops` | speedup | metal_warm | cpu_warm |
+|-----------|-------------------|-------------:|--------:|-----------:|---------:|
+| **≥1×** | **16000 × 91 × 256** | ~3.9×10⁸ | **1.33×** | 82.8 ms | 110.0 ms |
+| **≥3×** | **16000 × 276 × 256** | ~1.2×10⁹ | **3.88×** | 86.4 ms | 334.8 ms |
+| **≥10×** | **16000 × 1050 × 256** | ~4.5×10⁹ | **11.81×** | 104.1 ms | 1228.8 ms |
+| peak | 65000 × 3003 × 256 | — | **44.6×** | 315 ms | 14066 ms |
+
+inflate=1: one cell ≥1×, **65000 × 5000 at 1.46×**. No ≥3× at inflate=1.
+
+| inflate | smallest ≥1× `(N, M)` | speedup |
+|--------:|-----------------------|--------:|
+| 1 | 65000 × 5000 | 1.46× |
+| 16 | 65000 × 1050 | 1.01× |
+| 64 | 8000 × 1050 | 1.08× |
+| 256 | 16000 × 91 | 1.33× |
+
+### Heatmaps (single-shot speedup)
+
+Associate, inflate=1. GPU loses every cell.
+
+```
+pop\ref      91    276   1050   3003   5000
+128        0.04   0.04   0.05   0.05   0.04
+512        0.04   0.05   0.05   0.05   0.05
+2000       0.05   0.05   0.06   0.06   0.06
+8000       0.05   0.05   0.06   0.09   0.10
+16000      0.05   0.05   0.08   0.11   0.14
+32000      0.05   0.06   0.10   0.17   0.24
+65000      0.05   0.08   0.13   0.28   0.42
+```
+
+Associate, inflate=64. The break-even band shows up.
+
+```
+pop\ref      91    276   1050   3003   5000
+128        0.04   0.06   0.09   0.14   0.23
+512        0.06   0.10   0.20   0.46   0.69
+2000       0.10   0.21   0.64   1.68   2.64
+8000       0.25   0.66   2.38   6.32  10.08
+16000      0.45   1.31   4.54  12.55  19.68
+32000      0.84   2.44   9.06  22.79  34.35
+65000      1.60   4.78  17.03  42.73  60.62
+```
+
+Niche, inflate=256.
+
+```
+pop\ref      91    276   1050   3003   5000
+128        0.06   0.08   0.14   0.23   0.31
+512        0.10   0.16   0.42   0.88   1.12
+2000       0.22   0.49   1.60   3.30   4.26
+8000       0.71   1.95   6.31  13.09  16.82
+16000      1.33   3.88  11.81  25.55  32.41
+32000      2.63   7.06  20.49  35.50  41.60
+65000      4.92  12.15  30.03  44.64      —
+```
+
+The other inflate grids (associate 4/16/256/1024, niche 1/16/64) are in `raw_break_even.json`.
+
+### Multi-generation residency
+
+One process, G bangs. Speedup is `(cpu_total/G) / (metal_total/G)`. Batching generations does not rescue the oracle. It does flip a borderline cell, and it multiplies wins that are already past ~1× single-shot, because Metal stays near the wake floor while CPU scales with G. Every amortized OK run matched checksums.
+
+| Family | N | M | inflate | G | single-shot | amortized /iter | Flip? |
+|--------|--:|--:|--------:|--:|------------:|----------------:|-------|
+| associate | 128 | 91 | 1 | 100 | 0.045× | **0.11×** | No |
+| niche | 128 | 91 | 1 | 100 | 0.042× | **0.12×** | No |
+| niche | 16000 | 3003 | 16 | 20 | **0.73×** | **9.28×** | Yes |
+| associate | 16000 | 276 | 64 | 50 | 1.31× | **27.7×** | Amplifies |
+| associate | 8000 | 1050 | 64 | 50 | 2.38× | **32.9×** | Amplifies |
+| associate | 8000 | 5000 | 64 | 20 | 10.1× | **70.4×** | Amplifies |
+| associate | 32000 | 3003 | 64 | 20 | 22.8× | **135×** | Amplifies |
+| associate | 65000 | 5000 | 64 | 20 | 60.6× | **166×** | Amplifies |
+| niche | 8000 | 1050 | 64 | 50 | 1.08× | **22.5×** | Amplifies |
+| niche | 32000 | 3003 | 64 | 20 | 10.2× | **60.7×** | Amplifies |
+| niche | 16000 | 5000 | 256 | 20 | 32.4× | **55.4×** | Amplifies |
+
+### Product translation
+
+| Product situation | Closest harness | Prefer GPU? |
+|-------------------|-----------------|-------------|
+| Oracle DTLZ2 / small demo: N≈100–200, M≈91, light associate/niche per gen | `128×91×inflate=1`, even G=100 | No (~0.1× amortized) |
+| Mid size: N≈500–2k, M≈91–276, light per-gen maps | inflate=1 grids | No (≪1×) |
+| Large pop + dense refs, still light residual | 32k–65k × 3k–5k × inflate=1 | Associate: no. Niche: ~1.5× only at 65k×5k |
+| Heavy per-ref work, or batch G gens into one bang | inflate ≳ 16–64, N ≳ 8k, M ≳ 1k | Yes — threshold tables above |
+| Long-lived `Run`, G=50–200, already past single-shot break-even | amortized rows | Yes (often 20–160× /iter) |
+| Need ≥10× on associate-shaped | ≈ 8k×5k×64 or 16k×3k×64 single-shot | Yes; amortization goes higher |
+
+Rule of thumb for a full Run that prefers Metal:
+
+1. Keep the Bend process warm across generations (a fresh process re-pays ~80 ms).
+2. Target ≳ 3×10⁸ associate/niche-shaped F32 ops per bang, or batch generations until that lands.
+3. Prefer GPU when single-shot warm is ≥~1×, or when a borderline cell (~0.7–1×) is amortized at G≳20.
+4. Shipping default oracle sizes stay on CPU (`--gpu off --threads 1`).
+
+GO_BIG showed Metal can win hard on uniform LCG / F32 mad. These residual walks are less intense: large N×M and inflated work (or gen batching) are both required before associate/niche leave the ~80 ms floor.
+
+## Big-N Metal product path (sketch)
+
+Bend **0.3** lane in [ROADMAP.md](ROADMAP.md) (`## 0.3 — Big-N Metal`). Not C# Unsga3 feature 0.3. Not started; needs Jason's go before code. The measured break-even above is the gate. Default shipping `Run` stays **`--gpu off --threads 1`** at oracle and demo sizes.
+
+If a later product path chases GPU for real U-NSGA-III, it looks like this:
+
+1. **Gate.** Explicit opt-in (env or flag) only when N×M×intensity is past the break-even rule. Small runs stay on CPU. No silent GPU.
+2. **Kernel candidates.** Uniform F32 associate residual and niche distance maps first (the families measured here). Divergent NDS stays on CPU.
+3. **Process residency.** Keep the Bend process warm across generations. When per-gen intensity is light, batch generations into fewer bangs. Per-gen process restart re-pays the ~80 ms wake.
+4. **Correctness.** Same checksum and seed=1 front-identity protocol as the CPU dig, before any merge.
+5. **A/B.** IGD vs C# / pymoo stays on the existing protocol. A GPU path keeps the same fronts unless it is explicitly versioned.
+6. **Non-goals for v0 of that path.** Rewriting all of `Run` on GPU. The Array host-rebuild (Phase C, discarded as noise). HIP on the RX 5700 XT (parked: Win10 + gfx1010 unsupported, HSA reported no adapters; bendlang#979 stays on the shelf). CUDA only if someone asks later. First host remains the Mac mini M4 / Metal.
+
+Not started. The open checkboxes live under Bend 0.3 in [ROADMAP.md](ROADMAP.md). Needs Jason's go before code.
