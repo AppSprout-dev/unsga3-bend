@@ -22,10 +22,13 @@ import numpy as np
 
 from protocol import (
     CATALOG_PROBLEMS,
+    CONSTRAINED_PROBLEMS,
     catalog_bounds,
     catalog_knobs,
     catalog_n_obj,
     catalog_n_var,
+    constrained_bounds,
+    constrained_knobs,
     default_gens,
     default_pop,
     n_obj,
@@ -42,18 +45,30 @@ def skip(msg: str) -> int:
 
 
 def decision_dims(problem: str) -> tuple[int, int]:
+    if problem in CONSTRAINED_PROBLEMS:
+        knobs = constrained_knobs(problem)
+        return int(knobs["n_obj"]), int(knobs["n_var"])
     if problem in CATALOG_PROBLEMS:
         return catalog_n_obj(problem), catalog_n_var(problem)
     return n_obj(problem), n_var(problem)
 
 
+def expected_bounds(problem: str) -> tuple[list[float], list[float]] | None:
+    if problem in CONSTRAINED_PROBLEMS:
+        return constrained_bounds(problem)
+    if problem in CATALOG_PROBLEMS:
+        return catalog_bounds(problem)
+    return None
+
+
 def bounds_skip(pymoo_prob, problem: str) -> str | None:
     """Return a reason when pymoo's box is not the Bend / C# box."""
-    if problem not in CATALOG_PROBLEMS:
+    expected = expected_bounds(problem)
+    if expected is None:
         return None
     xl = np.asarray(pymoo_prob.xl, dtype=float).reshape(-1)
     xu = np.asarray(pymoo_prob.xu, dtype=float).reshape(-1)
-    exp_xl, exp_xu = catalog_bounds(problem)
+    exp_xl, exp_xu = expected
     exp_xl_a = np.asarray(exp_xl, dtype=float)
     exp_xu_a = np.asarray(exp_xu, dtype=float)
     if (
@@ -67,6 +82,30 @@ def bounds_skip(pymoo_prob, problem: str) -> str | None:
             f"n={len(exp_xl)}. Refusing to score a different problem."
         )
     return None
+
+
+def feasible_nd(res, m: int):
+    """Feasible non-dominated rows. None when the population has no feasible point."""
+    try:
+        from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
+    except ImportError:
+        return None, "pymoo NonDominatedSorting is missing."
+    raw = np.asarray(res.F, dtype=float)
+    if raw.ndim == 1:
+        raw = raw.reshape(-1, m) if m > 1 else raw.reshape(-1, 1)
+    g = None if res.G is None else np.asarray(res.G, dtype=float)
+    if g is None:
+        return None, "pymoo returned no constraint matrix G."
+    if g.ndim == 1:
+        g = g.reshape(-1, 1)
+    if g.shape[0] != raw.shape[0]:
+        return None, f"pymoo G rows {g.shape[0]} != F rows {raw.shape[0]}."
+    feas = np.all(g <= 0.0, axis=1)
+    if not np.any(feas):
+        return None, "no feasible points."
+    kept = raw[feas]
+    idx = NonDominatedSorting().do(kept, only_non_dominated_front=True)
+    return kept[idx], None
 
 
 def dump(
@@ -91,26 +130,25 @@ def dump(
         )
 
     m, nv = decision_dims(problem)
-    if problem == "dtlz2":
-        pymoo_prob = get_problem("dtlz2", n_obj=m, n_var=nv)
-    elif problem in ("zdt1", "zdt2"):
-        pymoo_prob = get_problem(problem)
-    else:
-        try:
-            if problem.startswith("dtlz"):
-                pymoo_prob = get_problem(problem, n_obj=m, n_var=nv)
-            elif problem in ("sphere", "ackley", "rosenbrock"):
-                pymoo_prob = get_problem(problem, n_var=nv)
-            else:
-                pymoo_prob = get_problem(problem, n_var=nv)
-        except Exception as exc:
-            return skip(
-                f"pymoo get_problem({problem}) failed ({exc}). "
-                "Refusing to invent a front."
-            )
-        mismatch = bounds_skip(pymoo_prob, problem)
-        if mismatch:
-            return skip(mismatch)
+    try:
+        if problem == "dtlz2":
+            pymoo_prob = get_problem("dtlz2", n_obj=m, n_var=nv)
+        elif problem in ("zdt1", "zdt2", "osy", "tnk"):
+            pymoo_prob = get_problem(problem)
+        elif problem == "c1dtlz1":
+            pymoo_prob = get_problem("c1dtlz1", n_var=nv)
+        elif problem.startswith("dtlz"):
+            pymoo_prob = get_problem(problem, n_obj=m, n_var=nv)
+        else:
+            pymoo_prob = get_problem(problem, n_var=nv)
+    except Exception as exc:
+        return skip(
+            f"pymoo get_problem({problem}) failed ({exc}). "
+            "Refusing to invent a front."
+        )
+    mismatch = bounds_skip(pymoo_prob, problem)
+    if mismatch:
+        return skip(mismatch)
 
     ref_dirs = get_reference_directions("das-dennis", m, n_partitions=partitions)
     algo = NSGA3(
@@ -131,7 +169,12 @@ def dump(
     if res.F is None:
         return skip("pymoo NSGA-III returned no F. Refusing to invent a front.")
 
-    front = np.asarray(res.F, dtype=float)
+    if problem in CONSTRAINED_PROBLEMS:
+        front, reason = feasible_nd(res, m)
+        if front is None:
+            return skip(f"{reason} Refusing to invent a front.")
+    else:
+        front = np.asarray(res.F, dtype=float)
     if front.ndim == 1:
         # Single-objective res.F is squeezed to shape (n,).
         front = front.reshape(-1, 1) if m == 1 else front.reshape(1, -1)
@@ -158,7 +201,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--problem",
-        choices=("zdt1", "zdt2", "dtlz2", *CATALOG_PROBLEMS),
+        choices=("zdt1", "zdt2", "dtlz2", *CATALOG_PROBLEMS, *CONSTRAINED_PROBLEMS),
         default="zdt1",
     )
     parser.add_argument("--partitions", type=int, default=None)
@@ -175,7 +218,12 @@ def main() -> int:
     args = parser.parse_args()
 
     problem = args.problem
-    if problem in CATALOG_PROBLEMS:
+    if problem in CONSTRAINED_PROBLEMS:
+        knobs = constrained_knobs(problem)
+        partitions = args.partitions if args.partitions is not None else int(knobs["partitions"])
+        pop = args.pop if args.pop is not None else int(knobs["pop"])
+        gens = args.gens if args.gens is not None else int(knobs["gens"])
+    elif problem in CATALOG_PROBLEMS:
         knobs = catalog_knobs(problem)
         partitions = args.partitions if args.partitions is not None else int(knobs["partitions"])
         pop = args.pop if args.pop is not None else int(knobs["pop"])

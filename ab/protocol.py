@@ -108,8 +108,12 @@ CATALOG_DTLZ = ("dtlz1", "dtlz3", "dtlz4", "dtlz7")
 CATALOG_SO = ("sphere", "ackley", "rosenbrock")
 CATALOG_PROBLEMS = CATALOG_ZDT + CATALOG_DTLZ + CATALOG_SO
 
-# Not in this tree. C# owns the demos. No IGD.
-CONSTRAINED_ABSENT = ("osy", "tnk", "c1dtlz1")
+# OSY / TNK / C1-DTLZ1 are implemented. They are not catalog_knobs rows.
+# The 2026-09-30 ORACLE-CATALOG table still records them as skips.
+# New measurements use constrained_knobs (PymooCompatible). C# NEW-SURFACES
+# used RankNicheDistance; this budget does not flip the A/B default.
+CONSTRAINED_PROBLEMS = ("osy", "tnk", "c1dtlz1")
+CONSTRAINED_ABSENT = CONSTRAINED_PROBLEMS
 
 CATALOG_SO_PARTITIONS = 1
 CATALOG_SO_POP = 20
@@ -153,6 +157,43 @@ def catalog_bounds(problem: str) -> tuple[list[float], list[float]]:
     if problem == "rosenbrock":
         return [-2.048] * n, [2.048] * n
     return [0.0] * n, [1.0] * n
+
+
+def constrained_knobs(problem: str) -> dict[str, int | str]:
+    """OSY / TNK / C1-DTLZ1 sizes. Not catalog_knobs. Not oracle_knobs.
+
+    Partitions, pop, and gens match the C# NEW-SURFACES budgets.
+    Tournament stays PymooCompatible. C# scored those surfaces with
+    RankNicheDistance; pass that mode explicitly if you want it.
+    """
+    table = {
+        "osy": (12, 52, 250, 6, 2),
+        "tnk": (12, 52, 250, 2, 2),
+        "c1dtlz1": (12, 92, 150, 7, 3),
+    }
+    partitions, pop, gens, nv, nm = table[problem]
+    return {
+        "problem": problem,
+        "partitions": partitions,
+        "pop": pop,
+        "gens": gens,
+        "tournament": ORACLE_TOURNAMENT,
+        "n_var": nv,
+        "n_obj": nm,
+    }
+
+
+def constrained_bounds(problem: str) -> tuple[list[float], list[float]]:
+    """Bend / C# box for the three constrained demos."""
+    if problem == "osy":
+        return [0.0, 0.0, 1.0, 0.0, 1.0, 0.0], [10.0, 10.0, 5.0, 6.0, 5.0, 10.0]
+    if problem == "tnk":
+        # Bend F32.pi() prints 3.1415927. The lower y bound is 1e-30.
+        pi = 3.1415927
+        return [0.0, 1.0e-30], [pi, pi]
+    if problem == "c1dtlz1":
+        return [0.0] * 7, [1.0] * 7
+    raise KeyError(problem)
 
 
 def catalog_knobs(problem: str) -> dict[str, int | str]:

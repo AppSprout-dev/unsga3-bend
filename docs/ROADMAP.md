@@ -30,7 +30,7 @@ Enough to A/B a front when a population of **objectives** is provided.
 - [x] Duplicate keys round decision variables to 12 decimal places (`round(x*1e12)/1e12`). Not C# `ToString("G12")` significant digits; `1.234567e-8` diverges (`src/g12_key.bend`)
 - [x] DTLZ2 IGD yardstick is Das–Dennis-density PF (not pymoo default ~136-pt sample)
 
-**Intentional remaining deltas vs C#:** equal infeasible `cv` is mutual non-domination (Deb). Published C# `CompareConstraintDominated` still Pareto-compares that tie. Unequal-length objectives are mutual non-domination (C# `ComparePareto` throws; [`src/nds_unequal.bend`](../src/nds_unequal.bend)). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`. v0 `select` stays the deterministic `rng == null` branch. `Run` randomizes min-count niche ties like C# `Select(..., rng)`. Empty niches take closest; extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` — that LCG path collapsed oracle ZDT2. Duplicate keys stay 12 decimal places, not `ToString("G12")`. No OSY / TNK / C1-DTLZ1.
+**Intentional remaining deltas vs C#:** equal infeasible `cv` is mutual non-domination (Deb). Published C# `CompareConstraintDominated` still Pareto-compares that tie. Unequal-length objectives are mutual non-domination (C# `ComparePareto` throws; [`src/nds_unequal.bend`](../src/nds_unequal.bend)). Empty-input / `target==0` / empty dirs stay total so the closed empty laws hold (C# `Select` throws on `targetSize < 1`). Bend RNG is a portable LCG, not `System.Random`. v0 `select` stays the deterministic `rng == null` branch. `Run` randomizes min-count niche ties like C# `Select(..., rng)`. Empty niches take closest; extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` — that LCG path collapsed oracle ZDT2. Duplicate keys stay 12 decimal places, not `ToString("G12")`. A mixed pool niches only the feasible subset and fills by ascending CV; the hyperplane uses that feasible subset. An all-feasible pool stays on the previous path. OSY / TNK / C1-DTLZ1 are in the checkout (`src/problems.bend`); the published 0.2.0 hub hash was not republished for them.
 
 ## Pass 2 — variation, Run, samples
 
@@ -110,12 +110,12 @@ Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
 
 Hub entry is `/lib.bend` (what bend printed), not `/src/lib.bend`.
 
-`unified-nsga-iii@0.1.2.0` still names the 0.1.2 hash. `unified-nsga-iii@0.2.0.0` is not linked (no Bend login on the publish machine). After `bend login`: `bend link unified-nsga-iii@0.2.0.0 0xa2f9d6ef8c474468bf1de15ebe70c512`.
+`unified-nsga-iii@0.1.2.0` still names the 0.1.2 hash. `unified-nsga-iii@0.2.0.0` resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512` (`import unified-nsga-iii@0.2.0.0/lib.bend` pulls that hash). Git tag `v0.2.0` and the GitHub Release already exist (2026-09-30).
 
 - [x] `bend src/lib.bend --publish` (content hash `0xa2f9d6ef8c474468bf1de15ebe70c512`)
 - [x] Consumer import (`import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Unsga3`)
-- [ ] `bend link unified-nsga-iii@0.2.0.0 0xa2f9d6ef8c474468bf1de15ebe70c512` (needs `bend login`)
-- [ ] Git tag `v0.2.0` and GitHub Release (after this pull request merges)
+- [x] `bend link unified-nsga-iii@0.2.0.0 0xa2f9d6ef8c474468bf1de15ebe70c512` (name resolves to that hash)
+- [x] Git tag `v0.2.0` and GitHub Release (https://github.com/AppSprout-dev/unsga3-bend/releases/tag/v0.2.0)
 
 ## Problem catalog (implemented, not oracle-tabled)
 
@@ -126,4 +126,6 @@ The unconstrained C# suite beside ZDT1 / ZDT2 / DTLZ2. Formulas live in [`src/pr
 - [x] Sphere, Ackley, Rosenbrock (M=1; `Run` still accepts pop ≥ 1, including the existing zero-pop law)
 - [x] `ab/dump_bend_run.py --problem` writes a real front. Omitted knobs for these names are a short smoke (partitions=4, pop=8, gens=3), not oracle gens
 - [x] Smoke: `bend src/catalog_smoke.bend` (evaluate at 0.5, short Run). Checker: `python3 ab/test_catalog_smoke.py`
-- [x] Measured IGD table for the catalog ([ORACLE-CATALOG.md](ORACLE-CATALOG.md), `ab/oracle_catalog.py`, seeds 1–15). pymoo Sphere is `skip:` (different box). OSY / TNK / C1-DTLZ1 are `skip:` (not in this tree). No HV / Wilcoxon.
+- [x] Measured IGD table for the catalog ([ORACLE-CATALOG.md](ORACLE-CATALOG.md), `ab/oracle_catalog.py`, seeds 1–15). pymoo Sphere is `skip:` (different box). The constrained rows in that file are the 2026-09-30 skips. Later cells are in [CONSTRAINED-SURFACES.md](CONSTRAINED-SURFACES.md). No HV / Wilcoxon.
+- [x] OSY, TNK, and C1-DTLZ1 (C# formulas, bounds, constraints). Feasible-only niching plus CV fill. Smoke: `bend src/constrained_smoke.bend -o`. No hub republish (`src/lib.bend` export list unchanged).
+- [x] GD+ in [`ab/indicators.py`](../ab/indicators.py) (C# `GenerationalDistancePlus`). Hand case in `ab/test_gd_plus.py`. Bend has no indicator module; A/B IGD stays on the Python path.

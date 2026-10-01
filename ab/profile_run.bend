@@ -535,11 +535,11 @@ def prepare_after_sort(
   +fronts: List<&2, List<&2, Nat>>
 ) -> IO(Prep):
   do IO<Prep>:
-    pair_n : Norm.State & List<&2, List<&2, F32>> = Norm.normalize_nd(state, pop, Surv.front0(fronts))
+    pair_n : Norm.State & List<&2, List<&2, F32>> = Norm.normalize_nd_cv(state, pop, Surv.front0(fronts))
     t2 : Nat <- IO.now()
     prepare_after_norm(pop, dirs, acc, t0, t1, t2, fronts, pair_n)
 
-# Mirrors Tour.prepare: NDS + normalize_nd + stamp_ranks + associate + stamp_asgs.
+# Mirrors Tour.prepare: NDS + normalize_nd_cv + stamp_ranks + associate + stamp_asgs.
 def prepare_timed(
   +pop: List<&2, Ind.Individual>,
   +dirs: List<&2, List<&2, F32>>,

@@ -37,7 +37,7 @@ See [ab/README.md](ab/README.md) and [`ab/protocol.py`](ab/protocol.py).
 - C# compare is optional: set `UNSGA3_CS_ROOT` to a checkout **outside** this repo. Do **not** clone Unsga3 into this tree.
 - Scripts print `skip: …` when an oracle is missing. **Do not invent IGD / HV / Wilcoxon numbers.**
 - Multi-seed IGD + Layer-1 fixture check: `python3 ab/oracle_multiseed.py`, `python3 ab/fixture_check.py` — [docs/ORACLE-MULTISEED.md](docs/ORACLE-MULTISEED.md).
-- Catalog IGD (ZDT3/4/6, DTLZ1/3/4/7, short Sphere/Ackley/Rosenbrock): `python3 ab/oracle_catalog.py` — [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md). ZDT1 / ZDT2 / DTLZ2 budgets stay in `oracle_knobs`. OSY / TNK / C1-DTLZ1 stay `skip:` (not in this tree).
+- Catalog IGD (ZDT3/4/6, DTLZ1/3/4/7, short Sphere/Ackley/Rosenbrock): `python3 ab/oracle_catalog.py` — [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md). ZDT1 / ZDT2 / DTLZ2 budgets stay in `oracle_knobs`. OSY / TNK / C1-DTLZ1 use `constrained_knobs` and [docs/CONSTRAINED-SURFACES.md](docs/CONSTRAINED-SURFACES.md), not the catalog table.
 
 ## Do not
 

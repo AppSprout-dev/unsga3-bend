@@ -58,6 +58,13 @@ class FillOmittedTest(unittest.TestCase):
         explicit = resolve_dump_knobs("sphere", partitions=12, pop=52, gens=100)
         self.assertEqual((explicit["pop"], explicit["gens"], explicit["partitions"]), (52, 100, 12))
         self.assertIn("Prob.sphere(10n)", generate_bend("sphere", 12, 52, 100, 1))
+        osy = resolve_dump_knobs("osy")
+        self.assertEqual((osy["pop"], osy["gens"], osy["partitions"]), (8, 3, 4))
+        osy_src = generate_bend("osy", 12, 52, 250, 1)
+        self.assertIn("Prob.osy()", osy_src)
+        self.assertIn("Algo.feas_nd", osy_src)
+        self.assertNotIn("Algo.nd_front", osy_src)
+        self.assertIn("Algo.nd_front", generate_bend("zdt1", 12, 52, 100, 1))
         # Quality budgets stay on the three oracle names.
         zdt1 = resolve_dump_knobs("zdt1")
         dtlz2 = resolve_dump_knobs("dtlz2")

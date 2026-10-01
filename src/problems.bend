@@ -2,7 +2,8 @@
 # ZDT1 / ZDT2 / DTLZ2 stay the oracle problems. The rest of the unconstrained
 # catalog (ZDT3 / ZDT4 / ZDT6, DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7, Sphere / Ackley /
 # Rosenbrock) matches the same C# Evaluate formulas. Minimize.
-# Unconstrained (NumberOfConstraints = 0). No IGD in this module.
+# OSY / TNK / C1-DTLZ1 match ConstrainedProblems.cs (g ≤ 0, positive = violation).
+# Unconstrained kinds write an empty constraint vector (cv 0). No IGD here.
 # `alpha` is DTLZ4's exponent (C# default 100). Other kinds ignore it.
 
 import Base
@@ -24,6 +25,9 @@ type Family is Data:
   Sphere{}
   Ackley{}
   Rosenbrock{}
+  Osy{}
+  Tnk{}
+  C1Dtlz1{}
 
 type Problem is Data:
   MkProblem{
@@ -125,6 +129,32 @@ def ackley(n: Nat) -> Problem:
 
 def rosenbrock(n: Nat) -> Problem:
   mk_prob(Rosenbrock{}, Bounds.span_n(n, 1n, F32.neg(2.048), 2.048))
+
+# OSY: 6 variables, 2 objectives, 6 inequalities. pymoo 0.6 scaling.
+def osy() -> Problem:
+  mk_prob(
+    Osy{},
+    Bounds.box(
+      2n,
+      Bounds.interval(0.0, 10.0)
+        <> Bounds.interval(0.0, 10.0)
+        <> Bounds.interval(1.0, 5.0)
+        <> Bounds.interval(0.0, 6.0)
+        <> Bounds.interval(1.0, 5.0)
+        <> [Bounds.interval(0.0, 10.0)]
+    )
+  )
+
+# TNK: [0, π] × [1e-30, π]. Disk constraint uses pymoo's factor of two.
+def tnk() -> Problem:
+  mk_prob(
+    Tnk{},
+    Bounds.box(2n, Bounds.interval(0.0, F32.pi()) <> [Bounds.interval(1.0e-30, F32.pi())])
+  )
+
+# C1-DTLZ1: DTLZ1 plus one inequality. C# default M=3, k=5 (n = M+k-1).
+def c1_dtlz1(+m: Nat, k: Nat) -> Problem:
+  mk_prob(C1Dtlz1{}, Bounds.unit_n(dtlz_n(m, k), m))
 
 def sum_from(xs: List<&2, F32>) -> F32:
   match xs:
@@ -479,37 +509,145 @@ def rosenbrock_f(+x: List<&2, F32>) -> List<&2, F32>:
     case a <> rest:
       [rosen_step(rest, a)]
 
-def eval_kind(kind: Family, +x: List<&2, F32>, +m: Nat, +alpha: F32) -> List<&2, F32>:
+# Objectives plus g ≤ 0. Unconstrained kinds leave g empty.
+type Scored is Data:
+  Scored{
+    f: List<&2, F32>
+    g: List<&2, F32>
+  }
+
+def plain(+f: List<&2, F32>) -> Scored:
+  Scored{f, Nil{}}
+
+def scored_f(s: Scored) -> List<&2, F32>:
+  match s:
+    case Scored{f, g}:
+      f
+
+def scored_g(s: Scored) -> List<&2, F32>:
+  match s:
+    case Scored{f, g}:
+      g
+
+# C# OsyProblem. f0 negates the weighted squares (x5 is not in f0).
+def osy_f(+x: List<&2, F32>) -> List<&2, F32>:
+  +x0 = Util.get_f32(x, 0n)
+  +x1 = Util.get_f32(x, 1n)
+  +x2 = Util.get_f32(x, 2n)
+  +x3 = Util.get_f32(x, 3n)
+  +x4 = Util.get_f32(x, 4n)
+  +pen = F32.add(
+    F32.mul(25.0, F32.square(F32.sub(x0, 2.0))),
+    F32.add(
+      F32.square(F32.sub(x1, 2.0)),
+      F32.add(
+        F32.square(F32.sub(x2, 1.0)),
+        F32.add(F32.square(F32.sub(x3, 4.0)), F32.square(F32.sub(x4, 1.0)))
+      )
+    )
+  )
+  F32.neg(pen) <> [sum_sq(x)]
+
+# pymoo divisors, then negated so a positive value is a violation.
+def osy_g(+x: List<&2, F32>) -> List<&2, F32>:
+  +x0 = Util.get_f32(x, 0n)
+  +x1 = Util.get_f32(x, 1n)
+  +x2 = Util.get_f32(x, 2n)
+  +x3 = Util.get_f32(x, 3n)
+  +x4 = Util.get_f32(x, 4n)
+  +x5 = Util.get_f32(x, 5n)
+  F32.neg(F32.div(F32.sub(F32.add(x0, x1), 2.0), 2.0))
+    <> F32.neg(F32.div(F32.sub(F32.sub(6.0, x0), x1), 6.0))
+    <> F32.neg(F32.div(F32.add(F32.sub(2.0, x1), x0), 2.0))
+    <> F32.neg(F32.div(F32.add(F32.sub(2.0, x0), F32.mul(3.0, x1)), 2.0))
+    <> F32.neg(F32.div(F32.sub(F32.sub(4.0, F32.square(F32.sub(x2, 3.0))), x3), 4.0))
+    <> [F32.neg(F32.div(F32.sub(F32.add(F32.square(F32.sub(x4, 3.0)), x5), 4.0), 4.0))]
+
+def osy_score(+x: List<&2, F32>) -> Scored:
+  Scored{osy_f(x), osy_g(x)}
+
+# C# TnkProblem. g0 = -(x²+y²-1-0.1 cos(16 atan(x/y))). g1 = 2((x-0.5)²+(y-0.5)²)-1.
+def tnk_g(+x: List<&2, F32>) -> List<&2, F32>:
+  +x0 = Util.get_f32(x, 0n)
+  +x1 = Util.get_f32(x, 1n)
+  +circle = F32.sub(
+    F32.sub(F32.add(F32.square(x0), F32.square(x1)), 1.0),
+    F32.mul(0.1, F32.cos(F32.mul(16.0, F32.atan(F32.div(x0, x1)))))
+  )
+  +dx = F32.sub(x0, 0.5)
+  +dy = F32.sub(x1, 0.5)
+  F32.neg(circle) <> [F32.sub(F32.mul(2.0, F32.add(F32.square(dx), F32.square(dy))), 1.0)]
+
+def tnk_score(+x: List<&2, F32>) -> Scored:
+  Scored{Util.get_f32(x, 0n) <> [Util.get_f32(x, 1n)], tnk_g(x)}
+
+# Last objective / 0.6, earlier objectives / 0.5. fuel starts at |f|.
+def c1_w(fuel: Nat, fs: List<&2, F32>, +acc: F32) -> F32:
+  match fuel:
+    case 0n:
+      acc
+    case 1n:
+      match fs:
+        case Nil{}:
+          acc
+        case +h <> rest:
+          F32.add(acc, F32.div(h, 0.6))
+    case 1n+f:
+      match fs:
+        case Nil{}:
+          acc
+        case +h <> rest:
+          c1_w(f, rest, F32.add(acc, F32.div(h, 0.5)))
+
+def c1_g(+fs: List<&2, F32>) -> List<&2, F32>:
+  [F32.sub(c1_w(Util.list_len(F32, fs), fs, 0.0), 1.0)]
+
+def c1_score(+x: List<&2, F32>, +m: Nat) -> Scored:
+  +f = dtlz1_f(x, m)
+  Scored{f, c1_g(f)}
+
+def eval_kind(kind: Family, +x: List<&2, F32>, +m: Nat, +alpha: F32) -> Scored:
   match kind:
     case Zdt1{}:
-      zdt1_f(x)
+      plain(zdt1_f(x))
     case Zdt2{}:
-      zdt2_f(x)
+      plain(zdt2_f(x))
     case Zdt3{}:
-      zdt3_f(x)
+      plain(zdt3_f(x))
     case Zdt4{}:
-      zdt4_f(x)
+      plain(zdt4_f(x))
     case Zdt6{}:
-      zdt6_f(x)
+      plain(zdt6_f(x))
     case Dtlz1{}:
-      dtlz1_f(x, m)
+      plain(dtlz1_f(x, m))
     case Dtlz2{}:
-      dtlz2_f(x, m)
+      plain(dtlz2_f(x, m))
     case Dtlz3{}:
-      dtlz3_f(x, m)
+      plain(dtlz3_f(x, m))
     case Dtlz4{}:
-      dtlz4_f(x, m, alpha)
+      plain(dtlz4_f(x, m, alpha))
     case Dtlz7{}:
-      dtlz7_f(x, m)
+      plain(dtlz7_f(x, m))
     case Sphere{}:
-      sphere_f(x)
+      plain(sphere_f(x))
     case Ackley{}:
-      ackley_f(x)
+      plain(ackley_f(x))
     case Rosenbrock{}:
-      rosenbrock_f(x)
+      plain(rosenbrock_f(x))
+    case Osy{}:
+      osy_score(x)
+    case Tnk{}:
+      tnk_score(x)
+    case C1Dtlz1{}:
+      c1_score(x, m)
+
+def apply_score(+ind: Ind.Individual, s: Scored) -> Ind.Individual:
+  match s:
+    case Scored{f, g}:
+      Ind.set_constraints(Ind.set_objectives(ind, f), g)
 
 def evaluate(+p: Problem, +ind: Ind.Individual) -> Ind.Individual:
-  Ind.set_objectives(ind, eval_kind(kind_of(p), Ind.variables(ind), n_obj(p), alpha_of(p)))
+  apply_score(ind, eval_kind(kind_of(p), Ind.variables(ind), n_obj(p), alpha_of(p)))
 
 # Independent per individual. Mid-split + parallel recurse; same order as cons.
 def evaluate_all(+p: Problem, +xs: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:

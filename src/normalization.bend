@@ -497,12 +497,168 @@ def normalize_nd.go(state: State, +pop: List<&2, Ind.Individual>, nd: List<&2, N
     case MkState{n_objectives, ideal, worst, nadir, intercepts, extremes}:
       normalize_nd.body(ideal, worst, extremes, pop, nd)
 
+# A computed Bool is matched only as a parameter. The recursive result
+# is an argument, so these walks are not mutually recursive.
+def has_infeas.on(later: Bool, feas: Bool) -> Bool:
+  match feas:
+    case False{}:
+      True{}
+    case True{}:
+      later
+
+def has_infeas(pop: List<&2, Ind.Individual>) -> Bool:
+  match pop:
+    case Nil{}:
+      False{}
+    case h <> t:
+      has_infeas.on(has_infeas(t), Ind.feasible(h))
+
+def has_feas.on(later: Bool, feas: Bool) -> Bool:
+  match feas:
+    case True{}:
+      True{}
+    case False{}:
+      later
+
+def has_feas(pop: List<&2, Ind.Individual>) -> Bool:
+  match pop:
+    case Nil{}:
+      False{}
+    case h <> t:
+      has_feas.on(has_feas(t), Ind.feasible(h))
+
+def feas_inds.on(+h: Ind.Individual, rest: List<&2, Ind.Individual>, ok: Bool) -> List<&2, Ind.Individual>:
+  match ok:
+    case True{}:
+      h <> rest
+    case False{}:
+      rest
+
+def feas_inds(pop: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
+  match pop:
+    case Nil{}:
+      Nil{}
+    case +h <> t:
+      feas_inds.on(h, feas_inds(t), Ind.feasible(h))
+
+def feas_idx.on(+i: Nat, rest: List<&2, Nat>, ok: Bool) -> List<&2, Nat>:
+  match ok:
+    case True{}:
+      i <> rest
+    case False{}:
+      rest
+
+def feas_idx.go(pop: List<&2, Ind.Individual>, +i: Nat) -> List<&2, Nat>:
+  match pop:
+    case Nil{}:
+      Nil{}
+    case h <> t:
+      feas_idx.on(i, feas_idx.go(t, 1n+i), Ind.feasible(h))
+
+def feas_idx(pop: List<&2, Ind.Individual>) -> List<&2, Nat>:
+  feas_idx.go(pop, 0n)
+
+def keep_in.go(idxs: List<&2, Nat>, +pool: List<&2, Nat>) -> List<&2, Nat>:
+  match idxs:
+    case Nil{}:
+      Nil{}
+    case +i <> t:
+      Util.keep_if(Nat, i, keep_in.go(t, pool), Util.in_nats(i, pool))
+
+def keep_in(idxs: List<&2, Nat>, +pool: List<&2, Nat>) -> List<&2, Nat>:
+  keep_in.go(idxs, pool)
+
+def nd_mixed.use(pool: List<&2, Nat>, kept: List<&2, Nat>) -> List<&2, Nat>:
+  match kept:
+    case Nil{}:
+      pool
+    case a <> b:
+      a <> b
+
+# ND indices restricted to feasible members. Empty or fully infeasible
+# fronts fall back to every feasible index (C# ExtremeIndices).
+def nd_mixed.go(nd: List<&2, Nat>, +pool: List<&2, Nat>) -> List<&2, Nat>:
+  match nd:
+    case Nil{}:
+      pool
+    case h <> t:
+      nd_mixed.use(pool, keep_in(h <> t, pool))
+
+def nd_mixed(pop: List<&2, Ind.Individual>, nd: List<&2, Nat>) -> List<&2, Nat>:
+  nd_mixed.go(nd, feas_idx(pop))
+
+# All-infeasible: do not write ideal / nadir. A fresh state projects with
+# this generation's min/max only. A persisted state reuses its hyperplane.
+def project_fixed.back(n: Nat, +ideal: List<&2, F32>, worst: List<&2, F32>, +nadir: List<&2, F32>, intercepts: List<&2, F32>, extremes: List<&2, List<&2, F32>>, +pop: List<&2, Ind.Individual>, open: Bool) -> State & List<&2, List<&2, F32>>:
+  match open:
+    case True{}:
+      (MkState{n, ideal, worst, nadir, intercepts, extremes}, map_norm(col_min(pop), col_max(pop), pop))
+    case False{}:
+      (MkState{n, ideal, worst, nadir, intercepts, extremes}, map_norm(ideal, nadir, pop))
+
+def project_fixed.ideal(n: Nat, ideal: List<&2, F32>, worst: List<&2, F32>, nadir: List<&2, F32>, intercepts: List<&2, F32>, extremes: List<&2, List<&2, F32>>, +pop: List<&2, Ind.Individual>) -> State & List<&2, List<&2, F32>>:
+  match ideal:
+    case Nil{}:
+      project_fixed.back(n, ideal, worst, nadir, intercepts, extremes, pop, True{})
+    case h <> t:
+      project_fixed.back(n, h <> t, worst, nadir, intercepts, extremes, pop, False{})
+
+def project_fixed(state: State, +pop: List<&2, Ind.Individual>) -> State & List<&2, List<&2, F32>>:
+  match state:
+    case MkState{n_objectives, ideal, worst, nadir, intercepts, extremes}:
+      project_fixed.ideal(n_objectives, ideal, worst, nadir, intercepts, extremes, pop)
+
+# Stats (ideal, worst, extremes, nadir) use the feasible subset.
+# Every member, including infeasible, is translated by that hyperplane.
+def normalize_mixed(state: State, +pop: List<&2, Ind.Individual>, nd: List<&2, Nat>) -> State & List<&2, List<&2, F32>>:
+  match state:
+    case MkState{n_objectives, ideal, worst, nadir, intercepts, extremes}:
+      +stat = feas_inds(pop)
+      +use = nd_mixed(pop, nd)
+      +mn = col_min(stat)
+      +mx = col_max(stat)
+      +ideal2 = merge_ideal(ideal, mn)
+      +worst2 = merge_worst(worst, mx)
+      +front = col_max_idx(pop, use)
+      +cand = List.append(&2, List<&2, F32>, extremes, gather_objs(pop, use))
+      +m = n_obj_pop(pop)
+      +ext = pick_extremes(cand, ideal2, m)
+      +nadir0 = nadir_from_maybe(try_intercepts(ext, ideal2), ideal2, worst2, front)
+      +nadir1 = fallback_pop(nadir0, ideal2, mx)
+      +nadir2 = fallback_unit(nadir1, ideal2)
+      (MkState{m, ideal2, worst2, nadir2, spans_or_one(nadir2, ideal2), ext}, map_norm(ideal2, nadir2, pop))
+
+def normalize_nd.bad(state: State, +pop: List<&2, Ind.Individual>, nd: List<&2, Nat>, feas: Bool) -> State & List<&2, List<&2, F32>>:
+  match feas:
+    case False{}:
+      project_fixed(state, pop)
+    case True{}:
+      normalize_mixed(state, pop, nd)
+
+def normalize_nd.pick(state: State, +pop: List<&2, Ind.Individual>, nd: List<&2, Nat>, bad: Bool) -> State & List<&2, List<&2, F32>>:
+  match bad:
+    case False{}:
+      normalize_nd.go(state, pop, nd)
+    case True{}:
+      normalize_nd.bad(state, pop, nd, has_feas(pop))
+
+# Public normalize stays the all-member hyperplane. `Laws.normalize_len`
+# unfolds this function. Constrained Run uses `normalize_nd_cv`.
 def normalize_nd(state: State, +pop: List<&2, Ind.Individual>, nd: List<&2, Nat>) -> State & List<&2, List<&2, F32>>:
   match pop:
     case Nil{}:
       (state, Nil{})
     case h <> t:
       normalize_nd.go(state, h <> t, nd)
+
+# Feasible-only ideal / nadir when any member is infeasible.
+# All-feasible and empty pools are `normalize_nd`.
+def normalize_nd_cv(state: State, +pop: List<&2, Ind.Individual>, nd: List<&2, Nat>) -> State & List<&2, List<&2, F32>>:
+  match pop:
+    case Nil{}:
+      (state, Nil{})
+    case h <> t:
+      normalize_nd.pick(state, h <> t, nd, has_infeas(h <> t))
 
 def normalize(state: State, pop: List<&2, Ind.Individual>) -> State & List<&2, List<&2, F32>>:
   normalize_nd(state, pop, Nil{})
