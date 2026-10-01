@@ -421,6 +421,25 @@ def create_offspring(
 def nd_front(+pop: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
   Surv.gather(pop, Surv.front0(NDS.sort(pop)))
 
+# Rank 0 is feasible whenever any feasible member exists (Deb).
+# An all-infeasible front becomes empty here so a dump can skip it.
+def feas_only.on(+h: Ind.Individual, rest: List<&2, Ind.Individual>, feas: Bool) -> List<&2, Ind.Individual>:
+  match feas:
+    case True{}:
+      h <> rest
+    case False{}:
+      rest
+
+def feas_only(xs: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case +h <> t:
+      feas_only.on(h, feas_only(t), Ind.feasible(h))
+
+def feas_nd(+pop: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
+  feas_only(nd_front(pop))
+
 def emit_front(xs: List<&2, Ind.Individual>) -> IO(Unit):
   match xs:
     case Nil{}:
@@ -499,6 +518,32 @@ def run.sized(+prob: Prob.Problem, +cfg: Config, n: Nat) -> List<&2, Ind.Individ
 def run(+prob: Prob.Problem, +cfg: Config) -> List<&2, Ind.Individual>:
   +n = cfg_pop(cfg)
   Util.list_take_pad(Ind.Individual, Ind.from_objectives(Nil{}), run.sized(prob, cfg, n), n)
+
+# Replace the first random member with `seed_x` before evaluate.
+# The rest of the initial population still consumes the seed RNG.
+# C# places the seed first and does not draw RNG for it; this helper
+# only guarantees a known feasible start for the constrained smoke.
+def replace_head(+xs: List<&2, F32>, +nm: Nat, pop: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
+  match pop:
+    case Nil{}:
+      Nil{}
+    case h <> t:
+      Ind.from_variables(xs, nm) <> t
+
+def run_seeded.go(+prob: Prob.Problem, +cfg: Config, +seed_x: List<&2, F32>, pair: Rng.State & List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
+  (rng, raw) = pair
+  run.go(prob, cfg, (rng, replace_head(seed_x, Prob.n_obj(prob), raw)))
+
+def run_seeded.sized(+prob: Prob.Problem, +cfg: Config, +seed_x: List<&2, F32>, n: Nat) -> List<&2, Ind.Individual>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      run_seeded.go(prob, cfg, seed_x, init_pop(prob, 1n+p, Rng.from_nat(cfg_seed(cfg))))
+
+def run_seeded(+prob: Prob.Problem, +cfg: Config, +seed_x: List<&2, F32>) -> List<&2, Ind.Individual>:
+  +n = cfg_pop(cfg)
+  Util.list_take_pad(Ind.Individual, Ind.from_objectives(Nil{}), run_seeded.sized(prob, cfg, seed_x, n), n)
 
 def run_zdt1_smoke() -> List<&2, Ind.Individual>:
   run(Prob.zdt1(30n), smoke_zdt1())

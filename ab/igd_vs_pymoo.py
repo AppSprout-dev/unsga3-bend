@@ -18,6 +18,9 @@ Reference sets:
 - dtlz7: pymoo `pareto_front()` only. C# `ParetoFronts` has no DTLZ7. If that
   call fails, this script skips. It does not invent a front.
 - sphere / ackley / rosenbrock: one-point PF at f = 0 (known minimum).
+- osy / tnk: pymoo ``pareto_front()`` or ``skip:`` (no analytic stand-in).
+- c1dtlz1: the DTLZ1 half-simplex at ``--partitions`` (n_var=7 in the Run;
+  the PF does not depend on n_var).
 
 Never fabricates IGD / HV / Wilcoxon values.
 """
@@ -149,6 +152,17 @@ def dtlz1_pf(n_obj: int, partitions: int) -> list[list[float]]:
     return [[0.5 * x for x in w] for w in das_dennis(n_obj, partitions)]
 
 
+def pymoo_named_pf(name: str) -> tuple[list[list[float]], str]:
+    """pymoo's own pareto_front() for a named problem. No stand-in."""
+    from pymoo.problems import get_problem
+
+    arr = get_problem(name).pareto_front()
+    if arr is None or len(arr) == 0:
+        raise RuntimeError(f"pymoo {name} pareto_front() returned no points")
+    pf = [list(map(float, row)) for row in arr]
+    return pf, f"pymoo-pareto_front {name}"
+
+
 def dtlz7_pf() -> tuple[list[list[float]], str]:
     """pymoo's own DTLZ7 sample. No analytic stand-in."""
     from pymoo.problems import get_problem
@@ -199,6 +213,9 @@ def main() -> int:
             "sphere",
             "ackley",
             "rosenbrock",
+            "osy",
+            "tnk",
+            "c1dtlz1",
         ),
         default="simplex",
         help="PF family (default simplex for the v0 core fixture)",
@@ -341,6 +358,44 @@ def main() -> int:
         if not pf:
             print(
                 f"skip: {args.problem} Das–Dennis PF is empty. Refusing to invent a PF or IGD.",
+                file=sys.stderr,
+            )
+            return 0
+    elif args.problem == "c1dtlz1":
+        if n_obj != 3:
+            print(
+                f"skip: C1-DTLZ1 PF helper is M=3; front has {n_obj} columns.",
+                file=sys.stderr,
+            )
+            return 0
+        pf = dtlz1_pf(3, args.partitions)
+        pf_source = "analytic-c1dtlz1-half-simplex"
+        if not pf:
+            print(
+                "skip: C1-DTLZ1 Das–Dennis PF is empty. Refusing to invent a PF or IGD.",
+                file=sys.stderr,
+            )
+            return 0
+    elif args.problem in ("osy", "tnk"):
+        if n_obj != 2:
+            print(
+                f"skip: {args.problem} PF is 2-objective; front has {n_obj} columns.",
+                file=sys.stderr,
+            )
+            return 0
+        try:
+            pf, pf_source = pymoo_named_pf(args.problem)
+        except Exception as exc:
+            print(
+                f"skip: pymoo pareto_front() for {args.problem} failed ({exc}). "
+                "Refusing to invent a PF or IGD.",
+                file=sys.stderr,
+            )
+            return 0
+        if not pf:
+            print(
+                f"skip: pymoo pareto_front() for {args.problem} returned no points. "
+                "Refusing to invent a PF or IGD.",
                 file=sys.stderr,
             )
             return 0

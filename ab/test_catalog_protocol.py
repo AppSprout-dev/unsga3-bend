@@ -20,6 +20,7 @@ from igd_vs_pymoo import (
 from protocol import (
     catalog_bounds,
     catalog_knobs,
+    constrained_knobs,
     oracle_knobs,
 )
 
@@ -71,6 +72,23 @@ class CatalogKnobsTest(unittest.TestCase):
         self.assertEqual(catalog_bounds("sphere")[0][0], -5.12)
         self.assertEqual(catalog_bounds("ackley")[1][0], 32.768)
         self.assertEqual(catalog_bounds("dtlz7")[0], [0.0] * 22)
+
+
+class ConstrainedKnobsTest(unittest.TestCase):
+    def test_budgets_stay_pymoo(self) -> None:
+        osy = constrained_knobs("osy")
+        tnk = constrained_knobs("tnk")
+        c1 = constrained_knobs("c1dtlz1")
+        self.assertEqual((osy["partitions"], osy["pop"], osy["gens"], osy["n_var"], osy["n_obj"]), (12, 52, 250, 6, 2))
+        self.assertEqual((tnk["partitions"], tnk["pop"], tnk["gens"], tnk["n_var"], tnk["n_obj"]), (12, 52, 250, 2, 2))
+        self.assertEqual((c1["partitions"], c1["pop"], c1["gens"], c1["n_var"], c1["n_obj"]), (12, 92, 150, 7, 3))
+        self.assertEqual(osy["tournament"], "pymoo")
+        self.assertEqual(tnk["tournament"], "pymoo")
+        self.assertEqual(c1["tournament"], "pymoo")
+        # Omitted dump flags stay the short smoke, not this budget.
+        smoke = resolve_dump_knobs("osy")
+        self.assertEqual((smoke["partitions"], smoke["pop"], smoke["gens"]), (4, 8, 3))
+        self.assertEqual(oracle_knobs("zdt1")["tournament"], "pymoo")
 
 
 class ParetoGeometryTest(unittest.TestCase):

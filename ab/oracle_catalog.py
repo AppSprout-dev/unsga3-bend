@@ -11,8 +11,9 @@ Not the ZDT1 / ZDT2 / DTLZ2 quality table (that stays
                          short smoke          p=1  pop=20 gens=40
 
 Tournament is PymooCompatible. Every cell is a real ``igd=`` line or
-``skip:`` with a reason. OSY / TNK / C1-DTLZ1 are not in this tree;
-those rows are skips and no front is dumped.
+``skip:`` with a reason. OSY / TNK / C1-DTLZ1 are not ``catalog_knobs``
+rows. This driver does not dump them. Measured cells live in
+``docs/CONSTRAINED-SURFACES.md``.
 
 Examples:
 
@@ -37,15 +38,13 @@ DUMP_CS = ROOT / "ab" / "dump_csharp_catalog.py"
 
 CONSTRAINT_MD = """## Constrained problems
 
-OSY, TNK, and C1-DTLZ1 are not implemented in this tree. C# Unsga3 owns those demos (`ConstrainedProblemTests`). C# `docs/EQUIVALENCE.md` records no IGD table for them, and `tools/OracleCompare` does not accept those names. Bend has Deb constraint-domination; the shipped catalog writes no constraint vector.
-
-No front was dumped. No IGD was computed.
+Not part of `catalog_knobs`. This driver does not dump OSY / TNK / C1-DTLZ1. Formulations are in `src/problems.bend`. Measured `igd=` / `skip:` cells are in `docs/CONSTRAINED-SURFACES.md` (`ab/oracle_constrained.py`). The 2026-09-30 catalog snapshot in `docs/ORACLE-CATALOG.md` still shows the skips from that run.
 
 | Problem | Bend | C# | pymoo NSGA-III |
 |---------|------|----|----------------|
-| OSY | skip: problem not in this tree | skip: not measured; C# demo, no OracleCompare protocol | skip: not run |
-| TNK | skip: problem not in this tree | skip: not measured; C# demo, no OracleCompare protocol | skip: not run |
-| C1-DTLZ1 | skip: problem not in this tree | skip: not measured; C# demo, no OracleCompare protocol | skip: not run |
+| OSY | skip: not dumped by oracle_catalog; see docs/CONSTRAINED-SURFACES.md | skip: not measured; no OracleCompare name | skip: not dumped by oracle_catalog |
+| TNK | skip: not dumped by oracle_catalog; see docs/CONSTRAINED-SURFACES.md | skip: not measured; no OracleCompare name | skip: not dumped by oracle_catalog |
+| C1-DTLZ1 | skip: not dumped by oracle_catalog; see docs/CONSTRAINED-SURFACES.md | skip: not measured; no OracleCompare name | skip: not dumped by oracle_catalog |
 """
 
 
@@ -155,8 +154,8 @@ def main() -> int:
         tables.append("\n".join(lines))
     absent = ", ".join(CONSTRAINED_ABSENT)
     tables.append(
-        f"Constrained names not dumped: {absent}. "
-        "See the constrained section above.\n"
+        f"Constrained names not dumped by this catalog driver: {absent}. "
+        "See docs/CONSTRAINED-SURFACES.md.\n"
     )
     md = "\n".join(tables)
     print(md)

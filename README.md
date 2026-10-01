@@ -21,7 +21,7 @@ The reference implementation is the existing C# library:
 
 **0.2.0** is the current Bend content-hash hub package. `bend src/lib.bend --publish` ran again for this tree (Bend 2.0.34). Artifacts do **not** go to nuget.org or GitHub Packages.
 
-**0.1.0** was the first hub publish (`0xcd07e24a626a62e74603d48f436cd679`). GitHub **0.1.1** was a docs/ab confidence bump (multi-seed IGD tables + Layer-1 fixture check) and did not re-publish. GitHub **0.1.2** (`0x527a2a4fa91b05a0250d7be0e11d232a`) includes the RankNicheDistance fix. **0.2.0** adds the unconstrained problem catalog, Deb constraint-domination, the offspring duplicate contract, and the odd-N SBX fix. A/B stays `PymooCompatible`.
+**0.1.0** was the first hub publish (`0xcd07e24a626a62e74603d48f436cd679`). GitHub **0.1.1** was a docs/ab confidence bump (multi-seed IGD tables + Layer-1 fixture check) and did not re-publish. GitHub **0.1.2** (`0x527a2a4fa91b05a0250d7be0e11d232a`) includes the RankNicheDistance fix. **0.2.0** adds the unconstrained problem catalog, Deb constraint-domination, the offspring duplicate contract, and the odd-N SBX fix. A/B stays `PymooCompatible`. Git tag `v0.2.0` and the GitHub Release exist. The checkout also has OSY / TNK / C1-DTLZ1; that did not republish the hub hash.
 
 ### How consumers import
 
@@ -39,11 +39,7 @@ import 0xa2f9d6ef8c474468bf1de15ebe70c512/lib.bend as Lib
 
 The hub entry path is `/lib.bend` (what bend printed), not `/src/lib.bend`. Content hash: `0xa2f9d6ef8c474468bf1de15ebe70c512`.
 
-The named package `unified-nsga-iii@0.1.2.0` still points at the 0.1.2 hash. `unified-nsga-iii@0.2.0.0` is not linked yet (publish had no Bend login). After `bend login`:
-
-```bash
-bend link unified-nsga-iii@0.2.0.0 0xa2f9d6ef8c474468bf1de15ebe70c512
-```
+The named package `unified-nsga-iii@0.1.2.0` still points at the 0.1.2 hash. `unified-nsga-iii@0.2.0.0` resolves to `0xa2f9d6ef8c474468bf1de15ebe70c512`.
 
 Develop against `src/` in this checkout with a local path:
 
@@ -59,7 +55,8 @@ Shipped in the **0.2.0** hub package (algorithm + A/B helpers):
 
 - **Core** — non-dominated sort, NSGA-III normalization, Das–Dennis directions, niching / association, survival
 - **Variation + Run** — decision variables, SBX (η=30, p=1.0), polynomial mutation (η=20, p=1/n), ZDT1 / ZDT2 / DTLZ2 (3-obj), `PymooCompatible` tournament, `Unsga3Algorithm.Run`
-- **Catalog** — ZDT3 / ZDT4 / ZDT6, DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7, Sphere / Ackley / Rosenbrock. In the 0.2.0 hub hash. Dumpable. Not an IGD table. See [CHANGELOG.md](CHANGELOG.md)
+- **Catalog** — ZDT3 / ZDT4 / ZDT6, DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7, Sphere / Ackley / Rosenbrock. In the 0.2.0 hub hash. Dumpable. Measured IGD: [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md)
+- **Constrained demos** — OSY, TNK, C1-DTLZ1 in this checkout (not a new hub hash). Feasible-only survival and hyperplane. Smoke binary: `bend src/constrained_smoke.bend -o`. Cells: [docs/CONSTRAINED-SURFACES.md](docs/CONSTRAINED-SURFACES.md)
 - **Constraints + offspring** — Deb constraint-domination (`cv` on `Individual`), CV-first tournaments, survivor-set duplicate keys, odd-N SBX (parent `N-1` with parent `0`). A/B stays `PymooCompatible`
 - **Parallel maps** — independent per-individual work uses Bend `a b = f(lo) f(hi)` mid-splits. Tournament, SBX, mutation, and last-front niching stay sequential so a fixed seed consumes RNG in the same order
 - **Native dumps** — `bend src/….bend -o …` then run the binary. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails
@@ -74,7 +71,7 @@ Measured native phase tables (not IGD): [docs/PERF_NOTES.md](docs/PERF_NOTES.md)
 | `Normalization` | NSGA-III adaptive hyperplane (persistent across `Run`) |
 | `ReferenceDirections` | Das–Dennis directions / count |
 | `Survival` | niching association + environmental selection |
-| `problems` | `Zdt1` / `Zdt2` / `Zdt3` / `Zdt4` / `Zdt6`, `Dtlz1` / `Dtlz2` / `Dtlz3` / `Dtlz4` / `Dtlz7`, `Sphere` / `Ackley` / `Rosenbrock` |
+| `problems` | `Zdt1` / `Zdt2` / `Zdt3` / `Zdt4` / `Zdt6`, `Dtlz1` / `Dtlz2` / `Dtlz3` / `Dtlz4` / `Dtlz7`, `Sphere` / `Ackley` / `Rosenbrock`, `Osy` / `Tnk` / `C1Dtlz1` |
 | `tournament` | `TournamentSelection` / `TournamentMode` |
 | `algorithm` | `Unsga3Algorithm.Run` |
 

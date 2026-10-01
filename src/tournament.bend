@@ -242,4 +242,4 @@ def prepare.with(+dirs: List<&2, List<&2, F32>>, +pop: List<&2, Ind.Individual>,
 # the persistent Normalization state.
 def prepare(+pop: List<&2, Ind.Individual>, +dirs: List<&2, List<&2, F32>>, state: Norm.State) -> Norm.State & List<&2, Ind.Individual>:
   +fronts = NDS.sort(pop)
-  prepare.with(dirs, pop, fronts, Norm.normalize_nd(state, pop, Surv.front0(fronts)))
+  prepare.with(dirs, pop, fronts, Norm.normalize_nd_cv(state, pop, Surv.front0(fronts)))

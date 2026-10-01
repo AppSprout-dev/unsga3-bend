@@ -38,13 +38,13 @@ C# CI smokes use smaller n on the single-objective problems, `RankNicheDistance`
 
 Pareto sets in [`ab/igd_vs_pymoo.py`](../ab/igd_vs_pymoo.py): ZDT3 segments, ZDT4 = ZDT1, ZDT6 floor `0.280775`, and DTLZ1 half-simplex follow C# `ParetoFronts`. DTLZ3 and DTLZ4 use the DTLZ2 Das–Dennis sphere. DTLZ7 uses pymoo `pareto_front()` or `skip:` (C# has no DTLZ7 front). Sphere / Ackley / Rosenbrock use the one-point minimum `f = 0`. pymoo's `sphere` is `[0,1]^n` with a different objective; that column must `skip:` rather than score a different problem.
 
-OSY, TNK, and C1-DTLZ1 are not in this tree. Constrained IGD is a skip. C# owns those demos and publishes no IGD table for them.
+OSY, TNK, and C1-DTLZ1 are in this checkout. Their budgets are `constrained_knobs` in [`ab/protocol.py`](../ab/protocol.py) (PymooCompatible; C# NEW-SURFACES used RankNicheDistance). Measured cells are in [CONSTRAINED-SURFACES.md](CONSTRAINED-SURFACES.md). They are not `catalog_knobs` rows and they did not republish the 0.2.0 hub hash.
 
 The 2026-09-30 run (seeds 1–15) is recorded in [ORACLE-CATALOG.md](ORACLE-CATALOG.md). Every cell there is an `igd=` or `skip:` line from that run. Do not invent IGD / HV / Wilcoxon numbers. The ZDT1 / ZDT2 / DTLZ2 tables in [ORACLE-MULTISEED.md](ORACLE-MULTISEED.md) are a different protocol and were not recomputed for this catalog.
 
 ## Constraints
 
-`Individual` carries a constraint vector `g` (`g ≤ 0`) and `cv`, the sum of the positive parts. Feasible means `cv ≤ 0`. Empty `g` is `cv = 0`. ZDT1 / ZDT2 / DTLZ2 write no constraints, so those runs stay on the Pareto path. Ideal and worst still come from the whole pool (feasible and infeasible). There is no OSY / TNK / C1-DTLZ1 problem in this tree.
+`Individual` carries a constraint vector `g` (`g ≤ 0`) and `cv`, the sum of the positive parts. Feasible means `cv ≤ 0`. Empty `g` is `cv = 0`. ZDT1 / ZDT2 / DTLZ2 write no constraints, so those runs stay on the Pareto path. An all-feasible pool still takes ideal and worst from the whole pool. A pool with any infeasible member builds the hyperplane from the feasible subset (or projects with the stored hyperplane when nobody is feasible) and niches only that subset, filling a shortfall by ascending CV. OSY, TNK, and C1-DTLZ1 are the constrained demos.
 
 `NDS.sort` uses Deb constraint-domination:
 

@@ -72,9 +72,7 @@ ZDT4 at the ZDT1 generation budget keeps Bend median IGD 1.114062, and the Bend 
 
 ## Constrained problems
 
-OSY, TNK, and C1-DTLZ1 are not implemented in this tree. C# Unsga3 owns those demos (`ConstrainedProblemTests`). C# `docs/EQUIVALENCE.md` records no IGD table for them, and `tools/OracleCompare` does not accept those names. Bend has Deb constraint-domination; the shipped catalog writes no constraint vector.
-
-No front was dumped. No IGD was computed.
+Historical 2026-09-30 catalog snapshot. Those names were not in the tree when this table was recorded, so no front was dumped and no IGD was computed. Formulations now live in `src/problems.bend`. Later `igd=` / `skip:` cells are in [CONSTRAINED-SURFACES.md](CONSTRAINED-SURFACES.md). The rows below are the skips from that run, not a new measurement.
 
 | Problem | Bend | C# | pymoo NSGA-III |
 |---------|------|----|----------------|
@@ -322,4 +320,4 @@ PF yardstick: pf_source=`analytic-optimum f=0`, pf_rows=1, partitions=1.
 Seeds actually scored: Bend [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]; C# [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]; pymoo [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].
 Median IGD (Bend 11.394421, C# 14.083640, pymoo NSGA-III 85.959115).
 PF yardstick: pf_source=`analytic-optimum f=0`, pf_rows=1, partitions=1.
-Constrained names not dumped: osy, tnk, c1dtlz1. See the constrained section above.
+Constrained names were not dumped by the 2026-09-30 catalog run: osy, tnk, c1dtlz1. See the constrained section above and [CONSTRAINED-SURFACES.md](CONSTRAINED-SURFACES.md).

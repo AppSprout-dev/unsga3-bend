@@ -814,6 +814,90 @@ def select_idx.by(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, 
     case False{}:
       select_idx.dirs(pop, target, dirs, List.is_empty(&2, List<&2, F32>, dirs))
 
+# --- constrained survival (C# NondominatedSortingSurvival) ---
+# An all-feasible pool stays on the paths above. A mixed or infeasible
+# pool niches only the feasible subset and fills a shortfall by ascending
+# CV (original index breaks ties). Fillers are not niche-linked.
+# All-infeasible does not move the hyperplane.
+
+type CvRow is Data:
+  CvRow{
+    i: Nat
+    ind: Ind.Individual
+  }
+
+def any_infeas.on(later: Bool, feas: Bool) -> Bool:
+  match feas:
+    case False{}:
+      True{}
+    case True{}:
+      later
+
+def any_infeas(pop: List<&2, Ind.Individual>) -> Bool:
+  match pop:
+    case Nil{}:
+      False{}
+    case h <> t:
+      any_infeas.on(any_infeas(t), Ind.feasible(h))
+
+def row_before(a: CvRow, b: CvRow) -> Bool:
+  match a b:
+    case CvRow{i, ind} CvRow{j, other}:
+      +ca = Ind.constraint_violation(ind)
+      +cb = Ind.constraint_violation(other)
+      Bool.or(F32.is_lt(ca, cb), Bool.and(F32.is_eq(ca, cb), Bool.not(Nat.is_le(j, i))))
+
+def insert_row.on(+x: CvRow, +h: CvRow, t: List<&2, CvRow>, before: Bool) -> List<&2, CvRow>:
+  match before:
+    case True{}:
+      x <> h <> t
+    case False{}:
+      h <> t
+
+def insert_row(+x: CvRow, xs: List<&2, CvRow>) -> List<&2, CvRow>:
+  match xs:
+    case Nil{}:
+      x <> Nil{}
+    case +h <> t:
+      insert_row.on(x, h, insert_row(x, t), row_before(x, h))
+
+def sort_rows(xs: List<&2, CvRow>) -> List<&2, CvRow>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case h <> t:
+      insert_row(h, sort_rows(t))
+
+def row_ind(row: CvRow) -> Ind.Individual:
+  match row:
+    case CvRow{i, ind}:
+      ind
+
+def rows_inds(xs: List<&2, CvRow>) -> List<&2, Ind.Individual>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case h <> t:
+      row_ind(h) <> rows_inds(t)
+
+def map_clear(xs: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case h <> t:
+      Ind.clear_niche(h) <> map_clear(t)
+
+def take_clear(rows: List<&2, CvRow>, +n: Nat) -> List<&2, Ind.Individual>:
+  map_clear(List.take(&2, Ind.Individual, rows_inds(sort_rows(rows)), n))
+
+def append_fill(+kept: List<&2, Ind.Individual>, rows: List<&2, CvRow>, +target: Nat) -> List<&2, Ind.Individual>:
+  List.append(
+    &2,
+    Ind.Individual,
+    kept,
+    take_clear(rows, Nat.sub(target, Util.list_len(Ind.Individual, kept)))
+  )
+
 def unused_idxs(+used: List<&2, Nat>, +n: Nat) -> List<&2, Nat>:
   Util.minus(List.range(n), used)
 
@@ -834,13 +918,69 @@ def select_idx(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: Li
   +want = Util.nat_min(target_size, n)
   size_lock(select_idx.by(combined, target_size, dirs, Nat.is_le(n, target_size)), want, n)
 
-def select(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
+def select_plain(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
   gather(combined, select_idx(combined, target_size, dirs))
 
-# Persistent-normalization Select for Unsga3Algorithm.Run. Threads rng
-# so last-front niching matches C# Select(..., rng) on min-count niche
-# ties. Empty niches take closest; extras are random among near-best
-# on that ray. v0 `select` stays the `rng == null` path (empty laws).
+# Feasible subset already fits: keep original order. Niching runs only
+# when that subset is longer than the slot count.
+def feas_keep.det.on(+feas: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, fits: Bool) -> List<&2, Ind.Individual>:
+  match fits:
+    case True{}:
+      feas
+    case False{}:
+      select_plain(feas, target, dirs)
+
+def feas_keep.det(+feas: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
+  feas_keep.det.on(feas, target, dirs, Nat.is_le(Util.list_len(Ind.Individual, feas), target))
+
+type Split is Data:
+  Split{
+    feas: List<&2, Ind.Individual>
+    rows: List<&2, CvRow>
+  }
+
+def split_add.feas(+h: Ind.Individual, sp: Split) -> Split:
+  match sp:
+    case Split{feas, rows}:
+      Split{h <> feas, rows}
+
+def split_add.infeas(+h: Ind.Individual, +i: Nat, sp: Split) -> Split:
+  match sp:
+    case Split{feas, rows}:
+      Split{feas, CvRow{i, h} <> rows}
+
+def split_on(+h: Ind.Individual, rest: Split, +i: Nat, feas: Bool) -> Split:
+  match feas:
+    case True{}:
+      split_add.feas(h, rest)
+    case False{}:
+      split_add.infeas(h, i, rest)
+
+def split.go(pop: List<&2, Ind.Individual>, +i: Nat) -> Split:
+  match pop:
+    case Nil{}:
+      Split{Nil{}, Nil{}}
+    case +h <> t:
+      split_on(h, split.go(t, 1n+i), i, Ind.feasible(h))
+
+def select_constrained.feas(feas: List<&2, Ind.Individual>, +rows: List<&2, CvRow>, +target: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
+  match feas:
+    case Nil{}:
+      take_clear(rows, target)
+    case h <> t:
+      append_fill(feas_keep.det(h <> t, target, dirs), rows, target)
+
+def select_constrained.from(sp: Split, +target: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
+  match sp:
+    case Split{feas, rows}:
+      select_constrained.feas(feas, rows, target, dirs)
+
+def select_constrained(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
+  select_constrained.from(split.go(pop, 0n), target, dirs)
+
+# All-feasible Run path. Defined before constrained fill so a feasible
+# subset that still needs niching calls this directly (no cycle through
+# select_st).
 def size_lock.rng(+want: Nat, +n: Nat, pair: List<&2, Nat> & Rng.State) -> List<&2, Nat> & Rng.State:
   (xs, rng) = pair
   (size_lock(xs, want, n), rng)
@@ -870,12 +1010,71 @@ def select_st.dirs(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2,
     case False{}:
       select_st.big(pop, target, dirs, state, rng)
 
+def feas_keep.st.fit.unpack(+feas: List<&2, Ind.Individual>, rng: Rng.State, pair: Norm.State & List<&2, List<&2, F32>>) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  (st, fs) = pair
+  (st, feas, rng)
+
+def feas_keep.st.fit(+feas: List<&2, Ind.Individual>, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  feas_keep.st.fit.unpack(feas, rng, Norm.normalize_nd(state, feas, front0(NDS.sort(feas))))
+
+def feas_keep.st.on(+feas: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State, fits: Bool) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  match fits:
+    case True{}:
+      feas_keep.st.fit(feas, state, rng)
+    case False{}:
+      select_st.dirs(feas, target, dirs, state, rng, List.is_empty(&2, List<&2, F32>, dirs))
+
+def feas_keep.st(+feas: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  feas_keep.st.on(feas, target, dirs, state, rng, Nat.is_le(Util.list_len(Ind.Individual, feas), target))
+
+def select_st.constrained.kept(+rows: List<&2, CvRow>, +target: Nat, trip: Norm.State & List<&2, Ind.Individual> & Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  (st, kept, rng2) = trip
+  (st, append_fill(kept, rows, target), rng2)
+
+def select_st.constrained.feas(feas: List<&2, Ind.Individual>, +rows: List<&2, CvRow>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  match feas:
+    case Nil{}:
+      (state, take_clear(rows, target), rng)
+    case h <> t:
+      select_st.constrained.kept(rows, target, feas_keep.st(h <> t, target, dirs, state, rng))
+
+def select_st.constrained.from(sp: Split, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  match sp:
+    case Split{feas, rows}:
+      select_st.constrained.feas(feas, rows, target, dirs, state, rng)
+
+def select_st.constrained(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  select_st.constrained.from(split.go(pop, 0n), target, dirs, state, rng)
+
+def select.route(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>, constrained: Bool) -> List<&2, Ind.Individual>:
+  match constrained:
+    case True{}:
+      select_constrained(combined, target_size, dirs)
+    case False{}:
+      select_plain(combined, target_size, dirs)
+
+# `select` stays the rng-null length-locked path (`Laws.select_size`).
+# Constrained feasible-niching + CV fill is `select_st` (Run).
+def select(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
+  select_plain(combined, target_size, dirs)
+
+# Persistent-normalization Select for Unsga3Algorithm.Run. Threads rng
+# so last-front niching matches C# Select(..., rng) on min-count niche
+# ties. Empty niches take closest; extras are random among near-best
+# on that ray. v0 `select` stays the `rng == null` path (empty laws).
+def select_st.large(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State, bad: Bool) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
+  match bad:
+    case False{}:
+      select_st.dirs(pop, target, dirs, state, rng, List.is_empty(&2, List<&2, F32>, dirs))
+    case True{}:
+      select_st.constrained(pop, target, dirs, state, rng)
+
 def select_st.by(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State, small: Bool) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   match small:
     case True{}:
       (state, pop, rng)
     case False{}:
-      select_st.dirs(pop, target, dirs, state, rng, List.is_empty(&2, List<&2, F32>, dirs))
+      select_st.large(pop, target, dirs, state, rng, any_infeas(pop))
 
 def select_st(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   +n = Util.list_len(Ind.Individual, combined)
