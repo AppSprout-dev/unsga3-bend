@@ -151,7 +151,9 @@ def dump_csharp(problem: str, knobs: dict, seed: int, dest: Path) -> str | None:
     )
     err = (proc.stderr or "") + (proc.stdout or "")
     sys.stderr.write(proc.stderr or "")
-    if dest.is_file() and dest.stat().st_size > 0:
+    # An empty file is a finished Run with no feasible rows. igd_of
+    # reports `skip: no feasible points`. A missing file is a dump failure.
+    if dest.is_file():
         return None
     for ln in err.splitlines():
         if ln.startswith("skip:"):

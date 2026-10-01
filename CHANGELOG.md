@@ -12,6 +12,7 @@ GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-p
 
 ### Fixed
 
+- Constrained CV fill no longer builds an exponential infeasible list. Inserting a row in front used to recurse through a tail that already contained that row, then cons it again. Each smaller CV doubled the list. Native OSY and C1-DTLZ1 at `constrained_knobs` died with `bend: memory fault (machine stack overflow?)`. TNK died with `bend: runtime fail-stop`. The insert conses onto the original tail. Regression: [`src/constrained_budget.bend`](src/constrained_budget.bend) (OSY/TNK pop=52 gens=250, C1-DTLZ1 pop=92 gens=150, seed 1, `PymooCompatible`). Seeds 1–15 IGD: [docs/CONSTRAINED-SURFACES.md](docs/CONSTRAINED-SURFACES.md). No hub republish. No 0.2.1 cut.
 - DTLZ3 evaluation clamps a negative F32 `cos(π/2)` factor back to the mathematical `f ≥ 0`. In-bound `x = 1` was a strictly negative objective, so no feasible point could dominate it, and that row pinned a huge ASF extreme. Same DTLZ2 budget, seeds 1–15: Bend median IGD 26.249240 → 8.239578 ([docs/DTLZ3_AXIS.md](docs/DTLZ3_AXIS.md)). DTLZ2 / ZDT1 / ZDT2 seed 1 published cells unchanged. No hub republish.
 
 ### Added
