@@ -1,0 +1,12 @@
+{
+  "challenge_module": "challenges.NicheCountSum",
+  "statement_file": "challenges/NicheCountSum.challenge.bend",
+  "solution_module": "PROOF",
+  "solution_file": "PROOF.bend",
+  "theorem_names": ["Laws.niche_count_sum"],
+  "definition_names": [],
+  "gate": "bend PROOF.bend",
+  "proof_surface": "Bend PROOF",
+  "scope_doc": "challenges/NicheCountSum.SCOPE.md",
+  "notes": "Nat histogram conservation only. Mid-split count_raw sum equals the in-bin assignment count (refs < n_dirs). Not niching optimality."
+}
