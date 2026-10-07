@@ -60,7 +60,7 @@ Shipped in the **0.2.2** hub package (algorithm + A/B helpers):
 - **Constraints + offspring** — Deb constraint-domination (`cv` on `Individual`), CV-first tournaments, survivor-set duplicate keys, odd-N SBX (parent `N-1` with parent `0`). A/B stays `PymooCompatible`
 - **Parallel maps** — independent per-individual work uses Bend `a b = f(lo) f(hi)` mid-splits. Tournament, SBX, mutation, and last-front niching stay sequential so a fixed seed consumes RNG in the same order
 - **Native dumps** — `bend src/….bend -o …` then run the binary. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails
-- **Proofs** — `bend PROOF.bend` is 0 `?TODO`
+- **Proofs** — `bend PROOF.bend` is 0 `?TODO`. Public “proves” / “resolved” verbs follow [docs/PROOF-SURFACE.md](docs/PROOF-SURFACE.md).
 
 Measured native phase tables (not IGD): [docs/PERF_NOTES.md](docs/PERF_NOTES.md). Protocol: [docs/EQUIVALENCE.md](docs/EQUIVALENCE.md).
 
@@ -148,10 +148,12 @@ unsga3-bend/
 ├── CONTRIBUTING.md           # install / smoke / proofs / do-nots
 ├── LAWS.bend                 # core + operator + Run/ZDT claims (human-owned)
 ├── PROOF.bend                # imports LAWS; closed proofs
+├── challenges/               # statement fixtures; they do not replace the wall
 ├── src/                      # core + variation + problems + Run + smokes
 ├── ab/                       # core + algorithm dump / optional IGD / optional C#
 ├── ab/protocol.py            # A/B defaults (ZDT2 gens=250)
 ├── docs/EQUIVALENCE.md       # public protocol (this tree)
+├── docs/PROOF-SURFACE.md     # proof_surface enum + public verb gate
 ├── docs/ORACLE-MULTISEED.md  # 15-seed IGD + Layer-1 fixture check
 ├── docs/ROADMAP.md
 ├── docs/PERF_NOTES.md        # measured warm-native phases (not IGD)
@@ -163,6 +165,8 @@ unsga3-bend/
 |-----|------|
 | [CONTRIBUTING.md](CONTRIBUTING.md) | how to check the tree |
 | [docs/EQUIVALENCE.md](docs/EQUIVALENCE.md) | quality protocol + C# pointer |
+| [docs/PROOF-SURFACE.md](docs/PROOF-SURFACE.md) | `proof_surface` enum and the verb gate |
+| [challenges/README.md](challenges/README.md) | `Laws.niche_count_sum` statement fixture |
 | [docs/ORACLE-MULTISEED.md](docs/ORACLE-MULTISEED.md) | 15-seed IGD (Bend / C# / pymoo NSGA-III) + fixture bit-check |
 | [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md) | why ZDT2 gens=100 is early-stress |
 | [docs/PERF_NOTES.md](docs/PERF_NOTES.md) | warm-native phase tables |
