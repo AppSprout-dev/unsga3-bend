@@ -5,9 +5,12 @@ Reads only real `igd=` cells: the fresh JSONL rows and the published per-seed
 tables. Prints one line per (problem, seed, stack) that drifted beyond the
 table's printed precision (6 decimals), plus a count. Never writes the doc.
 
-Usage: compare_yardstick.py <summary.jsonl> [--doc docs/ORACLE-MULTISEED.md]
-Exit 0 = every fresh cell matches the published cell (or the doc has no cell);
-exit 1 = drift (report it; decide product bug vs stale doc from the evidence).
+Usage: compare_yardstick.py <summary.jsonl> [--doc docs/ORACLE-MULTISEED.md] [--allow-skip]
+Exit 0 = at least one fresh cell was compared, every compared cell matches the
+published cell, and nothing was skipped.
+Exit 1 = drift, zero cells compared (a vacuous run proves nothing), or any
+`skip:` row (missing pymoo / dotnet / UNSGA3_CS_ROOT). `--allow-skip` lets
+skipped rows through; report those columns as unverified.
 """
 from __future__ import annotations
 
@@ -47,6 +50,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("summary", type=Path)
     ap.add_argument("--doc", type=Path, default=ROOT / "docs" / "ORACLE-MULTISEED.md")
+    ap.add_argument("--allow-skip", action="store_true",
+                    help="do not fail on skipped rows (those columns stay unverified)")
     a = ap.parse_args()
     pub = published(a.doc.read_text())
     seen = match = 0
@@ -72,7 +77,17 @@ def main() -> int:
     for s in skips:
         print("SKIP", s)
     print(f"cells_compared={seen} matched={match} drifted={len(drift)} skipped={len(skips)}")
-    return 1 if drift else 0
+    fail = []
+    if seen == 0:
+        fail.append("no cell compared (empty summary or no row matches a published cell)")
+    if drift:
+        fail.append(f"{len(drift)} cell(s) drifted")
+    if skips and not a.allow_skip:
+        fail.append(f"{len(skips)} row(s) skipped (pass --allow-skip to report them as unverified)")
+    for f in fail:
+        print("FAIL", f)
+    print("yardstick=" + ("fail" if fail else "pass"))
+    return 1 if fail else 0
 
 
 if __name__ == "__main__":

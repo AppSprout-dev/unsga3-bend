@@ -9,7 +9,7 @@ A user runs `Unsga3Algorithm.Run` through the checked-in drivers, either with th
 - `smoke-dump`: `ab/dump_bend_run.py --native` and `--interpreter` write byte-identical CSVs.
 - `smoke-ops`: `bend src/op_smoke.bend` prints SBX/PM children (`c1=…`, `c2=…`).
 - `smoke-forensic`: `ab/check_forensic.py` prints `ok` for every locked driver (trn_seed682, g12_key, nds_unequal, cd_contract).
-- `smoke-select`: `bend src/ab_select.bend` and `ab/dump_bend_front.py` (v0 `Survival.select`).
+- `smoke-select`: `bend src/ab_select.bend` and `ab/dump_bend_front.py` (v0 `Survival.select`). Without `--out`, the dump writes the gitignored `ab/out/bend_F.csv`. `gates.sh` passes `--out "$EVIDENCE/gates/bend_F.csv"`.
 
 ## How to get to it (user POV)
 
@@ -20,7 +20,7 @@ A user runs `Unsga3Algorithm.Run` through the checked-in drivers, either with th
 
 Preconditions: doctor passes, including clang 14+.
 
-- **Gates.** Run `scripts/gates.sh`. Rows `run_smoke`, `op_smoke`, `ab_select`, `check_forensic`, `dump_front`, `dump_run_native`, `dump_run_interp`, `native_parity`, and `native_built` all read `pass`.
+- **Gates.** Run `scripts/gates.sh`. Rows `run_smoke`, `op_smoke`, `ab_select`, `check_forensic`, `dump_front`, `dump_run_native`, `dump_run_interp`, `native_parity`, `native_built`, and `tracked_clean` all read `pass`.
 - **Parity proof.** `$EVIDENCE/gates/bend_run_F_native.csv` and `bend_run_F_interp.csv` are identical (`cmp` exit 0). `dump_run_native.log` contains `native: compile_s=` or `native: cache hit`.
 - **Hand check.** Run `bend src/run_smoke.bend -o /tmp/unsga3-bend-verify/run_smoke && /tmp/unsga3-bend-verify/run_smoke --threads 8 | diff - <(bend src/run_smoke.bend)`. It prints nothing.
 
