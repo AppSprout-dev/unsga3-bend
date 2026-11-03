@@ -53,7 +53,7 @@ It prints the HEAD SHA and date, the Bend version, clang (needs 14+), python3/nu
    .cursor/skills/verify-unsga3-bend/scripts/gates.sh
    ```
 
-   This runs the proof wall (`scripts/check_proof_wall.py`), every CONTRIBUTING.md "Check the tree" command, the `ab/test_*.py` suites, `ab/check_forensic.py`, `dump_bend_front.py`, and the ZDT1 smoke dump twice (native and interpreter). The two dumps must be byte-identical. It writes one line per gate to `$EVIDENCE/gates/summary.txt` and exits 0 only when every gate passes.
+   This runs the proof wall (`scripts/check_proof_wall.py`) and its self-test, every CONTRIBUTING.md "Check the tree" command, the `ab/test_*.py` suites, `ab/check_forensic.py`, `dump_bend_front.py` (writing to `$EVIDENCE`), and the ZDT1 smoke dump twice (native and interpreter). The two dumps must be byte-identical. A final `tracked_clean` gate fails if any gate changed a tracked file. It writes one line per gate to `$EVIDENCE/gates/summary.txt` and exits 0 only when every gate passes.
 
 2. Layer-1 fixture (needs dotnet and `UNSGA3_CS_ROOT`, a few seconds):
 
@@ -71,7 +71,7 @@ It prints the HEAD SHA and date, the Bend version, clang (needs 14+), python3/nu
    python3 .cursor/skills/verify-unsga3-bend/scripts/compare_yardstick.py "$EVIDENCE/multiseed/summary.jsonl"
    ```
 
-   Pass is `drifted=0`. Every fresh `igd=` cell and front size must match the published per-seed table to 6 decimals. For a quick check, use `--seeds 1` and list the seeds you actually ran.
+   Pass is `yardstick=pass`: at least one cell compared, `drifted=0`, and `skipped=0`. Every fresh `igd=` cell and front size must match the published per-seed table to 6 decimals. Zero compared cells always fails, because a run with no oracles proves nothing. Any `skip:` row fails unless you pass `--allow-skip`, and then you report those columns as unverified. For a quick check, use `--seeds 1` and list the seeds you actually ran.
 
 ## Evidence
 
@@ -97,15 +97,16 @@ rm -rf /tmp/unsga3-bend-verify/toolchain /tmp/unsga3-bend-verify/venv /tmp/unsga
 |---|---|---|
 | `scripts/doctor.sh` | `scripts/doctor.sh` | required toolchain present |
 | `scripts/gates.sh` | `EVIDENCE=… scripts/gates.sh` | every gate passed |
-| `scripts/check_proof_wall.py` | `scripts/check_proof_wall.py [--evidence DIR]` | wall matches CONTRIBUTING.md "Proof wall" |
-| `scripts/compare_yardstick.py` | `scripts/compare_yardstick.py SUMMARY.jsonl` | fresh IGD cells equal the published ones |
+| `scripts/check_proof_wall.py` | `scripts/check_proof_wall.py [--evidence DIR] [--root DIR]` | wall matches CONTRIBUTING.md "Proof wall" |
+| `scripts/check_proof_wall.py --self-test` | `scripts/check_proof_wall.py --self-test` | the checker passes the clean wall and fails synthetic bad output plus planted `?TODO` / type-error copies (temp dir; checkout untouched) |
+| `scripts/compare_yardstick.py` | `scripts/compare_yardstick.py SUMMARY.jsonl [--allow-skip]` | ≥1 cell compared, all equal the published ones, no skips (unless `--allow-skip`) |
 | `scripts/zig_clang_shim.sh` | `eval "$(scripts/zig_clang_shim.sh DIR)"` | prints a PATH export for a zig-backed `clang` |
 
 All paths are relative to `.cursor/skills/verify-unsga3-bend/`. Run them from anywhere inside the checkout.
 
 ## Gotchas
 
-- `bend PROOF.bend` **exits 1 with `SOME PROOFS FAIL` even when the wall is closed**. The accepted `@unsafe` Das–Dennis defs taint 14 names (11 for `bend src/lib.bend`). That's the documented state (CONTRIBUTING.md "Proof wall"), and it's the same on Bend 2.0.34 and 2.0.39. Use `check_proof_wall.py`, which compares the exact tainted set with no TODOs. A new or vanished name is a finding.
+- `bend PROOF.bend` **exits 1 with `SOME PROOFS FAIL` even when the wall is closed**. The accepted `@unsafe` Das–Dennis defs taint 14 names (11 for `bend src/lib.bend`). That's the documented state (CONTRIBUTING.md "Proof wall"), and it's the same on Bend 2.0.34 and 2.0.39. Use `check_proof_wall.py`, which compares the exact tainted set with no TODOs and parses Bend's output strictly. The only lines allowed are `SOME PROOFS FAIL`, the `Error: <N> defs rely on unsafe or foreign code:` header (N must equal the names listed), and the names. Anything else fails, including a type error's `Error:` / `- expected :` block. A new or vanished name is a finding. If you change the parser, rerun `--self-test`.
 - `bend LAWS.bend --check-only` reports 31 TODOs, one per law. Laws are open claims and `PROOF.bend` closes them. `bend challenges/NicheCountSum.challenge.bend` must report exactly `1 TODO found`. Filling that hole would be a second proof, so don't.
 - `ab/dump_bend_run.py --native` silently falls back to the interpreter when `bend -o` fails (for example, no clang). Look for `native: compile_s=` or `native: cache hit` on stderr. `gates.sh` checks this.
 - The published tables (2026-09-21, Bend 2.0.22, clang 18, C# `6dd91b5`) still reproduce exactly on later Bend and the zig clang. If a cell drifts, rerun that one seed first. Then report whether the Bend, C#, or pymoo column moved before calling it a product bug.

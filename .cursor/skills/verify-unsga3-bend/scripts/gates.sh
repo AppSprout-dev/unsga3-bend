@@ -11,6 +11,8 @@ mkdir -p "$EVIDENCE/gates"
 cd "$ROOT"
 export BEND_NO_TELEMETRY=1
 fails=0
+# Tracked-tree guard: no gate may modify a tracked file (ab/out/ is gitignored scratch).
+git status --porcelain --untracked-files=no > "$EVIDENCE/gates/tracked_before.txt"
 { echo "head=$(git rev-parse HEAD)"; echo "bend=$(bend version)"; echo "clang=$(clang --version 2>/dev/null | head -1)"; date -Is; } > "$EVIDENCE/gates/env.txt"
 
 gate() {  # gate <name> <cmd...>; pass = exit 0
@@ -23,6 +25,7 @@ gate() {  # gate <name> <cmd...>; pass = exit 0
 }
 
 gate proof_wall      python3 "$HERE/check_proof_wall.py" --evidence "$EVIDENCE/gates"
+gate proof_selftest  python3 "$HERE/check_proof_wall.py" --self-test
 gate op_smoke        bend src/op_smoke.bend
 gate run_smoke       bend src/run_smoke.bend
 gate catalog_smoke   bend src/catalog_smoke.bend
@@ -34,13 +37,16 @@ gate catalog_proto_t python3 ab/test_catalog_protocol.py
 gate gd_plus_t       python3 ab/test_gd_plus.py
 gate constrained_t   python3 ab/test_constrained_smoke.py
 gate constr_budget_t python3 ab/test_constrained_budget.py
-gate dump_front      python3 ab/dump_bend_front.py
+gate dump_front      python3 ab/dump_bend_front.py --out "$EVIDENCE/gates/bend_F.csv"
 gate dump_run_native python3 ab/dump_bend_run.py --native --out "$EVIDENCE/gates/bend_run_F_native.csv"
 gate dump_run_interp python3 ab/dump_bend_run.py --interpreter --out "$EVIDENCE/gates/bend_run_F_interp.csv"
 # Native and interpreter must write the same smoke front (same seed, same RNG order).
 gate native_parity   cmp "$EVIDENCE/gates/bend_run_F_native.csv" "$EVIDENCE/gates/bend_run_F_interp.csv"
 # The native dump must have run a binary (fresh build or cache hit), not silently fallen back to the interpreter.
 gate native_built    grep -E "native: (compile_s=|cache hit)" "$EVIDENCE/gates/dump_run_native.log"
+
+git status --porcelain --untracked-files=no > "$EVIDENCE/gates/tracked_after.txt"
+gate tracked_clean   diff "$EVIDENCE/gates/tracked_before.txt" "$EVIDENCE/gates/tracked_after.txt"
 
 echo "evidence=$EVIDENCE/gates failed=$fails" | tee -a "$EVIDENCE/gates/summary.txt"
 exit $(( fails > 0 ))
