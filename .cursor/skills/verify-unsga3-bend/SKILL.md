@@ -9,6 +9,8 @@ This is a library plus CLI drivers. Nothing runs as a server. The user surface i
 
 Feature map: [features/README.md](features/README.md). Read it before claiming any feature is verified.
 
+CI runs this skill on every PR to main and every push to main: the `verify` job in [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) installs current Bend, runs `doctor.sh`, `gates.sh` (all gates), the Layer-1 fixture, and the seed-1 IGD yardstick with Bend, C# (Unsga3 at a pinned SHA) and pymoo, with no `--allow-skip`. Evidence is uploaded as the `verify-evidence` artifact.
+
 ## Launch
 
 Work in a disposable worktree on the ref you are proving. Don't use someone's working branch:

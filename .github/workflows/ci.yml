@@ -1,0 +1,118 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # C# Unsga3 reference for the Layer-1 fixture and the C# IGD column.
+  # Bump deliberately; the published tables still reproduce on this SHA.
+  UNSGA3_CS_SHA: 478909d0c2b24674990da2d8f77a43a4a78d4599
+  BEND_NO_TELEMETRY: "1"
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  verify:
+    # Required check name. Keep it exactly `verify`.
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out unsga3-bend
+        uses: actions/checkout@v4
+        with:
+          path: unsga3-bend
+
+      # Unsga3 lives outside this repo (AGENTS.md product lock: never vendor it).
+      - name: Check out C# Unsga3 at a pinned SHA
+        uses: actions/checkout@v4
+        with:
+          repository: AppSprout-dev/Unsga3
+          ref: ${{ env.UNSGA3_CS_SHA }}
+          path: unsga3-cs
+          persist-credentials: false
+
+      - name: Install current Bend (never pinned)
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://bend-lang.com/install.sh | sh
+          echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-py312-pymoo-numpy
+
+      - name: Install pymoo + numpy
+        run: python -m pip install --upgrade pymoo numpy
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ env.UNSGA3_CS_SHA }}-${{ hashFiles('unsga3-bend/ab/csharp_core_dump/*.csproj') }}
+
+      - name: Set verify env
+        run: |
+          echo "UNSGA3_CS_ROOT=$GITHUB_WORKSPACE/unsga3-cs" >> "$GITHUB_ENV"
+          echo "EVIDENCE=$RUNNER_TEMP/evidence" >> "$GITHUB_ENV"
+
+      - name: Doctor
+        working-directory: unsga3-bend
+        run: |
+          bend version
+          clang --version | head -1
+          python -c 'import pymoo, numpy; print("pymoo", pymoo.__version__, "numpy", numpy.__version__)'
+          dotnet --list-sdks
+          .cursor/skills/verify-unsga3-bend/scripts/doctor.sh
+
+      - name: Gates (all, incl. proof_selftest and tracked_clean)
+        working-directory: unsga3-bend
+        run: .cursor/skills/verify-unsga3-bend/scripts/gates.sh
+
+      - name: Layer-1 fixture vs C#
+        working-directory: unsga3-bend
+        run: |
+          mkdir -p "$EVIDENCE"
+          python ab/fixture_check.py --out-dir "$EVIDENCE/fixture" | tee "$EVIDENCE/fixture_check.log"
+          grep -q 'verdict=pass' "$EVIDENCE/fixture_check.log"
+          grep -q 'row_set_equal=True' "$EVIDENCE/fixture_check.log"
+
+      - name: IGD yardstick, seed 1 (Bend / C# / pymoo)
+        working-directory: unsga3-bend
+        run: |
+          python ab/oracle_multiseed.py --seeds 1 --out-dir "$EVIDENCE/multiseed" \
+            --markdown "$EVIDENCE/multiseed/tables.md" > "$EVIDENCE/oracle_multiseed.log" 2>&1 \
+            || { cat "$EVIDENCE/oracle_multiseed.log"; exit 1; }
+          cat "$EVIDENCE/oracle_multiseed.log"
+          python .cursor/skills/verify-unsga3-bend/scripts/compare_yardstick.py "$EVIDENCE/multiseed/summary.jsonl"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-evidence
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: warn
+          retention-days: 14
