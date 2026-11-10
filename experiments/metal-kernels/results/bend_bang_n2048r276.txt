@@ -1,0 +1,2 @@
+kind=bend_bang n=2048 r=276 m=3 seed=1
+error=memory fault (machine stack overflow?)

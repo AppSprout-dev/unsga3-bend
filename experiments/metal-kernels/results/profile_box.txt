@@ -1,0 +1,15 @@
+Host: shared Linux box, 8 cores, clang 22.1.8 (zig shim), bend 2.0.40
+Date: 2026-11-10 00:39-00:40 America/New_York
+Load average during runs: about 6.3-6.7 (busy; nds varied, associate/niche were stable)
+Protocol: ab/profile_bend_run.py, warm-native, --threads 1, seed=1
+IO.now() millisecond buckets. Not an IGD claim.
+
+=== DTLZ2 M=3 k=10 partitions=12 pop=92 gens=150 (oracle) ===
+Warm 1 (first invocation after compile_s=11.671): run_s=2.544 profile_sum_ms=2446 profile_wall_ms=2541
+  nds 566 ms (23%), niche 680 ms (27%), associate 448 ms (18%), normalize 379 ms (15%), offspring 290 ms (11%)
+Warm 2 (cache hit): run_s=2.833 profile_sum_ms=2709 profile_wall_ms=2830
+  nds 734 ms (27%), niche 680 ms (25%), associate 435 ms (16%), normalize 462 ms (17%), offspring 303 ms (11%)
+
+=== DTLZ2 M=3 partitions=23 pop=512 gens=20 (larger Run) ===
+First invocation after compile_s=9.862: run_s=8.879 profile_sum_ms=8574 profile_wall_ms=8871
+  nds 4314 ms (50%), niche 1524 ms (17%), offspring 1144 ms (13%), associate 695 ms (8%), normalize 574 ms (6%)
