@@ -1,0 +1,8 @@
+kind=bend_bang
+n=2048 r=276 m=3 seed=1 keep=2048
+warmup=1 reps=8
+total_ms=149
+sum_idx=279827
+sum_idx_acc=2238616
+n_asg=2048
+counts_sum=2048

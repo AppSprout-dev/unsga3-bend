@@ -1,0 +1,7 @@
+kind=bend_bang
+n=32000 r=3003 m=3 seed=1 keep=0
+warmup=0 reps=1
+total_ms=2004
+sum_idx=47882676
+n_asg=32000
+counts_sum=32000

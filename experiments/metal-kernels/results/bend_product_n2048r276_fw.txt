@@ -1,0 +1,8 @@
+kind=bend_product
+n=2048 r=276 m=3 seed=1 keep=2048
+warmup=1 reps=10
+total_ms=198
+sum_idx=279827
+sum_idx_acc=2798270
+n_asg=2048
+counts_sum=2048

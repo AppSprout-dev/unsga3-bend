@@ -1,0 +1,7 @@
+kind=bend_product
+n=32000 r=3003 m=3 seed=1 keep=32000
+warmup=1 reps=3
+total_ms=2015
+sum_idx=47882676
+n_asg=32000
+counts_sum=32000

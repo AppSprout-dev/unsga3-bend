@@ -1063,3 +1063,71 @@ If a later product path chases GPU for real U-NSGA-III, it looks like this:
 6. **Non-goals for v0 of that path.** Rewriting all of `Run` on GPU. The Array host-rebuild (Phase C, discarded as noise). HIP on the RX 5700 XT (parked: Win10 + gfx1010 unsupported, HSA reported no adapters; bendlang#979 stays on the shelf). CUDA only if someone asks later. First host remains the Mac mini M4 / Metal.
 
 Not started. The open checkboxes live under Bend 0.3 in [ROADMAP.md](ROADMAP.md). Needs Jason's go before code.
+
+## Experimental hand-written Metal associate kernel (2026-11-10)
+
+Isolated experiment under [`experiments/metal-kernels/`](../experiments/metal-kernels/). **No product `Run` change.** No `!` on the default algorithm. No IGD claim (the shipping IGD path is untouched). Raw logs and the clean table: [`experiments/metal-kernels/results/TABLES.md`](../experiments/metal-kernels/results/TABLES.md).
+
+### Chosen hot spot
+
+Fresh warm-native `ab/profile_bend_run.py` on the shared Linux box (8 cores, `bend 2.0.40`, `--threads 1`, seed=1). Host load was high (~6.3–6.7), so `nds` moved between runs; `associate` and `niche` were stable.
+
+**DTLZ2 M=3, p=12, pop=92, gens=150** (oracle):
+
+| run | run_s | nds | niche | associate | normalize | offspring |
+|-----|------:|----:|------:|----------:|----------:|----------:|
+| warm 1 | 2.544 | 566 ms (23%) | 680 ms (27%) | 448 ms (18%) | 379 ms (15%) | 290 ms (11%) |
+| warm 2 | 2.833 | 734 ms (27%) | 680 ms (25%) | 435 ms (16%) | 462 ms (17%) | 303 ms (11%) |
+
+**DTLZ2 M=3, p=23, pop=512, gens=20** (larger `Run`, first binary after compile_s=9.862): `run_s=8.879`. `nds` 4314 ms (**50%**), `niche` 1524 ms (17%), `offspring` 1144 ms (13%), `associate` 695 ms (8%). NDS grows roughly with N²; it is divergent (guide: work like n-queens stays on CPU) and is not a first kernel target. Last-front `niche` fill is sequential and RNG-ordered, so a kernel that changed pick order would change fronts.
+
+The kernel target is **association**: perpendicular distance of each normalized point to each reference direction, strict-`<` argmin (ties keep the lower index), plus the O(N) niche-count histogram. That is the largest *uniform* numeric map at oracle size (16–18% of wall) and the Phase D family that had a measured 64× Metal win on inflated 32k × 3003 stand-ins.
+
+### Verdict
+
+A hand-written Metal kernel **beats the current Bend CPU associate map** at every size measured, including the realistic DTLZ2 combined pool, and **beats Bend's own `!` Metal backend** at the only size where that backend completed. Bend `!` is slower than Bend CPU at 184 × 91 (same story as Phase D) and **stack-overflows** at 2048 × 276 and 32k × 3003. A negative result for Bend's GPU bang on this map, and a real win for a flat MSL kernel against the cons-list CPU path, especially at big-N (277× at 32k × 3003).
+
+The kernel does **not** beat a flat Swift CPU reference end-to-end at 184 × 91: dispatch plus transfer (~0.25 ms) dominate a 0.116 ms kernel that is tied with the 0.108 ms Swift walk. That e2e crossing vs a C-like CPU is between 512 × 276 and 1024 × 276.
+
+### Method
+
+- Host: JMac-mini.local, Apple M4, Metal 4, 16 GB. `bend 2.0.40`. 2026-11-10 00:48–00:52 America/New_York. Load 2.20 2.23 2.12 at start.
+- Algorithm matches `src/survival.bend` `resid_sq` / `perp` / `nearest_go` (right-fold F32 dots and residuals, `ww < 1e-16` uses `||f||`, argmin on strict `<`).
+- Hand MSL: warmup then 5–7 timed reps; median and min–max. E2e includes buffer rewrite, dispatch, wait, readback touch. Kernel-only uses command-buffer GPU timestamps. Metal `fastMathEnabled = false`.
+- Bend: `IO.now()` (integer ms) around in-process repeats; per-rep = total / reps. `+RTS --threads 1`. GPU on vs `--gpu off` for the `!` binary.
+- Forced work: each Bend repeat folds argmin indices into `sum_idx_acc`, which must equal `reps * sum_idx`. Without that, unused repeats were dropped and wall time stopped scaling with `reps`.
+- Did it happen: MSL outputs matched the Swift CPU ref (0 index mismatches, counts equal, max abs distance ≤ 5.6e-8). Bend `sum_idx` matched MSL at every size that completed. Small fixture `n=8 r=5` also matched `ref_associate.py` on the box (max abs 5.4e-9).
+
+### Primary numbers
+
+| N × R × M | hand MSL e2e (median, range) | hand MSL kernel | Bend product (current path) | Bend Metal (`!`) | Bend `!` / `--gpu off` |
+|-----------|-----------------------------:|----------------:|----------------------------:|-----------------:|-----------------------:|
+| 184 × 91 × 3 (DTLZ2 pool) | **0.365 ms** (0.335–0.369), n=7 | **0.116 ms** (0.111–0.116) | **0.550 ms/rep** (44 ms / 80; acc=80×8819) | **6.55 ms/rep** (131 ms / 20; acc=20×8819) | 0.500 ms/rep (10 ms / 20) |
+| 2048 × 276 × 3 | **0.392 ms** (0.384–0.433), n=7 | **0.216 ms** (0.216–0.216) | **19.8 ms/rep** (198 ms / 10; acc=10×279827) | crash (stack overflow) | 18.6 ms/rep (149 ms / 8) |
+| 32000 × 3003 × 3 | **7.934 ms** (7.928–10.577), n=5 | **7.675 ms** (7.665–10.229) | **2195 ms/rep** (6586 ms / 3; acc=3×47882676) | crash (stack overflow) | 2236 ms/rep (4471 ms / 2) |
+
+MSL e2e vs Bend product: **1.51×**, **50.5×**, **277×**. MSL e2e vs Bend Metal: **17.9×** at 184 × 91; no Bend Metal number at the larger sizes.
+
+Limiter: at 184 × 91 the MSL e2e is dispatch-bound (e2e 0.365 ms vs kernel 0.116 ms vs Swift CPU 0.108 ms). At 32k × 3003, e2e ≈ kernel (7.93 vs 7.67 ms). That kernel is one thread per point walking all R refs (~96 million pairwise residuals, about 1.4e9 FLOP in 7.67 ms ≈ 180 GFLOP/s). A tiled layout could go faster; this prototype does not. Bend product at 32k is a sequential cons-list `nearest_go` on one CPU thread (~2.2 s/call), which is why 277× is plausible and still well under a “removed 100% of the 2.2 s” ceiling.
+
+`IO.now()` is 1 ms resolution, so the 184 × 91 Bend product 44 ms / 80 has about ±0.013 ms/rep quantization. That does not change the 1.51× call versus the 0.365 ms MSL median.
+
+### Break-even
+
+- **Vs current Bend CPU associate:** already ahead at the realistic DTLZ2 combined pool (184 × 91, 1.51× e2e). The gap widens with N×R.
+- **Vs Bend `!` Metal:** ahead at 184 × 91 (17.9×). Bend `!` does not currently run this fork-tree at 2048 × 276 or above (`memory fault (machine stack overflow?)`).
+- **Vs a flat Swift CPU walk of the same math:** MSL e2e is slower at 184 × 91 and 512 × 276, and faster from **1024 × 276** (1.54×) upward (17× at 8k × 1050, 61× at 32k × 3003). Extra MSL-only sizes are in `results/TABLES.md`.
+
+This is a different crossing than Phase D's Bend-`!` vs `--gpu off` rule (`pad(N)×M×(3+inflate) ≳ 3×10⁸`). A hand kernel has no ~80 ms process-wake tax and no cons-list fork tree, so it can win on residual-only (inflate=1) work that Bend `!` lost.
+
+### Correctness and IGD
+
+Product `src/` is unchanged, so the ZDT/DTLZ IGD yardstick is unchanged by construction (the `verify` job still runs seed-1 `oracle_multiseed.py` + `compare_yardstick.py`). Isolated map checks:
+
+- Box: Python `ref_associate.py` vs Bend product dump, n=8 r=5 seed=1: 0 index mismatches, counts match, max abs dist 5.4e-9.
+- Mac: same fixture vs hand MSL: 0 index mismatches, counts match, max abs dist 3.0e-8.
+- Every completed bench size: MSL `sum_idx` equals Bend `sum_idx`. Distance tolerance abs 1e-6 / rel 1e-5; observed max abs ≤ 5.6e-8.
+
+### CUDA
+
+`experiments/metal-kernels/associate.cu` is the same algorithm. `nvcc` is not on the box; a CUDA toolkit is not a cheap install (multi-GB), so the file was not compile-checked. No CUDA timings are claimed.
