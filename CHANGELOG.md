@@ -10,6 +10,10 @@ GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-p
 
 ## [Unreleased]
 
+### Added
+
+- Scaling gate ([`bench/scale_gate.py`](bench/scale_gate.py), [`bench/README.md`](bench/README.md)). CI job `scaling` runs a short DTLZ2 grid (`--threads 1`) and fails if a log-log exponent of time or peak RSS exceeds the ceiling in [`bench/baseline.json`](bench/baseline.json), or if exponents or ratios regress past that file's margin. [`bench/slow_pass.bend`](bench/slow_pass.bend) is a negative control the gate must reject. The required `verify` job is unchanged. Not an IGD / HV claim. Not a hub publish.
+
 ## [0.2.2] - 2026-10-01
 
 Hub re-publish of the speed dig already on main (#34). That dig landed before its version bump; this section is the cleanup cut. `bend src/lib.bend --publish` (Bend 2.0.34) printed the hash below. The hash changed because `survival.bend` is in the import closure. `src/lib.bend` does not re-export new symbols. Not nuget.org. Not GitHub Packages. Seed=1 fronts for the kept CPU edits match the 0.2.1 line. No new IGD / HV / Wilcoxon cells. A/B stays `PymooCompatible`.

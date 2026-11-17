@@ -62,7 +62,7 @@ Shipped in the **0.2.2** hub package (algorithm + A/B helpers):
 - **Native dumps** — `bend src/….bend -o …` then run the binary. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails
 - **Proofs** — `bend PROOF.bend` is 0 `?TODO`. Public “proves” / “resolved” verbs follow [docs/PROOF-SURFACE.md](docs/PROOF-SURFACE.md).
 
-Measured native phase tables (not IGD): [docs/PERF_NOTES.md](docs/PERF_NOTES.md). Protocol: [docs/EQUIVALENCE.md](docs/EQUIVALENCE.md).
+Measured native phase tables (not IGD): [docs/PERF_NOTES.md](docs/PERF_NOTES.md). Scaling gate (time and peak RSS vs population and reference-point count, plus a slow negative control): [bench/README.md](bench/README.md). Protocol: [docs/EQUIVALENCE.md](docs/EQUIVALENCE.md).
 
 | Module | C# surface it mirrors |
 |--------|------------------------|
@@ -152,6 +152,7 @@ unsga3-bend/
 ├── src/                      # core + variation + problems + Run + smokes
 ├── ab/                       # core + algorithm dump / optional IGD / optional C#
 ├── ab/protocol.py            # A/B defaults (ZDT2 gens=250)
+├── bench/                    # DTLZ2 scaling gate (not an IGD claim)
 ├── docs/EQUIVALENCE.md       # public protocol (this tree)
 ├── docs/PROOF-SURFACE.md     # proof_surface enum + public verb gate
 ├── docs/ORACLE-MULTISEED.md  # 15-seed IGD + Layer-1 fixture check
@@ -170,6 +171,7 @@ unsga3-bend/
 | [docs/ORACLE-MULTISEED.md](docs/ORACLE-MULTISEED.md) | 15-seed IGD (Bend / C# / pymoo NSGA-III) + fixture bit-check |
 | [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md) | why ZDT2 gens=100 is early-stress |
 | [docs/PERF_NOTES.md](docs/PERF_NOTES.md) | warm-native phase tables |
+| [bench/README.md](bench/README.md) | DTLZ2 scaling gate (time, peak RSS, slow control) |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | shipped vs open |
 | [ab/README.md](ab/README.md) | dump / IGD scripts |
 

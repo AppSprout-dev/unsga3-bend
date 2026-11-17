@@ -67,6 +67,7 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 - [x] Warm-cache native phase profile (`ab/profile_bend_run.py`, `docs/PERF_NOTES.md`) — wall `IO.now()` buckets; no fabricated IGD
 - [x] NDS peel on pre-materialized `Row{index, objectives}` (no `List.get` of `Individual` during the rank walk). Same Pareto definition; same Split partition law. Mid-split on candidates kept; inner `is_dominated` still sequential OR
 - [x] Last-front niching on `NRow{index, ref, dist}` + SBX/PM/G12 list walks (no repeated `List.get` / `set_var_at` on fat Individuals). Same pick rules and RNG order; tournament / `niche_loop.rng` stay sequential
+- [x] Scaling gate — [`bench/scale_gate.py`](../bench/scale_gate.py) on DTLZ2, gens=16, `--threads 1`. Ceilings and the committed medians are in [`bench/baseline.json`](../bench/baseline.json). CI job `scaling` (not required `verify`). The slow walk in [`bench/slow_pass.bend`](../bench/slow_pass.bend) must fail the gate. Numbers: [bench/README.md](../bench/README.md). No IGD
 
 ## Hub publish — 0.1.0
 
