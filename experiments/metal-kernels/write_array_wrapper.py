@@ -21,18 +21,20 @@ def main() -> int:
     p.add_argument("--warmup", type=int, default=1)
     p.add_argument("--reps", type=int, default=5)
     p.add_argument("--dump", type=int, default=0)
+    p.add_argument("--src", default="assoc_array.bend", help="bench module to import (e.g. assoc_array_tail.bend)")
     args = p.parse_args()
     bang = "True{}" if args.bang else "False{}"
     args.out.write_text(
         "# Generated wrapper ({kind}, chunk={chunk}, bang={bang_flag}).\n"
         "# Isolated Array.clone/fork experiment, not Run.\n"
         "import Base\n"
-        "import ./assoc_array.bend as A\n"
+        "import ./{src} as A\n"
         "\n"
         "def main() -> IO(Unit):\n"
         "  A.run({n}n, {r}n, {m}n, {seed}n, {warmup}n, {reps}n, {dump}n, {bang}, {kind_n}n, {chunk}n)\n"
         .format(
             kind=args.kind,
+            src=args.src,
             chunk=args.chunk,
             bang_flag=int(args.bang),
             n=args.n,

@@ -21,6 +21,10 @@ is the histogram of those argmin indices.
 | `bench_product.bend` | Current-path bench (no `!`) |
 | `bench_bang.bend` | Same map with `map_nearest.go!` (Bend GPU backend) |
 | `run_mac_bench.sh` | Compile + run on an Apple GPU machine |
+| `assoc_array.bend` | `Array.clone` / `Array.fork` associate map (bendlang/bend#1376), packed refs |
+| `assoc_array_tail.bend` | Same with nuxyel's tail-loop walks ([bendlang/bend#1376 comment](https://github.com/bendlang/bend/issues/1376#issuecomment-6934512593)) |
+| `assoc_array_tailapp.bend`, `assoc_map_tailapp.bend` | Tail walks + the bendlang/bend#1393 two-tail-loop append workaround (wakamex), runs on Metal at 2048 x 276 |
+| `run_array_bench.py`, `write_array_wrapper.py` | Bench harness for the array variants (`--src` picks the file); results in `results/array_clone_fork/` and `results/array_tail_loops/` |
 
 ## How to run (Mac, Metal)
 

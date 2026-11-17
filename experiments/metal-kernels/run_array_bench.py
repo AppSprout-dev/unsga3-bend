@@ -55,6 +55,11 @@ def main() -> int:
     )
     p.add_argument("--chunks", default="1,32,128")
     p.add_argument("--kinds", default="list,clone,fork")
+    p.add_argument(
+        "--src",
+        default="assoc_array.bend",
+        help="bench module: assoc_array.bend, assoc_array_tail.bend, or assoc_array_tailapp.bend",
+    )
     p.add_argument("--skip-32k", action="store_true")
     p.add_argument("--reuse-bin", action="store_true", help="skip compile if the binary already exists")
     args = p.parse_args()
@@ -79,6 +84,7 @@ def main() -> int:
         "uname": uname.stdout.strip(),
         "when": datetime.now().isoformat(timespec="seconds"),
         "mode": args.mode,
+        "src": args.src,
         "bang": bool(args.bang),
         "runs": args.runs,
         "method": (
@@ -99,13 +105,16 @@ def main() -> int:
     chunks = [int(x) for x in args.chunks.split(",") if x.strip()]
     kinds = [k.strip() for k in args.kinds.split(",") if k.strip()]
 
+    stem = Path(args.src).stem
+    prefix = "array" if stem == "assoc_array" else stem.replace("assoc_", "", 1)
+
     results = []
     for n, r, m, warmup, reps in sizes:
         for kind in kinds:
             kind_chunks = [1] if kind == "list" else chunks
             for chunk in kind_chunks:
                 tag = f"{kind}_n{n}r{r}_c{chunk}_b{int(args.bang)}"
-                wrapper = HERE / f"wrapper_array_{tag}.bend"
+                wrapper = HERE / f"wrapper_{prefix}_{tag}.bend"
                 subprocess.check_call(
                     [
                         sys.executable,
@@ -130,12 +139,14 @@ def main() -> int:
                         str(reps),
                         "--dump",
                         "0",
+                        "--src",
+                        args.src,
                     ]
                     + (["--bang"] if args.bang else []),
                     cwd=HERE,
                     env=env,
                 )
-                binary = HERE / f"bin_array_{tag}"
+                binary = HERE / f"bin_{prefix}_{tag}"
                 if args.mode == "binary" and (not args.reuse_bin or not binary.exists()):
                     compile_cmd = [bend, str(wrapper), "-o", str(binary)]
                     print(f"==== compile {tag} ====", flush=True)
@@ -223,6 +234,7 @@ def main() -> int:
         f"- host: {meta['hostname']}",
         f"- uname: {meta['uname']}",
         f"- bend: {meta['bend_version']}",
+        f"- src: {meta['src']}",
         f"- mode: {meta['mode']}; bang={meta['bang']}",
         f"- when: {meta['when']}",
         f"- method: {meta['method']}",
