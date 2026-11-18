@@ -179,6 +179,19 @@ class DecisionTests(unittest.TestCase):
         self.assertLess(time["endpoint_ratio"], time["ratio_ceiling"])
         self.assertLess(time["other_endpoint_ratio"], time["ratio_ceiling"])
 
+    def test_uniform_on_a_different_machine_keeps_the_slope(self):
+        ok = {
+            "id": "control-uniform",
+            "role": "uniform",
+            "metric": "time",
+            "fit_status": "within",
+            "absolute": "skipped-machine",
+        }
+        self.assertEqual(g.decide([ok])[0], 0)
+        steep = dict(ok)
+        steep["fit_status"] = "worse"
+        self.assertEqual(g.decide([steep])[0], 1)
+
     def test_control_must_be_worse_not_merely_failing(self):
         caught = {"id": "control-quadratic", "role": "control", "metric": "time", "fit_status": "worse"}
         missed = {"id": "control-quadratic", "role": "control", "metric": "time", "fit_status": "within"}

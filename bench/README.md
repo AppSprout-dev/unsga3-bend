@@ -28,7 +28,7 @@ margin = need rounded up to the next 0.001
 
 Sample CV is the n−1 standard deviation divided by the absolute mean. An exact thousandth stays put. The published check of that rounding is 0.5200370151746644 → 0.521, 0.13263110427830926 → 0.133, and 0.4511025764755765 → 0.452.
 
-Absolute comparison is skipped when the CPU model or the logical CPU count differs from the baseline machine. The slope checks still run. `baseline.json` is recorded on `ubuntu-latest`, not on a dev VM.
+Absolute comparison is skipped when the CPU model or the logical CPU count differs from the baseline machine. The slope checks still run. `ubuntu-latest` is not one CPU: the baseline is an EPYC 7763, and the next run was an EPYC 9V74 (anchor 221 ms against 208 ms, outside the 4.3% same-machine margin). That run skips the absolute check instead of failing the anchor. On the baseline machine the uniform spin still has to fail it.
 
 The previous point-estimate checks are still applied and are not raised: time-vs-N ceiling 2.5, time-vs-R ceiling 1.5, exponent drift 0.40 above the committed slope, endpoint-ratio margins 1.75 (time) and 1.15 (RSS).
 

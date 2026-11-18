@@ -635,6 +635,10 @@ def decide(summaries):
             if s.get("absolute") == "skipped-no-baseline":
                 missing_baseline = True
                 problems.append(f"{s['id']}:absolute:skipped-no-baseline")
+            elif s.get("absolute") == "skipped-machine":
+                # A different CPU model does not compare absolute milliseconds.
+                # The slope check above still has to pass.
+                pass
             elif s.get("absolute") != "fail":
                 problems.append(f"{s['id']}:absolute:not-fail")
     real = [p for p in problems if "skipped-no-baseline" not in p]
