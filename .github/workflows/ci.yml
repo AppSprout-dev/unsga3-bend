@@ -121,3 +121,46 @@ jobs:
           path: ${{ runner.temp }}/evidence
           if-no-files-found: warn
           retention-days: 14
+
+  # Not the required `verify` check. Mark it required in branch protection
+  # only after it has stayed green; this workflow does not touch that setting.
+  scaling:
+    name: scaling
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out unsga3-bend
+        uses: actions/checkout@v4
+
+      - name: Install current Bend (never pinned)
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://bend-lang.com/install.sh | sh
+          echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fitter unit checks
+        run: python3 bench/test_scale_gate.py
+
+      - name: Scaling gate on the real Run
+        run: |
+          python3 bench/scale_gate.py --check
+          cp bench/out/report.json "$RUNNER_TEMP/scaling-fast.json"
+
+      - name: Negative control must fail the gate
+        run: |
+          python3 bench/scale_gate.py --check --variant slow --expect fail
+          cp bench/out/report.json "$RUNNER_TEMP/scaling-slow.json"
+
+      - name: Upload scaling reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scaling-reports
+          path: |
+            ${{ runner.temp }}/scaling-fast.json
+            ${{ runner.temp }}/scaling-slow.json
+          if-no-files-found: warn
+          retention-days: 14

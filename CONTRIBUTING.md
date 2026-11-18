@@ -29,6 +29,18 @@ python3 ab/dump_bend_run.py --native
 
 Native dumps need clang 14+. `ab/dump_bend_run.py --native` prefers `bend … -o` and falls back to `bend file.bend` if the build fails.
 
+## Scaling gate
+
+Not part of the list above, and not part of the required `verify` job. CI runs it as the `scaling` job. Protocol, ceilings, and the measured baseline are in [bench/README.md](bench/README.md).
+
+```bash
+python3 bench/test_scale_gate.py
+python3 bench/scale_gate.py --check
+python3 bench/scale_gate.py --check --variant slow --expect fail
+```
+
+The slow command exits 0 only when the gate rejects that variant. Do not raise a ceiling or a margin in `bench/baseline.json` to make it pass. Do not pin a Bend version; CI installs current Bend the same way as `verify`.
+
 ## A/B
 
 See [ab/README.md](ab/README.md) and [`ab/protocol.py`](ab/protocol.py).
