@@ -12,7 +12,7 @@ GitHub tree **0.1.1** was a docs/ab confidence bump only. That tag did not hub-p
 
 ### Added
 
-- Scaling gate ([`bench/scale_gate.py`](bench/scale_gate.py), [`bench/README.md`](bench/README.md)). CI job `scaling` runs a short DTLZ2 grid (`--threads 1`) and fails if a log-log 95% interval's upper bound exceeds the allowed slope, if r² is under 0.75, if a legacy ceiling or exponent/ratio margin is crossed, or if the reference-size median exceeds [`bench/baseline.json`](bench/baseline.json) by the margin measured from two sweeps. The N² time loop, the N² allocation, and a uniform 2× spin must each trip their named check. The required `verify` job is unchanged. Not an IGD / HV claim. Not a hub publish.
+- Scaling gate ([`bench/scale_gate.py`](bench/scale_gate.py), [`bench/README.md`](bench/README.md)). CI job `scaling` runs a short DTLZ2 grid (`--threads 1`) and fails if a log-log 95% interval's upper bound exceeds the allowed slope, if r² is under 0.75, if a legacy ceiling or exponent/ratio margin is crossed, or if the reference-size median exceeds [`bench/baseline.json`](bench/baseline.json) by the margin measured from two sweeps. The N² allocation must come back worse, the N² time loop must clear the measured endpoint-ratio ceiling, and a uniform 2× spin must fail the absolute check while its slope stays within. The required `verify` job is unchanged. Not an IGD / HV claim. Not a hub publish.
 
 ## [0.2.2] - 2026-10-01
 

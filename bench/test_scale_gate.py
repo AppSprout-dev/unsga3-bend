@@ -141,6 +141,44 @@ class DecisionTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertTrue(config["workloads"])
 
+    def test_quadratic_time_control_is_caught_by_the_endpoint_ratio(self):
+        caught = {
+            "id": "control-quadratic",
+            "role": "control",
+            "metric": "time",
+            "catch": "endpoint-ratio",
+            "fit_status": "within",
+            "ratio_check": "fail",
+        }
+        missed = dict(caught)
+        missed["ratio_check"] = "pass"
+        bare = dict(caught)
+        bare["ratio_check"] = "skipped-no-baseline"
+        self.assertTrue(g.control_caught(caught))
+        self.assertEqual(g.decide([caught])[0], 0)
+        self.assertEqual(g.decide([missed])[0], 1)
+        self.assertEqual(g.decide([bare])[0], 2)
+
+    def test_committed_runner_margins_match_the_formula(self):
+        base = json.loads((ROOT / "baseline.json").read_text(encoding="utf-8"))
+        self.assertTrue(base["recorded"])
+        self.assertEqual(base["machine"]["cpu_model"], "AMD EPYC 7763 64-Core Processor")
+        self.assertEqual(base["machine"]["logical_cpus"], 4)
+        for key in ("dtlz2-time", "dtlz2-wall", "dtlz2-r", "dtlz2-rss", "alloc-linear"):
+            ref = base["references"][key]
+            need = g.margin_need(max(ref["cv"], ref["other_cv"]), ref["other_median"], ref["median"])
+            self.assertEqual(ref["margin"], g.round_up_milli(need), key)
+            self.assertAlmostEqual(ref["margin_need"], need, places=12, msg=key)
+        time = base["references"]["dtlz2-time"]
+        need = g.margin_need(time["endpoint_cv"], time["other_endpoint_ratio"], time["endpoint_ratio"])
+        self.assertEqual(time["ratio_margin"], g.round_up_milli(need))
+        self.assertAlmostEqual(time["ratio_ceiling"], time["endpoint_ratio"] * (1.0 + time["ratio_margin"]))
+        # The N² loop's measured ratio has to clear that ceiling, and the two
+        # algorithm sweeps have to sit under it.
+        self.assertGreater(63.1875, time["ratio_ceiling"])
+        self.assertLess(time["endpoint_ratio"], time["ratio_ceiling"])
+        self.assertLess(time["other_endpoint_ratio"], time["ratio_ceiling"])
+
     def test_control_must_be_worse_not_merely_failing(self):
         caught = {"id": "control-quadratic", "role": "control", "metric": "time", "fit_status": "worse"}
         missed = {"id": "control-quadratic", "role": "control", "metric": "time", "fit_status": "within"}
@@ -205,8 +243,9 @@ class DecisionTests(unittest.TestCase):
         self.assertEqual(by_id["dtlz2-time"]["legacy_ceiling"], 2.5)
         self.assertEqual(by_id["dtlz2-r"]["legacy_ceiling"], 1.5)
         self.assertEqual(by_id["dtlz2-wall"]["legacy_ceiling"], 2.5)
-        self.assertEqual(by_id["dtlz2-time"]["max_exponent"], 1.934)
-        self.assertLess(by_id["dtlz2-time"]["max_exponent"], 2.0)
+        self.assertEqual(by_id["dtlz2-time"]["max_exponent"], 2.19)
+        self.assertGreater(by_id["dtlz2-time"]["max_exponent"], 1.9895696937018328)
+        self.assertEqual(by_id["control-quadratic"]["catch"], "endpoint-ratio")
         self.assertEqual(by_id["control-uniform"]["baseline_of"], "dtlz2-time")
         self.assertNotIn("a400", by_id["control-alloc"]["cells"])
         self.assertGreaterEqual(6400 / 800, config["min_n_span"])

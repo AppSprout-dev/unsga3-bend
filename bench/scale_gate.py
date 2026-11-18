@@ -471,6 +471,7 @@ def summarize_workload(measured, workload, config, baseline, machine):
             if baseline and baseline.get("recorded"):
                 base_fit = (baseline.get("fits") or {}).get(workload["id"])
             result["legacy"] = legacy_point_failures(fit, workload, base_fit)
+            result.update(ratio_check_fields(workload, fit, baseline))
     ref = workload.get("reference")
     if ref:
         _, samples = reference_point(measured, ref)
@@ -510,8 +511,75 @@ def absolute_status(reference, workload, baseline, machine):
     return "pass"
 
 
+def ratio_ceiling_of(baseline, key):
+    if not baseline or not baseline.get("recorded"):
+        return None
+    ref = (baseline.get("references") or {}).get(key) or {}
+    if "ratio_ceiling" not in ref:
+        return None
+    return float(ref["ratio_ceiling"])
+
+
+def ratio_check_fields(workload, fit, baseline):
+    """Endpoint-ratio ceiling.
+
+    On the runner the time slope intervals meet: the algorithm's upper bound
+    and the N² loop's lower bound both sit on 1.99. The slope check cannot
+    both accept the algorithm and reject that loop. The endpoint ratio can.
+    The ceiling is the confirmation sweep's ratio times one measured margin.
+    """
+    catch = workload.get("catch")
+    flagged = bool(workload.get("ratio_ceiling")) or catch == "endpoint-ratio"
+    if not flagged or fit is None:
+        return {}
+    key = workload.get("ratio_from") or workload["id"]
+    ceiling = ratio_ceiling_of(baseline, key)
+    out = {"catch": catch or "measure"}
+    if ceiling is None:
+        out["ratio_check"] = "skipped-no-baseline"
+        return out
+    out["ratio_ceiling"] = ceiling
+    ratio = float(fit["endpoint_ratio"])
+    out["ratio_check"] = "fail" if ratio > ceiling + 1e-9 else "pass"
+    return out
+
+
+def endpoint_ratio_stats(summary):
+    points = summary["points"]
+    lo, hi = points[0], points[-1]
+    return hi["median"] / lo["median"], math.hypot(lo["cv"], hi["cv"])
+
+
+def ratio_ceiling_from_sweeps(summary_a, summary_b):
+    """Same margin formula as the absolute check, applied to the endpoint ratios.
+
+    CV of a ratio is the root-sum-square of the two end-point sample CVs.
+    The larger of the two sweeps is kept. The ceiling multiplies the
+    confirmation sweep's ratio.
+    """
+    ratio_a, cv_a = endpoint_ratio_stats(summary_a)
+    ratio_b, cv_b = endpoint_ratio_stats(summary_b)
+    cv = max(cv_a, cv_b)
+    need = margin_need(cv, ratio_a, ratio_b)
+    margin = round_up_milli(need)
+    return {
+        "endpoint_ratio": ratio_b,
+        "other_endpoint_ratio": ratio_a,
+        "endpoint_cv": cv,
+        "ratio_margin_need": need,
+        "ratio_margin": margin,
+        "ratio_ceiling": ratio_b * (1.0 + margin),
+    }
+
+
 def control_caught(summary):
-    """A scaling control is caught only when its gated metric is worse."""
+    """A slope control is caught when its fit is worse.
+
+    The N² time loop is caught when its endpoint ratio clears the ceiling.
+    Its slope interval meets the algorithm's, so `worse` is not the check.
+    """
+    if summary.get("catch") == "endpoint-ratio":
+        return summary.get("ratio_check") == "fail"
     return summary.get("fit_status") == "worse"
 
 
@@ -525,9 +593,10 @@ def measure_ok(summary):
         return True
     fit_ok = summary.get("fit_status") in (None, "within", "skipped")
     legacy_ok = not summary.get("legacy")
+    ratio_ok = summary.get("ratio_check") in (None, "pass", "skipped-no-baseline")
     absolute = summary.get("absolute")
     abs_ok = absolute in (None, "n/a", "pass", "skipped-machine")
-    return fit_ok and legacy_ok and abs_ok
+    return fit_ok and legacy_ok and ratio_ok and abs_ok
 
 
 def decide(summaries):
@@ -554,8 +623,12 @@ def decide(summaries):
                 else:
                     problems.append(f"{s['id']}:fail")
         elif role == "control":
-            if not control_caught(s):
-                problems.append(f"{s['id']}:{s['metric']}:not-worse")
+            if s.get("catch") == "endpoint-ratio" and s.get("ratio_check") == "skipped-no-baseline":
+                missing_baseline = True
+                problems.append(f"{s['id']}:endpoint-ratio:skipped-no-baseline")
+            elif not control_caught(s):
+                kind = "endpoint-ratio:not-over" if s.get("catch") == "endpoint-ratio" else f"{s['metric']}:not-worse"
+                problems.append(f"{s['id']}:{kind}")
         elif role == "uniform":
             if s.get("fit_status") != "within":
                 problems.append(f"{s['id']}:time:not-within")
@@ -637,6 +710,8 @@ def build_draft(config, sweep_a, sweep_b, machine):
         }
         if "fit" in summary_b:
             fits[workload["id"]] = summary_b["fit"]
+        if workload.get("ratio_ceiling"):
+            references[workload["id"]].update(ratio_ceiling_from_sweeps(summary_a, summary_b))
     return {
         "schema": 2,
         "recorded": True,
@@ -675,6 +750,10 @@ def format_report(summaries, code, problems):
             lines.append(f"{s['id']} {s['metric']} {s['fit_status']}")
         if s.get("legacy"):
             lines.append(f"{s['id']} legacy {','.join(s['legacy'])}")
+        if s.get("ratio_check"):
+            ceiling = s.get("ratio_ceiling")
+            extra = f" ceiling={ceiling:.4f}" if ceiling is not None else ""
+            lines.append(f"{s['id']} ratio {s['ratio_check']}{extra}")
         if "absolute" in s:
             ref = s.get("reference") or {}
             lines.append(

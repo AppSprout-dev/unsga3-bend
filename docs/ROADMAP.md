@@ -67,7 +67,7 @@ CPU parallel calls on independent per-individual work. Not a better-IGD bet. No 
 - [x] Warm-cache native phase profile (`ab/profile_bend_run.py`, `docs/PERF_NOTES.md`) — wall `IO.now()` buckets; no fabricated IGD
 - [x] NDS peel on pre-materialized `Row{index, objectives}` (no `List.get` of `Individual` during the rank walk). Same Pareto definition; same Split partition law. Mid-split on candidates kept; inner `is_dominated` still sequential OR
 - [x] Last-front niching on `NRow{index, ref, dist}` + SBX/PM/G12 list walks (no repeated `List.get` / `set_var_at` on fat Individuals). Same pick rules and RNG order; tournament / `niche_loop.rng` stay sequential
-- [x] Scaling gate — [`bench/scale_gate.py`](../bench/scale_gate.py) on DTLZ2, gens=16, `--threads 1`. Medians of 5 fresh processes, a 95% log-log interval, and a reference-size margin measured from two runner sweeps. CI job `scaling` (not required `verify`). The N² loop, the N² allocation, and a uniform 2× spin must each trip their named check. Numbers: [bench/README.md](../bench/README.md). No IGD
+- [x] Scaling gate — [`bench/scale_gate.py`](../bench/scale_gate.py) on DTLZ2, gens=16, `--threads 1`. Medians of 5 fresh processes, a 95% log-log interval, and a reference-size margin measured from two runner sweeps. CI job `scaling` (not required `verify`). The N² allocation, the N² time loop's endpoint ratio, and a uniform 2× spin must each trip their named check. Numbers: [bench/README.md](../bench/README.md). No IGD
 
 ## Hub publish — 0.1.0
 

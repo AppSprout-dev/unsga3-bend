@@ -38,7 +38,7 @@ python3 bench/test_scale_gate.py
 python3 bench/scale_gate.py --run
 ```
 
-`--run` exits 0 only when the measure workloads pass and the N² time loop, the N² allocation, and the uniform 2× spin each trip the check named in [bench/README.md](bench/README.md). Exit 2 means `bench/baseline.json` is not recorded yet. Do not raise a ceiling, `max_exponent`, or a margin to make a control pass. Record the baseline from the ubuntu-latest artifact, not from a dev VM. Do not pin a Bend version; CI installs current Bend the same way as `verify`.
+`--run` exits 0 only when the measure workloads pass and the N² time loop, the N² allocation, and the uniform 2× spin each trip the check named in [bench/README.md](bench/README.md). Do not raise a ceiling, `max_exponent`, or a margin to make a control pass. `bench/baseline.json` is the ubuntu-latest confirmation sweep. Do not pin a Bend version; CI installs current Bend the same way as `verify`.
 
 ## A/B
 
