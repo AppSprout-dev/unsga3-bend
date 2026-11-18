@@ -1,5 +1,7 @@
 """Gate arithmetic. No Bend process: the fits and the margin formula are pure."""
 
+import contextlib
+import io
 import json
 import unittest
 from pathlib import Path
@@ -122,10 +124,15 @@ class DecisionTests(unittest.TestCase):
         fast = self._summary("dtlz2-time", "measure", "within", 210.0)
         uniform = self._summary("control-uniform", "uniform", "within", 420.0)
         config = g.load_config()
-        fast["absolute"] = g.absolute_status(fast["reference"], {"id": "dtlz2-time", "role": "measure"}, baseline, machine)
+        fast["absolute"] = g.absolute_status(
+            fast["reference"],
+            {"id": "dtlz2-time", "role": "measure", "metric": "time"},
+            baseline,
+            machine,
+        )
         uniform["absolute"] = g.absolute_status(
             uniform["reference"],
-            {"id": "control-uniform", "role": "uniform", "baseline_of": "dtlz2-time"},
+            {"id": "control-uniform", "role": "uniform", "metric": "time", "baseline_of": "dtlz2-time"},
             baseline,
             machine,
         )
@@ -173,24 +180,43 @@ class DecisionTests(unittest.TestCase):
         need = g.margin_need(time["endpoint_cv"], time["other_endpoint_ratio"], time["endpoint_ratio"])
         self.assertEqual(time["ratio_margin"], g.round_up_milli(need))
         self.assertAlmostEqual(time["ratio_ceiling"], time["endpoint_ratio"] * (1.0 + time["ratio_margin"]))
+        for key in ("dtlz2-time", "dtlz2-wall", "dtlz2-r"):
+            for cpu, row in base["references"][key]["by_cpu"].items():
+                if "other_median" in row:
+                    cv = max(row["cv"], row["other_cv"])
+                    need = g.margin_need(cv, row["other_median"], row["median"])
+                else:
+                    need = 5.0 * row["cv"]
+                self.assertEqual(row["margin"], g.round_up_milli(need), f"{key} {cpu}")
+                self.assertAlmostEqual(row["margin_need"], need, places=12, msg=f"{key} {cpu}")
+        for key in ("dtlz2-rss", "alloc-linear"):
+            ref = base["references"][key]
+            cross = ref["cross_run"]
+            xs = cross["medians"]
+            need = g.margin_need(g.coefficient_of_variation(xs), min(xs), max(xs))
+            self.assertAlmostEqual(cross["margin_need"], need, places=12, msg=key)
+            self.assertGreaterEqual(ref["margin"], cross["margin"])
         # The N² loop's measured ratio has to clear that ceiling, and the two
         # algorithm sweeps have to sit under it.
         self.assertGreater(63.1875, time["ratio_ceiling"])
         self.assertLess(time["endpoint_ratio"], time["ratio_ceiling"])
         self.assertLess(time["other_endpoint_ratio"], time["ratio_ceiling"])
 
-    def test_uniform_on_a_different_machine_keeps_the_slope(self):
-        ok = {
+    def test_uniform_skipped_machine_is_not_caught(self):
+        skipped = {
             "id": "control-uniform",
             "role": "uniform",
             "metric": "time",
             "fit_status": "within",
             "absolute": "skipped-machine",
+            "reference": {"cpu": "unknown"},
         }
-        self.assertEqual(g.decide([ok])[0], 0)
-        steep = dict(ok)
-        steep["fit_status"] = "worse"
-        self.assertEqual(g.decide([steep])[0], 1)
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code, problems = g.decide([skipped])
+        self.assertEqual(code, 1)
+        self.assertIn("control-uniform:absolute:not-fail", problems)
+        self.assertIn("::warning", err.getvalue())
+        self.assertFalse(g.uniform_caught(skipped))
 
     def test_control_must_be_worse_not_merely_failing(self):
         caught = {"id": "control-quadratic", "role": "control", "metric": "time", "fit_status": "worse"}
@@ -200,18 +226,29 @@ class DecisionTests(unittest.TestCase):
         self.assertEqual(g.decide([missed])[0], 1)
         self.assertEqual(g.decide([straddling])[0], 1)
 
-    def test_different_machine_skips_absolute_and_keeps_the_slope(self):
+    def test_unknown_cpu_fails_and_a_recorded_cpu_runs_the_check(self):
         baseline = {
             "recorded": True,
-            "machine": {"cpu_model": "other", "logical_cpus": 8},
-            "absolute": {"on_different_machine": "skip"},
-            "references": {"dtlz2-time": {"median": 1.0, "margin": 0.01}},
+            "machine": {"cpu_model": "A", "logical_cpus": 4},
+            "absolute": {"on_different_machine": "per-cpu"},
+            "references": {
+                "dtlz2-time": {
+                    "median": 200.0,
+                    "margin": 0.043,
+                    "by_cpu": {
+                        "A": {"logical_cpus": 4, "median": 200.0, "margin": 0.043},
+                        "B": {"logical_cpus": 4, "median": 221.0, "margin": 0.077},
+                    },
+                },
+                "dtlz2-rss": {"median": 15000.0, "margin": 0.109},
+            },
         }
+        unknown = {}
         status = g.absolute_status(
-            {"median": 100.0},
-            {"id": "dtlz2-time", "role": "measure"},
+            unknown,
+            {"id": "dtlz2-time", "role": "measure", "metric": "time"},
             baseline,
-            {"cpu_model": "here", "logical_cpus": 4},
+            {"cpu_model": "C", "logical_cpus": 4},
         )
         self.assertEqual(status, "skipped-machine")
         summary = {
@@ -221,11 +258,39 @@ class DecisionTests(unittest.TestCase):
             "fit_status": "within",
             "legacy": [],
             "absolute": status,
+            "reference": unknown,
         }
-        self.assertEqual(g.decide([summary])[0], 0)
-        bad = dict(summary)
-        bad["fit_status"] = "worse"
-        self.assertEqual(g.decide([bad])[0], 1)
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code, problems = g.decide([summary])
+        self.assertEqual(code, 1, problems)
+        self.assertIn("dtlz2-time:absolute:skipped-machine", problems)
+        self.assertIn("::warning", err.getvalue())
+        self.assertFalse(g.measure_ok(summary))
+        known = {"median": 221.0}
+        status = g.absolute_status(
+            known,
+            {"id": "dtlz2-time", "role": "measure", "metric": "time"},
+            baseline,
+            {"cpu_model": "B", "logical_cpus": 4},
+        )
+        self.assertEqual(status, "pass")
+        self.assertAlmostEqual(known["limit"], 221.0 * 1.077)
+        slow = {"median": 444.0}
+        status = g.absolute_status(
+            slow,
+            {"id": "control-uniform", "role": "uniform", "metric": "time", "baseline_of": "dtlz2-time"},
+            baseline,
+            {"cpu_model": "B", "logical_cpus": 4},
+        )
+        self.assertEqual(status, "fail")
+        rss = {"median": 15200.0}
+        status = g.absolute_status(
+            rss,
+            {"id": "dtlz2-rss", "role": "measure", "metric": "rss"},
+            baseline,
+            {"cpu_model": "C", "logical_cpus": 4},
+        )
+        self.assertEqual(status, "pass")
 
     def test_legacy_ceiling_still_fails_a_steep_point_estimate(self):
         fit = {"slope": 2.6, "ys": [1.0, 2.0, 4.0, 8.0]}
@@ -263,6 +328,7 @@ class DecisionTests(unittest.TestCase):
         self.assertNotIn("a400", by_id["control-alloc"]["cells"])
         self.assertGreaterEqual(6400 / 800, config["min_n_span"])
         self.assertGreaterEqual(368 / 46, config["min_n_span"])
+        self.assertEqual(config["absolute"]["on_different_machine"], "per-cpu")
         self.assertEqual(config["min_r_squared"], 0.75)
         self.assertEqual(config["slack"], 0.35)
         self.assertEqual(config["measured_runs"], 5)

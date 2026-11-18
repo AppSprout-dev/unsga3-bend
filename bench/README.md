@@ -1,6 +1,6 @@
 # Scaling gate
 
-CI job `scaling` fails when DTLZ2 runtime or peak RSS scales worse than the bound for that series, or when the median at a reference size regresses past the committed baseline. It also fails when a negative control is not caught by the check named for it. The job is not the required `verify` check. Branch protection is unchanged.
+CI job `scaling` fails when DTLZ2 runtime or peak RSS scales worse than the bound for that series, or when the reference-size median on this runner's CPU model regresses past the baseline recorded for that model. A CPU model with no time baseline fails the job. RSS is compared on every model. The job also fails when a negative control is not caught by the check named for it. It is not the required `verify` check. Branch protection is unchanged.
 
 Bend is whatever `https://bend-lang.com/install.sh` installs. Nothing here pins a version. CPU only: every sample is `--threads 1`. There is no GPU and no Metal path. `BEND_NO_TELEMETRY=1` is set on the workflow and again on the scaling job.
 
@@ -9,7 +9,7 @@ python3 bench/test_scale_gate.py
 python3 bench/scale_gate.py --run
 ```
 
-`--run` exits 0 only when every measure workload passes and every control is caught by its named check. [`baseline.json`](baseline.json) is the confirmation sweep from GitHub Actions run 44210506592. Do not replace it from a dev VM, and do not raise a ceiling, `max_exponent`, or a margin to make a control pass.
+`--run` exits 0 only when every measure workload passes and every control is caught by its named check. Time and wall rows in [`baseline.json`](baseline.json) are per CPU model (EPYC 7763, EPYC 9V74, Xeon Platinum 8573C), taken from GitHub Actions runs on those hosts. An unlisted model fails the absolute check instead of skipping it. Do not replace a row from a dev VM, and do not raise a ceiling, `max_exponent`, or a margin to make a control pass.
 
 ## Method
 
@@ -28,7 +28,9 @@ margin = need rounded up to the next 0.001
 
 Sample CV is the n−1 standard deviation divided by the absolute mean. An exact thousandth stays put. The published check of that rounding is 0.5200370151746644 → 0.521, 0.13263110427830926 → 0.133, and 0.4511025764755765 → 0.452.
 
-Absolute comparison is skipped when the CPU model or the logical CPU count differs from the baseline machine. The slope checks still run. `ubuntu-latest` is not one CPU: the baseline is an EPYC 7763, and the next run was an EPYC 9V74 (anchor 221 ms against 208 ms, outside the 4.3% same-machine margin). That run skips the absolute check instead of failing the anchor. On the baseline machine the uniform spin still has to fail it.
+Time and wall use one baseline per CPU model. `ubuntu-latest` has already been an EPYC 7763 (208 ms at N=92), an EPYC 9V74 (221 ms), and a Xeon Platinum 8573C (271 ms). A model that is not in the table is `skipped-machine`, which fails the job: the uniform control is not caught, and a measure workload emits `::warning` and does not pass. RSS ignores the model string. The cross-run RSS spread (15208–15324 KB, and 103508–103600 KB) sits inside the within-machine margins 0.109 and 0.003, so those margins were not raised.
+
+A same-job ratio to the N² loop does not replace those rows. On the three hosts the N=92 algorithm time divided by that loop was 1.61, 1.55, and 2.95. A margin wide enough to accept 2.95 also accepts the uniform spin, whose ratio to the same loop was 3.34 and 3.10 on the first two hosts. A second copy of the algorithm would track the clock, and a real slowdown would move both copies, so the ratio would stay put. The millisecond table is the check that still sees the reference size.
 
 The previous point-estimate checks are still applied and are not raised: time-vs-N ceiling 2.5, time-vs-R ceiling 1.5, exponent drift 0.40 above the committed slope, endpoint-ratio margins 1.75 (time) and 1.15 (RSS).
 
@@ -77,7 +79,15 @@ Time vs R, confirmation: slope 0.1557, high 0.3029, ratio 1.543. **Skipped** (gr
 
 N=3000, gens=1, RSS. Confirmation median 15284 KB (samples 15464, 15412, 14664, 15024, 15284, CV 0.021748), other sweep 15212 KB (CV 0.008511). Margin **0.109**, limit 16950 KB. The idle floor on the same run was 11816 KB.
 
-Uniform spin, one sweep, N=92 median **424 ms** against the 208 ms baseline. Limit 216.9 ms, so the median is 95.4% over the limit (424 / 216.9 − 1). The slope stayed **within** (1.6895, interval [1.5740, 1.8049], r² 0.9976). The absolute check is what catches the constant factor.
+Uniform spin, N=92, against the fast limit for that same CPU:
+
+| CPU | Fast median | Margin | Limit | Spin median | Over the limit |
+|---|---:|---:|---:|---:|---:|
+| EPYC 7763 | 208 ms | 0.043 | 216.944 ms | 424 ms | 95.4% |
+| EPYC 9V74 | 221 ms | 0.077 | 238.017 ms | 444 ms | 86.5% |
+| Xeon Platinum 8573C | 271 ms | 0.056 | 286.176 ms | 560 ms | 95.7% |
+
+The 7763 margin is the two-sweep formula. The other two models have one run each, so the margin is `5 ×` that run's sample CV, rounded up. On every model the spin is **within** on the slope and **fail** on the absolute check.
 
 Wall time on the confirmation sweep: slope 1.7810, interval [1.5780, 1.9840], r² 0.9933. **Within** 2.35. Reference median 210.357 ms, margin **0.044**.
 

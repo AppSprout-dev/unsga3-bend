@@ -486,17 +486,29 @@ def summarize_workload(measured, workload, config, baseline, machine):
     return result
 
 
+def cpu_row(base, machine):
+    """The baseline row for this CPU model and logical CPU count, if recorded."""
+    table = base.get("by_cpu") or {}
+    row = table.get(machine.get("cpu_model"))
+    if not row:
+        return None
+    if int(row.get("logical_cpus") or 0) != int(machine.get("logical_cpus") or 0):
+        return None
+    return row
+
+
 def absolute_status(reference, workload, baseline, machine):
+    """Compare one reference median.
+
+    Time and wall are per CPU model. ubuntu-latest is not one CPU, and a
+    foreign burn does not track this algorithm across those models, so an
+    unknown model is skipped-machine (a failure, not a pass). RSS is compared
+    on every model: it does not move with the clock.
+    """
     if workload["role"] not in ("measure", "uniform"):
         return "n/a"
     if not baseline or not baseline.get("recorded"):
         return "skipped-no-baseline"
-    base_machine = baseline.get("machine") or {}
-    policy = (baseline.get("absolute") or {}).get("on_different_machine", "skip")
-    if not same_machine(machine, base_machine):
-        if policy == "skip":
-            return "skipped-machine"
-        return "fail"
     base_refs = baseline.get("references") or {}
     # A uniform slowdown is compared with the fast workload's reference.
     # Storing the slowed median as its own baseline would make 2× look normal.
@@ -504,8 +516,25 @@ def absolute_status(reference, workload, baseline, machine):
     if key not in base_refs:
         return "skipped-no-baseline"
     base = base_refs[key]
-    margin = float(base["margin"])
-    limit = float(base["median"]) * (1.0 + margin)
+    reference["cpu"] = machine.get("cpu_model")
+    metric = workload.get("metric")
+    if metric in ("time", "wall"):
+        if base.get("by_cpu"):
+            row = cpu_row(base, machine)
+            if row is None:
+                return "skipped-machine"
+            median = float(row["median"])
+            margin = float(row["margin"])
+        elif not same_machine(machine, baseline.get("machine") or {}):
+            return "skipped-machine"
+        else:
+            median = float(base["median"])
+            margin = float(base["margin"])
+    else:
+        median = float(base["median"])
+        margin = float(base["margin"])
+    limit = median * (1.0 + margin)
+    reference["limit"] = limit
     if reference["median"] > limit + 1e-9:
         return "fail"
     return "pass"
@@ -595,7 +624,8 @@ def measure_ok(summary):
     legacy_ok = not summary.get("legacy")
     ratio_ok = summary.get("ratio_check") in (None, "pass", "skipped-no-baseline")
     absolute = summary.get("absolute")
-    abs_ok = absolute in (None, "n/a", "pass", "skipped-machine")
+    # skipped-machine is not a pass. The job must say the check did not run.
+    abs_ok = absolute in (None, "n/a", "pass")
     return fit_ok and legacy_ok and ratio_ok and abs_ok
 
 
@@ -612,16 +642,19 @@ def decide(summaries):
         if role == "record":
             continue
         if role == "measure":
-            if not measure_ok(s):
-                if s.get("absolute") == "skipped-no-baseline" and s.get("fit_status") in (
-                    None,
-                    "within",
-                    "skipped",
-                ) and not s.get("legacy"):
-                    missing_baseline = True
-                    problems.append(f"{s['id']}:absolute:skipped-no-baseline")
-                else:
-                    problems.append(f"{s['id']}:fail")
+            if s.get("absolute") == "skipped-machine":
+                note_skipped_machine(s)
+                problems.append(f"{s['id']}:absolute:skipped-machine")
+            fit_only_ok = s.get("fit_status") in (None, "within", "skipped") and not s.get("legacy") and s.get("ratio_check") in (
+                None,
+                "pass",
+                "skipped-no-baseline",
+            )
+            if s.get("absolute") == "skipped-no-baseline" and fit_only_ok:
+                missing_baseline = True
+                problems.append(f"{s['id']}:absolute:skipped-no-baseline")
+            elif not measure_ok(s) and not (s.get("absolute") == "skipped-machine" and fit_only_ok):
+                problems.append(f"{s['id']}:fail")
         elif role == "control":
             if s.get("catch") == "endpoint-ratio" and s.get("ratio_check") == "skipped-no-baseline":
                 missing_baseline = True
@@ -636,9 +669,9 @@ def decide(summaries):
                 missing_baseline = True
                 problems.append(f"{s['id']}:absolute:skipped-no-baseline")
             elif s.get("absolute") == "skipped-machine":
-                # A different CPU model does not compare absolute milliseconds.
-                # The slope check above still has to pass.
-                pass
+                # Not caught. e3acad68 failed here; a later commit must not pass it.
+                note_skipped_machine(s)
+                problems.append(f"{s['id']}:absolute:not-fail")
             elif s.get("absolute") != "fail":
                 problems.append(f"{s['id']}:absolute:not-fail")
     real = [p for p in problems if "skipped-no-baseline" not in p]
@@ -647,6 +680,14 @@ def decide(summaries):
     if missing_baseline:
         return 2, problems
     return 0, problems
+
+
+def note_skipped_machine(summary):
+    cpu = (summary.get("reference") or {}).get("cpu") or "unknown"
+    sys.stderr.write(
+        f"::warning title=absolute skipped::{summary['id']} absolute skipped-machine "
+        f"cpu={cpu}; the reference-size check did not run\n"
+    )
 
 
 def margin_from_sweeps(ref_a, ref_b):
@@ -760,8 +801,13 @@ def format_report(summaries, code, problems):
             lines.append(f"{s['id']} ratio {s['ratio_check']}{extra}")
         if "absolute" in s:
             ref = s.get("reference") or {}
+            limit = ref.get("limit")
+            limit_bit = f" limit={limit:.4f}" if isinstance(limit, (int, float)) else ""
+            cpu = ref.get("cpu") or ""
+            cpu_bit = f" cpu={cpu}" if cpu else ""
             lines.append(
-                f"{s['id']} absolute {s['absolute']} median={ref.get('median', float('nan')):.4g}"
+                f"{s['id']} absolute {s['absolute']} "
+                f"median={ref.get('median', float('nan')):.4g}{limit_bit}{cpu_bit}"
             )
     if problems:
         lines.append("problems: " + "; ".join(problems))
