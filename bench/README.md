@@ -1,143 +1,143 @@
 # Scaling gate
 
-CI job `scaling` fails when a short DTLZ2 run scales worse than the ceilings below, or when its shape regresses past the committed baseline. The required job `verify` is unchanged. This job is not a branch-protection check until someone marks it required.
+CI job `scaling` fails when DTLZ2 runtime or peak RSS scales worse than the bound for that series, or when the reference-size median on this runner's CPU model regresses past the baseline recorded for that model. A CPU model with no time baseline fails the job. RSS is compared on every model. The job also fails when a negative control is not caught by the check named for it. It is not the required `verify` check. Branch protection is unchanged.
 
-It is not an IGD, HV, or Wilcoxon claim. Quality budgets stay in [`ab/protocol.py`](../ab/protocol.py) (DTLZ2 oracle is pop 92, gens 150). The gate uses **gens=16** so the exponent is the cost of the generational loop, not a 150-generation search.
-
-Bend is whatever `https://bend-lang.com/install.sh` installs. Nothing in this directory pins a version. CPU only: the binary is run with `--threads 1`. There is no GPU and no Metal path. Phase context for the real `Run` loop is [docs/PERF_NOTES.md](../docs/PERF_NOTES.md).
-
-## Run
-
-From the repo root, with `bend` and clang 14+ on `PATH`:
+Bend is whatever `https://bend-lang.com/install.sh` installs. Nothing here pins a version. CPU only: every sample is `--threads 1`. There is no GPU and no Metal path. `BEND_NO_TELEMETRY=1` is set on the workflow and again on the scaling job.
 
 ```bash
 python3 bench/test_scale_gate.py
-python3 bench/scale_gate.py --check
-python3 bench/scale_gate.py --check --variant slow --expect fail
+python3 bench/scale_gate.py --run
 ```
 
-`--check` must exit 0. The slow command must also exit 0, which happens only when the gate **rejects** the slow variant. A slow run that passes the ceilings and the margins exits 1.
+`--run` exits 0 only when every measure workload passes and every control is caught by its named check. Time and wall rows in [`baseline.json`](baseline.json) are per CPU model (EPYC 7763, EPYC 9V74, Xeon Platinum 8573C), taken from GitHub Actions runs on those hosts. An unlisted model fails the absolute check instead of skipping it. Do not replace a row from a dev VM, and do not raise a ceiling, `max_exponent`, or a margin to make a control pass.
 
-`--record` rewrites [`baseline.json`](baseline.json) from a fast run and keeps the existing ceilings. Do that only to refresh medians after a real Bend or algorithm change. Do not raise a ceiling or a margin so the slow variant passes.
+## Method
 
-Native build: `bend bench/scale_run.bend -o …`, then `./scale_run --threads 1 <cell> gens=16 burn=<weight> [slow]`. The script caches the binary under `bench/out/` (gitignored) by a hash of `src/*.bend` and the two bench sources.
+Each point is the median of 5 runs after one discarded warmup. Each run is its own process (`ru_maxrss` is a high-water mark, so a later sample cannot reuse the parent's child peak). The fitted series span at least 8× in the size parameter.
 
-## What is measured
+The fit is log-log OLS of ln(value) on ln(n). The 95% interval uses Student's t with df = points − 2 (df = 2 is 4.302652729911275; df ≥ 31 uses 1.959963984540054). A fit is **within** when the interval's upper bound is at or under the allowed slope and r² is at least 0.75. It is **worse** when the lower bound is above the allowed slope. A straddling interval, or r² under 0.75, is **inconclusive** and fails a measure workload. The allowed slope is the workload's expected exponent plus 0.35, unless that workload sets `max_exponent`.
 
-One process per cell. The driver prints `algo_ms` from `IO.now` around `Unsga3Algorithm.Run` and, on the slow variant, the extra walk. The Python harness times that process (`wall_s`) and reads the child's peak RSS (`ru_maxrss`, kilobytes) from a fresh interpreter so earlier cells do not stick to `RUSAGE_CHILDREN`.
+A time series that grows by less than 2×, and whose upper bound is still at or under the allowed slope, is **skipped** when the workload says `flat_ok`. A memory series that grows by less than 1.25× is treated the same way. Skipping is how a fixed footprint avoids a fake slope. An upper bound that clears the allowance still fails.
 
-The gate fits **medians of 3 repeats**. Absolute milliseconds are printed and stored. The pass/fail checks use log-log exponents and ratios, so a runner that is uniformly slower does not fail.
+The absolute check is one-sided, at one reference size: fail when the median is over baseline × (1 + margin). The margin is not chosen by hand. Two sweeps supply it:
 
-| Check | Fails when |
-|---|---|
-| Scaling bound | OLS slope of log(time) or log(RSS) vs log(N) or log(R) is above the ceiling |
-| Regression | That slope is above the baseline slope plus `exponent_margin`, or a high/low endpoint ratio (or a cell/anchor ratio) grows by more than the ratio margin |
+```
+need = max(5 × larger reference CV, 2 × |median_a / median_b − 1|)
+margin = need rounded up to the next 0.001
+```
 
-`N` is population. `R` is `ReferenceDirections.count` (Das–Dennis `C(p+M-1, M-1)`). Anchor cell is `m3p12n92`.
+Sample CV is the n−1 standard deviation divided by the absolute mean. An exact thousandth stays put. The published check of that rounding is 0.5200370151746644 → 0.521, 0.13263110427830926 → 0.133, and 0.4511025764755765 → 0.452.
 
-## Grid
+Time and wall use one baseline per CPU model. `ubuntu-latest` has already been an EPYC 7763 (208 ms at N=92), an EPYC 9V74 (221 ms), and a Xeon Platinum 8573C (271 ms). A model that is not in the table is `skipped-machine`, which fails the job: the uniform control is not caught, and a measure workload emits `::warning` and does not pass. RSS ignores the model string. The cross-run RSS spread (15208–15324 KB, and 103508–103600 KB) sits inside the within-machine margins 0.109 and 0.003, so those margins were not raised.
 
-DTLZ2, k=10, seed 1, `PymooCompatible`, duplicate elimination on. Same operators as `Unsga3Algorithm.Run`.
+A same-job ratio to the N² loop does not replace those rows. On the three hosts the N=92 algorithm time divided by that loop was 1.61, 1.55, and 2.95. A margin wide enough to accept 2.95 also accepts the uniform spin, whose ratio to the same loop was 3.34 and 3.10 on the first two hosts. A second copy of the algorithm would track the clock, and a real slowdown would move both copies, so the ratio would stay put. The millisecond table is the check that still sees the reference size.
 
-| Cell | M | p | R | pop | Why this point |
-|---|---:|---:|---:|---:|---|
-| `m0idle` | 0 | 0 | 0 | 0 | Process floor. No `Run`. Not in a fit |
-| `m3p12n23` | 3 | 12 | 91 | 23 | Oracle reference set, quarter of the oracle pop |
-| `m3p12n46` | 3 | 12 | 91 | 46 | Same reference set, half the oracle pop |
-| `m3p12n92` | 3 | 12 | 91 | 92 | Oracle DTLZ2 shape (`ab/protocol.py`: pop 92, p 12). Anchor |
-| `m3p4n92` | 3 | 4 | 15 | 92 | Smoke partition count, oracle pop |
-| `m3p8n92` | 3 | 8 | 45 | 92 | Midpoint partitions so the R fit has three points |
-| `m5p4n70` | 5 | 4 | 70 | 70 | p=4 is already used. pop = R, same rule as 92 ≈ 91 |
-| `m8p2n36` | 8 | 2 | 36 | 36 | pop = R. This tree has no two-layer generator |
-| `m8p3n120` | 8 | 3 | 120 | 120 | pop = R |
+The previous point-estimate checks are still applied and are not raised: time-vs-N ceiling 2.5, time-vs-R ceiling 1.5, exponent drift 0.40 above the committed slope, endpoint-ratio margins 1.75 (time) and 1.15 (RSS).
 
-p=12 at M=8 is `C(19, 7) = 50388` directions. That does not fit this budget. M=5 and M=8 stay on a single Das–Dennis layer with pop = count, which is the oracle's pop≈R rule, at partition counts the tree already uses (p=4) or the smallest layers that keep R near the oracle's 91.
+## What each workload must do
 
-Fits:
+| Workload | Series | Caught by |
+|---|---|---|
+| `dtlz2-time` | DTLZ2 M=3 p=12, N=46..368 (8×), gens=16, `algo_ms` | within, allowed 2.190, and the legacy 2.5 ceiling; endpoint ratio at or under 46.671; absolute at `m3p12n92` |
+| `dtlz2-wall` | same cells, process wall time | within, allowed 2.35, legacy ceiling 2.5; absolute at `m3p12n92` |
+| `dtlz2-r` | N=92, p=4,8,12,20 (R=15..231, 15.4×) | skipped or within; upper bound and the 1.5 ceiling still fail a steep series |
+| `dtlz2-rss` | N=3000, gens=1, one cell | absolute RSS only. No slope: one cell cannot span 8× |
+| `alloc-linear` | cons cells `1000·n`, n=400..3200 (8×) | RSS within, allowed 1.35; absolute at `a3200` |
+| `control-quadratic` | same N grid, `16000` repeats of an N² add loop | endpoint ratio **over** 46.671. The slope interval meets the algorithm's, so `worse` is not the check |
+| `control-alloc` | cons cells `n·n`, n=800..6400 (8×) | **worse** on RSS. Exit 1 otherwise |
+| `control-uniform` | same N grid, then a spin of another `run_ms` | time stays **within**, and absolute time **fails** against the `dtlz2-time` reference |
 
-- **time / wall vs N** — `m3p12n23`, `m3p12n46`, `m3p12n92` (M and R fixed)
-- **time / wall vs R** — `m3p4n92`, `m3p8n92`, `m3p12n92` (M and pop fixed)
-- **RSS vs N** and **RSS vs R** — the same two series
+`dtlz2-extra` (M=5 and M=8) and `dtlz2-floor` (`m0idle`) are recorded and not fitted. A miss on one named check fails the run even when some other check already failed.
 
-M=5 and M=8 are in the per-cell ratio checks against the anchor. They are not one exponent: M, N, and R move together.
+`m3p12n92` on the uniform control is compared with the fast reference, not with a stored copy of the slowed median. A stored copy would make 2× look normal.
 
-## Ceilings and margins
+## Runner results
 
-Recorded 2026-11-17 on a 4-core Intel Xeon (`/proc/cpuinfo` model string `Intel(R) Xeon(R) Processor`), Linux 6.12.113+, Bend **2.0.40** (the installer that day; not pinned), clang 18.1.3. `native: compile_s=7.123`. Warm `--check` after that was **5.3 s**. The slow grid below was **109 s**.
+GitHub Actions run 44210506592, `ubuntu-latest`, Bend 2.0.40, 4 vCPU, `AMD EPYC 7763 64-Core Processor`. Five measured runs after one warmup, each its own process. The baseline medians are the confirmation sweep. The other sweep is what the margin is measured against. `scaling` on that run exited 2 because the baseline was not committed yet; replaying both sweeps against this file passes, and the three controls are caught.
 
-### Fast baseline (the committed medians)
+Time, confirmation sweep, `algo_ms`:
 
-`algo_ms` is the median of the three repeats in [`baseline.json`](baseline.json).
+| N | 46 | 92 | 138 | 184 | 276 | 368 |
+|---|---:|---:|---:|---:|---:|---:|
+| ms | 76 | 208 | 429 | 730 | 1678 | 3087 |
 
-| Cell | algo_ms | wall_s | rss_kb | algo repeat span |
-|---|---:|---:|---:|---|
-| m0idle | 0 | 0.001 | 11776 | 0 |
-| m3p12n23 | 38 | 0.039 | 11780 | 36–39 |
-| m3p12n46 | 90 | 0.092 | 11776 | 89–93 |
-| m3p12n92 | 255 | 0.257 | 11776 | 255–258 |
-| m3p4n92 | 211 | 0.212 | 11780 | 209–225 |
-| m3p8n92 | 212 | 0.213 | 11764 | 211–225 |
-| m5p4n70 | 175 | 0.176 | 11776 | 174–175 |
-| m8p2n36 | 76 | 0.077 | 11776 | 75–78 |
-| m8p3n120 | 572 | 0.574 | 11780 | 545–579 |
+Slope 1.7895, interval [1.5895, 1.9896], r² 0.9936, endpoint ratio 40.618. The other sweep's ratio was 39.282 and its upper bound was 1.9855. **Within** 2.190.
 
-A fast-path `burn_ms` of 0 or 1 is the `IO.now` bracket around an empty checksum (`burn_weight=0`), not the slow walk. On this recording `m3p8n92` median `burn_ms` is 1 because two of the three repeats ticked 1 ms.
+`max_exponent` 2.190 is that confirmation upper bound 1.9895696937018328 plus the interval half-width 0.20005906222086245, rounded up to 0.001. The N² loop's interval is [1.9907, 1.9970]. The two intervals meet, so this raise accepts the loop as well. The endpoint ratio is the check that still separates them.
 
-Log-log OLS on those medians:
+Reference `m3p12n92`: confirmation median 208 ms (samples 212, 210, 208, 208, 208, CV 0.008551), other sweep 205 ms (CV 0.008147). `need = max(5 × 0.008551, 2 × |205/208 − 1|) = 0.042755`, margin **0.043**. Limit 208 × 1.043 = 216.9 ms.
 
-| Series | Exponent | Ceiling | Endpoint high/low |
-|---|---:|---:|---:|
-| time vs N | 1.3732 | 2.50 | 6.7105 (255/38) |
-| time vs R | 0.0962 | 1.50 | 1.2085 (255/211) |
-| wall vs N | 1.3631 | 2.50 | 6.6175 |
-| wall vs R | 0.0975 | 1.50 | 1.2115 |
-| RSS vs N | −0.0002 | 1.00 | 0.9997 |
-| RSS vs R | −0.0003 | 1.00 | 0.9997 |
+Endpoint-ratio ceiling: end-point CVs combine to 0.029608, `need = 0.148039`, margin **0.149**. Ceiling 40.618 × 1.149 = **46.671**.
 
-A second fast `--check` on the same host, same binary, moved time-vs-N from 1.3732 to **1.3211** and time-vs-R from 0.0962 to **0.0996**. Endpoint-ratio rel to the baseline was 0.930 (N) and 0.996 (R). RSS rel was 0.999.
+N² loop, one sweep (controls are not repeated): 32, 127, 285, 506, 1137, 2022 ms. Slope 1.9939, interval [1.9907, 1.9970], r² 1.0000, endpoint ratio **63.1875**. That is **within** 2.190 and **35.4% over** the 46.671 ceiling (63.1875 / 46.671 − 1). The ratio check catches it. The slope check does not.
 
-### Why these ceilings
+Linear cons cells, confirmation RSS KB: the reference `a3200` median is 103536 (CV 0.000328), other sweep 103508 (CV 0.000515). Slope 0.9299, interval [0.9019, 0.9579], r² 0.9999. **Within** 1.35. Margin **0.003**, limit 103847 KB.
 
-**Time vs N ≤ 2.5.** Per generation the dominant term is non-dominated sorting. Deb's fast sort is `O(M N²)` comparisons; this tree peels the same dominance relation, twice per generation (survival on the combined pool, then `prepare` on the survivors). Association with R held fixed is `O(M N R) = O(N)`. Evaluation, SBX, and mutation are lower order on analytic DTLZ2 ([PERF_NOTES](../docs/PERF_NOTES.md): NDS is the top bucket, evaluate is ~0). The leading term is quadratic. The measured slope on N=23..92 is **1.37**, not 2, because that range is still mixed with the linear association term and with list overhead. The ceiling is the leading term **2 plus 0.5**, not the sample plus a pad. The extra 0.5 covers that short range and run-to-run fit noise (0.05 on the rerun above).
+N² cons cells, RSS KB: 22464, 83564, 323568, 1283556 at n=800, 1600, 3200, 6400. Slope 1.9462, interval [1.8828, 2.0097], r² 0.9999. **Worse** than 1.35. The lower bound clears the allowance by 0.533.
 
-**Time vs R ≤ 1.5.** Nearest-reference association walks the direction list once per individual, so it is linear in R at fixed N. NDS does not read R. Expected slope ≤ 1. Measured slope is **0.096** (211 ms at R=15, 255 ms at R=91): NDS dominates, so R barely moves the total. Ceiling is **1 plus 0.5**. An association that became quadratic in R would push the slope toward 2 and fail.
+Time vs R, confirmation: slope 0.1557, high 0.3029, ratio 1.543. **Skipped** (growth under 2× and the upper bound under 1.35). The other sweep was slope 0.1576, high 0.3303, ratio 1.555, also skipped.
 
-**RSS vs N and vs R ≤ 1.0.** Live data is the population, the fronts, and one assignment per individual: `O(N (n_var + M) + R M)`, linear in N and in R. Median peak RSS on this grid, idle included, is **11764–11780 KB**. Within a cell the three repeats differ by at most **40 KB**. The Bend runtime floor is the whole number; a hundred individuals are kilobytes and do not move `ru_maxrss`. The observed slope is 0. The ceiling stays at the linear expectation. It starts to bite once a super-linear allocation is large enough to lift the large-N point off that floor. `rss_ratio_margin` 1.15 is the shape check while the points still sit on the floor: 15% of ~11.8 MB is about 1.8 MB, against a measured endpoint ratio of 0.9997 and a rerun rel of 0.999.
+N=3000, gens=1, RSS. Confirmation median 15284 KB (samples 15464, 15412, 14664, 15024, 15284, CV 0.021748), other sweep 15212 KB (CV 0.008511). Margin **0.109**, limit 16950 KB. The idle floor on the same run was 11816 KB.
 
-**`exponent_margin` 0.40.** The rerun moved time-vs-N by 0.052. An earlier five-repeat N-series probe (same gens, same binary) spread by 0.013. 0.40 is several times that, for a different runner's cache and CPU mix. A uniform clock change does not move the slope.
+Uniform spin, N=92, against the fast limit for that same CPU:
 
-**`ratio_margin` 1.75.** On a 4× population span, a slope increase of about 0.4 (23→92 is a factor of 4, and `4^0.4 ≈ 1.74`) multiplies the endpoint ratio by about that. The margin matches the exponent band. The rerun's N-endpoint rel was 0.93, in the direction the check ignores (only growth fails).
+| CPU | Fast median | Margin | Limit | Spin median | Over the limit |
+|---|---:|---:|---:|---:|---:|
+| EPYC 7763 | 208 ms | 0.043 | 216.944 ms | 424 ms | 95.4% |
+| EPYC 9V74 | 221 ms | 0.077 | 238.017 ms | 444 ms | 86.5% |
+| Xeon Platinum 8573C | 271 ms | 0.056 | 286.176 ms | 560 ms | 95.7% |
 
-The slow control is rejected by the **time-vs-N ceiling itself** (2.68 > 2.5), not only by the tighter regression margin. The 0.5 of headroom above quadratic is not wide enough to hide an `N³` walk.
+The 7763 margin is the two-sweep formula. The other two models have one run each, so the margin is `5 ×` that run's sample CV, rounded up. On every model the spin is **within** on the slope and **fail** on the absolute check.
 
-## Negative control
+Wall time on the confirmation sweep: slope 1.7810, interval [1.5780, 1.9840], r² 0.9933. **Within** 2.35. Reference median 210.357 ms, margin **0.044**.
 
-[`slow_pass.bend`](slow_pass.bend) is not imported by `src/lib.bend`. The driver calls it only when argv contains `slow`.
+The lowest r² on a fit that was required to clear 0.75 was the time series at 0.9936. The floor stays 0.75.
 
-After `Run`, `rows` recurses once per individual and is **not** a tail call (`F32.add` waits on the recursive result; depth = N). Each index calls `List.get` `burn` times (`burn=600` in CI). `List.get` walks the cons spine from the head. That is one `O(weight · N³)` pass, not a per-generation pass, so the fixed call overhead is not multiplied by gens. The checksum is printed so the walk stays live.
+## Local one-shots
 
-Same grid, same 3 repeats, weight 600, this host:
+These are single processes on this dev VM (Bend 2.0.40, 4 vCPU, `Intel(R) Xeon(R) Processor`). They are not the baseline. The committed medians and the margin come from the GitHub draft.
 
-| Cell | algo_ms | run_ms | burn_ms | rss_kb |
-|---|---:|---:|---:|---:|
-| m3p12n23 | 152 | 40 | 112 | 11784 |
-| m3p12n46 | 861 | 87 | 774 | 11780 |
-| m3p12n92 | 6268 | 227 | 6042 | 11776 |
-| m3p4n92 | 6051 | 194 | 5857 | 11780 |
-| m3p8n92 | 6028 | 208 | 5820 | 11776 |
-| m5p4n70 | 2879 | 176 | 2703 | 11776 |
-| m8p2n36 | 458 | 77 | 381 | 11788 |
-| m8p3n120 | 13386 | 567 | 12819 | 11776 |
+Time, N = 46, 92, 138, 184, 276, 368, gens=16, two separate one-shots:
 
-Burn roughly cubes with N: 112 → 774 → 6042 when N doubles (×6.9 then ×7.8; a pure cube is ×8).
+| | N=46 | 92 | 138 | 184 | 276 | 368 | slope | low | high | r² |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| first `algo_ms` | 85 | 223 | 435 | 710 | 1462 | 2563 | 1.6409 | 1.4945 | 1.7873 | 0.9959 |
+| second `algo_ms` | 81 | 218 | 427 | 691 | 1468 | 2571 | 1.6649 | 1.5181 | 1.8116 | 0.9960 |
 
-| Series | Slow exponent | Ceiling | Endpoint rel vs fast baseline |
-|---|---:|---:|---:|
-| time vs N | **2.6829** | 2.50 | **6.145** (margin 1.75) |
-| wall vs N | **2.6767** | 2.50 | **6.178** |
-| time vs R | 0.0175 | 1.50 | 0.857 |
-| RSS vs N | −0.0005 | 1.00 | 1.000 |
+A dev-VM one-shot upper bound of 1.7873 plus its half-width 0.1464 rounded up to 1.934. The runner's upper bound was 1.9896, so the committed override is the runner figure 2.190 above, not 1.934.
 
-The R slope fell because every pop=92 cell pays about the same burn, which flattens a series that was already NDS-dominated. RSS did not move: the control is a walk, not an allocation. The time-vs-N ceiling, the exponent margin, and the N endpoint ratio all fail. That is the rejection CI requires. If those three pass, CI fails.
+Quadratic loop, `burn=16000` (one pass is under the 1 ms clock: N=368 with one repeat measured 0 ms):
 
-Weight 600 is `SLOW_BURN_WEIGHT` in [`scale_gate.py`](scale_gate.py). A much smaller weight leaves the cubic under the quadratic `Run` term and the slope stays near 1.4, which would not cross 2.5. That was measured while choosing 600 (weight 80 at N=92 was ~0.8 s of burn against a ~0.23 s run and did not clear the ceiling).
+| N | 46 | 92 | 138 | 184 | 276 | 368 |
+|---|---:|---:|---:|---:|---:|---:|
+| ms | 17 | 68 | 153 | 272 | 610 | 1086 |
+
+Slope 1.9987, interval [1.9969, 2.0005], r² 1.0000. That is **within** 2.35. On this VM the interval sat above 1.934, so a slope check could catch it. On the runner the algorithm's interval reaches 1.990 and the loop's starts at 1.991, so the committed check is the endpoint ratio.
+
+Linear cons cells, RSS KB: n=400 → 14968, 800 → 27532, 1600 → 52440, 3200 → 102500. Slope 0.9257, interval [0.8659, 0.9854], r² 0.9995. **Within** 1.35.
+
+Quadratic cons cells, RSS KB: n=800 → 22464, 1600 → 82520, 3200 → 322528, 6400 → 1282524 (about 1.25 GB, 1170 ms). Slope 1.9472, interval [1.8670, 2.0275], r² 0.9998. **Worse** against 1.35. n=400 (`160000` cells) was 11752 KB, the runtime floor, and including it left the fit inconclusive (slope 1.6211, interval [0.8740, 2.3681]).
+
+Time vs R, one shot: R=15 → 187 ms, 45 → 199, 91 → 223, 231 → 283. Slope 0.1501, high 0.3035, endpoint ratio 1.513. Growth is under 2× and the upper bound is under 1.35, so the fit is **skipped**. RSS on every one of these cells was 11772–11796 KB.
+
+N=3000, gens=1, one process: `algo_ms` 18434, wall 18.437 s, RSS 14496 KB. The idle floor on the same binary was 11776 KB. This is the absolute RSS reference. gens=16 here would be about 16×18 s, and 8× the population is not a CI cell.
+
+Uniform spin at N=92: fast one-shot 218 ms, uniform 448 ms. The uniform series stayed within (slope 1.4611, high 1.5526, r² 0.9980). The slope does not see a constant factor. The absolute check does, once a baseline exists.
+
+M=5 p=4 N=70 was 169 ms, M=8 p=2 N=36 was 74 ms, M=8 p=3 N=120 was 550 ms, all on the RSS floor. They are not one exponent.
+
+## Where this gate does not follow the sister method
+
+- The time bound is not n log n + 0.35. Nondominated sort is quadratic asymptotically, but 2.35 does not catch an N² loop (the runner interval is [1.9907, 1.9970]). `max_exponent` 2.190 is the runner's upper bound plus one half-width. That raise also accepts the loop, because the two slope intervals meet. The loop is caught by the endpoint-ratio ceiling 46.671 (measured ratio 63.1875, 35.4% over). The old 2.5 point ceiling stays.
+- Algorithm RSS cannot span 8× above the runtime floor inside the job. The slope series is the cons-cell allocation. N=3000 gens=1 is the absolute RSS cell.
+- The N² allocation series starts at n=800. n=400 is still on the floor, and that single point made the interval inconclusive.
+- Time vs R is allowed to be flat. Association is linear in R and the sort does not read R, so a series that stays under 2× is skipped when its upper bound is still at or under 1.35. A steep series still fails.
+- `bench/slow_pass.bend` is the old N³ `List.get` walk. It stays in the tree and is not the live control. On the merged gate the N=92 burn at weight 600 was 3289 ms. The same weight at N=368 is about (368/92)³ ≈ 64× that, on the order of 200 s per sample, which does not fit six runs across an 8× grid. A synthetic cubic series is unit-tested as **worse**. The live controls are the N² loop, the N² allocation, and the uniform 2× spin.
+- The previous exponent-drift and endpoint-ratio checks stay beside the new interval and the reference median.
+- Slack 0.35 and r² 0.75 are adopted constants. They are not refit from this tree. A GitHub r² that lands on the floor gets written down here; the floor is not lowered to hide it.
+- Two sweeps run only while the baseline is unrecorded, so the margin comes from the runner. After that draft is committed, the job is one sweep. The N=3000 cell is about 18 s, and six samples of it are not doubled on later runs.
+- Absolute milliseconds are compared only on the baseline machine. Record the draft from the Actions artifact. A baseline filled in on this VM will fail the runner, or the other way around.
+
+## Files
+
+[`scale_run.bend`](scale_run.bend) is the native driver. [`quad_pass.bend`](quad_pass.bend) and [`alloc_pass.bend`](alloc_pass.bend) are the controls. Neither is imported by `src/lib.bend`. [`gate.config.json`](gate.config.json) is the grid. The script caches `bench/out/scale_run-dev` by a hash of `src/*.bend` and the bench sources.

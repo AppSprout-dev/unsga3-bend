@@ -1,443 +1,358 @@
 {
-  "schema": 1,
-  "problem": "dtlz2",
-  "k": 10,
-  "gens": 16,
-  "seed": 1,
-  "tournament": "pymoo",
-  "threads": 1,
-  "repeats": 3,
-  "anchor": "m3p12n92",
-  "note": "Bounds and margins are explained in bench/README.md. Medians are from this file's repeats.",
-  "recorded_with": {
-    "bend": "bend 2.0.40",
-    "clang": "Ubuntu clang version 18.1.3 (1ubuntu1)",
-    "python": "3.12.3",
-    "platform": "x86_64 6.12.113+"
+  "schema": 2,
+  "recorded": true,
+  "machine": {
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "logical_cpus": 4,
+    "platform": "Linux-7.0.0-1019-azure-x86_64-with-glibc2.43",
+    "machine": "x86_64"
   },
-  "bounds": {
-    "time_vs_n_max": 2.5,
-    "time_vs_r_max": 1.5,
-    "rss_vs_n_max": 1.0,
-    "rss_vs_r_max": 1.0,
-    "exponent_margin": 0.4,
-    "ratio_margin": 1.75,
-    "rss_ratio_margin": 1.15
+  "absolute": {
+    "on_different_machine": "per-cpu"
   },
-  "cells": {
-    "m0idle": {
-      "m": 0,
-      "partitions": 0,
-      "pop": 0,
-      "ref_points": 0,
-      "algo_ms": {
-        "median": 0.0,
-        "repeats": [
-          0.0,
-          0.0,
-          0.0
-        ]
-      },
-      "wall_s": {
-        "median": 0.000873,
-        "repeats": [
-          0.000916,
-          0.000688,
-          0.000873
-        ]
-      },
-      "rss_kb": {
-        "median": 11776.0,
-        "repeats": [
-          11748.0,
-          11776.0,
-          11776.0
-        ]
-      },
-      "run_ms": {
-        "median": 0.0,
-        "repeats": [
-          0.0,
-          0.0,
-          0.0
-        ]
-      },
-      "burn_ms": {
-        "median": 0.0,
-        "repeats": [
-          0.0,
-          0.0,
-          0.0
-        ]
+  "references": {
+    "dtlz2-time": {
+      "cell": "m3p12n92",
+      "metric": "time",
+      "median": 208.0,
+      "samples": [
+        212.0,
+        210.0,
+        208.0,
+        208.0,
+        208.0
+      ],
+      "cv": 0.008550929168259233,
+      "other_median": 205.0,
+      "other_cv": 0.008146640959435984,
+      "margin": 0.043,
+      "margin_need": 0.042754645841296166,
+      "endpoint_ratio": 40.61842105263158,
+      "other_endpoint_ratio": 39.282051282051285,
+      "endpoint_cv": 0.029607866270089638,
+      "ratio_margin_need": 0.1480393313504482,
+      "ratio_margin": 0.149,
+      "ratio_ceiling": 46.67056578947369,
+      "by_cpu": {
+        "AMD EPYC 7763 64-Core Processor": {
+          "logical_cpus": 4,
+          "median": 208.0,
+          "samples": [
+            212.0,
+            210.0,
+            208.0,
+            208.0,
+            208.0
+          ],
+          "cv": 0.008550929168259233,
+          "runs": [
+            "44210506592"
+          ],
+          "other_median": 205.0,
+          "other_samples": [
+            205.0,
+            208.0,
+            204.0,
+            206.0,
+            204.0
+          ],
+          "other_cv": 0.008146640959435984,
+          "margin_need": 0.042754645841296166,
+          "margin": 0.043
+        },
+        "AMD EPYC 9V74 80-Core Processor": {
+          "logical_cpus": 4,
+          "median": 221.0,
+          "samples": [
+            220.0,
+            223.0,
+            225.0,
+            216.0,
+            221.0
+          ],
+          "cv": 0.015344637970871648,
+          "runs": [
+            "44212931647"
+          ],
+          "margin_need": 0.07672318985435825,
+          "margin": 0.077
+        },
+        "INTEL(R) XEON(R) PLATINUM 8573C": {
+          "logical_cpus": 4,
+          "median": 271.0,
+          "samples": [
+            278.0,
+            271.0,
+            271.0,
+            271.0,
+            272.0
+          ],
+          "cv": 0.011187051123974253,
+          "runs": [
+            "44213844582"
+          ],
+          "margin_need": 0.05593525561987126,
+          "margin": 0.056
+        }
       }
     },
-    "m3p12n23": {
-      "m": 3,
-      "partitions": 12,
-      "pop": 23,
-      "ref_points": 91,
-      "algo_ms": {
-        "median": 38.0,
-        "repeats": [
-          39.0,
-          38.0,
-          36.0
-        ]
-      },
-      "wall_s": {
-        "median": 0.03887,
-        "repeats": [
-          0.040292,
-          0.03887,
-          0.037944
-        ]
-      },
-      "rss_kb": {
-        "median": 11780.0,
-        "repeats": [
-          11792.0,
-          11764.0,
-          11780.0
-        ]
-      },
-      "run_ms": {
-        "median": 38.0,
-        "repeats": [
-          39.0,
-          38.0,
-          36.0
-        ]
-      },
-      "burn_ms": {
-        "median": 0.0,
-        "repeats": [
-          0.0,
-          0.0,
-          0.0
-        ]
+    "dtlz2-wall": {
+      "cell": "m3p12n92",
+      "metric": "wall",
+      "median": 210.357003,
+      "samples": [
+        214.025292,
+        212.553421,
+        210.188568,
+        209.827302,
+        210.357003
+      ],
+      "cv": 0.008610074766216867,
+      "other_median": 207.293141,
+      "other_cv": 0.007775279611238207,
+      "margin": 0.044,
+      "margin_need": 0.04305037383108433,
+      "by_cpu": {
+        "AMD EPYC 7763 64-Core Processor": {
+          "logical_cpus": 4,
+          "median": 210.357003,
+          "samples": [
+            214.025292,
+            212.553421,
+            210.188568,
+            209.827302,
+            210.357003
+          ],
+          "cv": 0.008610074766216867,
+          "runs": [
+            "44210506592"
+          ],
+          "other_median": 207.293141,
+          "other_samples": [
+            207.293141,
+            210.337344,
+            206.232514,
+            207.61511099999998,
+            206.616079
+          ],
+          "other_cv": 0.007775279611238207,
+          "margin_need": 0.04305037383108433,
+          "margin": 0.044
+        },
+        "AMD EPYC 9V74 80-Core Processor": {
+          "logical_cpus": 4,
+          "median": 223.04405799999998,
+          "samples": [
+            221.728452,
+            224.98775700000002,
+            226.820643,
+            218.19562200000001,
+            223.04405799999998
+          ],
+          "cv": 0.01474659157806506,
+          "runs": [
+            "44212931647"
+          ],
+          "margin_need": 0.0737329578903253,
+          "margin": 0.074
+        },
+        "INTEL(R) XEON(R) PLATINUM 8573C": {
+          "logical_cpus": 4,
+          "median": 272.819275,
+          "samples": [
+            280.191907,
+            272.855566,
+            271.88078,
+            272.27851,
+            272.819275
+          ],
+          "cv": 0.012707884971259964,
+          "runs": [
+            "44213844582"
+          ],
+          "margin_need": 0.06353942485629982,
+          "margin": 0.064
+        }
       }
     },
-    "m3p12n46": {
-      "m": 3,
-      "partitions": 12,
-      "pop": 46,
-      "ref_points": 91,
-      "algo_ms": {
-        "median": 90.0,
-        "repeats": [
-          93.0,
-          90.0,
-          89.0
-        ]
-      },
-      "wall_s": {
-        "median": 0.091543,
-        "repeats": [
-          0.09336,
-          0.091543,
-          0.089406
-        ]
-      },
-      "rss_kb": {
-        "median": 11776.0,
-        "repeats": [
-          11788.0,
-          11776.0,
-          11764.0
-        ]
-      },
-      "run_ms": {
-        "median": 90.0,
-        "repeats": [
-          93.0,
-          90.0,
-          88.0
-        ]
-      },
-      "burn_ms": {
-        "median": 0.0,
-        "repeats": [
-          0.0,
-          0.0,
-          1.0
-        ]
+    "dtlz2-r": {
+      "cell": "m3p12n92",
+      "metric": "time",
+      "median": 208.0,
+      "samples": [
+        212.0,
+        210.0,
+        208.0,
+        208.0,
+        208.0
+      ],
+      "cv": 0.008550929168259233,
+      "other_median": 205.0,
+      "other_cv": 0.008146640959435984,
+      "margin": 0.043,
+      "margin_need": 0.042754645841296166,
+      "by_cpu": {
+        "AMD EPYC 7763 64-Core Processor": {
+          "logical_cpus": 4,
+          "median": 208.0,
+          "samples": [
+            212.0,
+            210.0,
+            208.0,
+            208.0,
+            208.0
+          ],
+          "cv": 0.008550929168259233,
+          "runs": [
+            "44210506592"
+          ],
+          "other_median": 205.0,
+          "other_samples": [
+            205.0,
+            208.0,
+            204.0,
+            206.0,
+            204.0
+          ],
+          "other_cv": 0.008146640959435984,
+          "margin_need": 0.042754645841296166,
+          "margin": 0.043
+        },
+        "AMD EPYC 9V74 80-Core Processor": {
+          "logical_cpus": 4,
+          "median": 221.0,
+          "samples": [
+            220.0,
+            223.0,
+            225.0,
+            216.0,
+            221.0
+          ],
+          "cv": 0.015344637970871648,
+          "runs": [
+            "44212931647"
+          ],
+          "margin_need": 0.07672318985435825,
+          "margin": 0.077
+        },
+        "INTEL(R) XEON(R) PLATINUM 8573C": {
+          "logical_cpus": 4,
+          "median": 271.0,
+          "samples": [
+            278.0,
+            271.0,
+            271.0,
+            271.0,
+            272.0
+          ],
+          "cv": 0.011187051123974253,
+          "runs": [
+            "44213844582"
+          ],
+          "margin_need": 0.05593525561987126,
+          "margin": 0.056
+        }
       }
     },
-    "m3p12n92": {
-      "m": 3,
-      "partitions": 12,
-      "pop": 92,
-      "ref_points": 91,
-      "algo_ms": {
-        "median": 255.0,
-        "repeats": [
-          258.0,
-          255.0,
-          255.0
-        ]
-      },
-      "wall_s": {
-        "median": 0.257224,
-        "repeats": [
-          0.259469,
-          0.257224,
-          0.256811
-        ]
-      },
-      "rss_kb": {
-        "median": 11776.0,
-        "repeats": [
-          11772.0,
-          11776.0,
-          11796.0
-        ]
-      },
-      "run_ms": {
-        "median": 255.0,
-        "repeats": [
-          257.0,
-          255.0,
-          255.0
-        ]
-      },
-      "burn_ms": {
-        "median": 0.0,
-        "repeats": [
-          1.0,
-          0.0,
-          0.0
-        ]
+    "dtlz2-rss": {
+      "cell": "m3p12n3000",
+      "metric": "rss",
+      "median": 15284.0,
+      "samples": [
+        15464.0,
+        15412.0,
+        14664.0,
+        15024.0,
+        15284.0
+      ],
+      "cv": 0.021747721002993322,
+      "other_median": 15212.0,
+      "other_cv": 0.008510903836407624,
+      "margin": 0.109,
+      "margin_need": 0.10873860501496661,
+      "cross_run": {
+        "medians": [
+          15212.0,
+          15284.0,
+          15208.0,
+          15324.0
+        ],
+        "cv": 0.0037161978459755067,
+        "margin_need": 0.018580989229877533,
+        "margin": 0.019
       }
     },
-    "m3p4n92": {
-      "m": 3,
-      "partitions": 4,
-      "pop": 92,
-      "ref_points": 15,
-      "algo_ms": {
-        "median": 211.0,
-        "repeats": [
-          225.0,
-          211.0,
-          209.0
-        ]
-      },
-      "wall_s": {
-        "median": 0.21232,
-        "repeats": [
-          0.226077,
-          0.21232,
-          0.210652
-        ]
-      },
-      "rss_kb": {
-        "median": 11780.0,
-        "repeats": [
-          11780.0,
-          11796.0,
-          11776.0
-        ]
-      },
-      "run_ms": {
-        "median": 211.0,
-        "repeats": [
-          225.0,
-          211.0,
-          209.0
-        ]
-      },
-      "burn_ms": {
-        "median": 0.0,
-        "repeats": [
-          0.0,
-          0.0,
-          0.0
-        ]
-      }
-    },
-    "m3p8n92": {
-      "m": 3,
-      "partitions": 8,
-      "pop": 92,
-      "ref_points": 45,
-      "algo_ms": {
-        "median": 212.0,
-        "repeats": [
-          225.0,
-          212.0,
-          211.0
-        ]
-      },
-      "wall_s": {
-        "median": 0.213277,
-        "repeats": [
-          0.225515,
-          0.213277,
-          0.211467
-        ]
-      },
-      "rss_kb": {
-        "median": 11764.0,
-        "repeats": [
-          11764.0,
-          11784.0,
-          11748.0
-        ]
-      },
-      "run_ms": {
-        "median": 211.0,
-        "repeats": [
-          224.0,
-          211.0,
-          211.0
-        ]
-      },
-      "burn_ms": {
-        "median": 1.0,
-        "repeats": [
-          1.0,
-          1.0,
-          0.0
-        ]
-      }
-    },
-    "m5p4n70": {
-      "m": 5,
-      "partitions": 4,
-      "pop": 70,
-      "ref_points": 70,
-      "algo_ms": {
-        "median": 175.0,
-        "repeats": [
-          175.0,
-          174.0,
-          175.0
-        ]
-      },
-      "wall_s": {
-        "median": 0.176147,
-        "repeats": [
-          0.176147,
-          0.175107,
-          0.176463
-        ]
-      },
-      "rss_kb": {
-        "median": 11776.0,
-        "repeats": [
-          11776.0,
-          11796.0,
-          11760.0
-        ]
-      },
-      "run_ms": {
-        "median": 175.0,
-        "repeats": [
-          175.0,
-          174.0,
-          175.0
-        ]
-      },
-      "burn_ms": {
-        "median": 0.0,
-        "repeats": [
-          0.0,
-          0.0,
-          0.0
-        ]
-      }
-    },
-    "m8p2n36": {
-      "m": 8,
-      "partitions": 2,
-      "pop": 36,
-      "ref_points": 36,
-      "algo_ms": {
-        "median": 76.0,
-        "repeats": [
-          76.0,
-          75.0,
-          78.0
-        ]
-      },
-      "wall_s": {
-        "median": 0.076932,
-        "repeats": [
-          0.076932,
-          0.075744,
-          0.079331
-        ]
-      },
-      "rss_kb": {
-        "median": 11776.0,
-        "repeats": [
-          11788.0,
-          11776.0,
-          11748.0
-        ]
-      },
-      "run_ms": {
-        "median": 76.0,
-        "repeats": [
-          76.0,
-          75.0,
-          78.0
-        ]
-      },
-      "burn_ms": {
-        "median": 0.0,
-        "repeats": [
-          0.0,
-          0.0,
-          0.0
-        ]
-      }
-    },
-    "m8p3n120": {
-      "m": 8,
-      "partitions": 3,
-      "pop": 120,
-      "ref_points": 120,
-      "algo_ms": {
-        "median": 572.0,
-        "repeats": [
-          545.0,
-          579.0,
-          572.0
-        ]
-      },
-      "wall_s": {
-        "median": 0.573945,
-        "repeats": [
-          0.546713,
-          0.579623,
-          0.573945
-        ]
-      },
-      "rss_kb": {
-        "median": 11780.0,
-        "repeats": [
-          11780.0,
-          11796.0,
-          11764.0
-        ]
-      },
-      "run_ms": {
-        "median": 572.0,
-        "repeats": [
-          545.0,
-          578.0,
-          572.0
-        ]
-      },
-      "burn_ms": {
-        "median": 0.0,
-        "repeats": [
-          0.0,
-          1.0,
-          0.0
-        ]
+    "alloc-linear": {
+      "cell": "a3200",
+      "metric": "rss",
+      "median": 103536.0,
+      "samples": [
+        103460.0,
+        103536.0,
+        103536.0,
+        103536.0,
+        103536.0
+      ],
+      "cv": 0.0003283227453612878,
+      "other_median": 103508.0,
+      "other_cv": 0.0005152424955998449,
+      "margin": 0.003,
+      "margin_need": 0.0025762124779992244,
+      "cross_run": {
+        "medians": [
+          103508.0,
+          103536.0,
+          103600.0,
+          103544.0
+        ],
+        "cv": 0.0003723653668619726,
+        "margin_need": 0.001861826834309863,
+        "margin": 0.002
       }
     }
-  }
+  },
+  "fits": {
+    "dtlz2-time": {
+      "slope": 1.7895106314809703,
+      "low": 1.5894515692601079,
+      "high": 1.9895696937018328,
+      "r2": 0.9935564935627548,
+      "se": 0.07205583205889099,
+      "df": 4,
+      "endpoint_ratio": 40.61842105263158
+    },
+    "dtlz2-wall": {
+      "slope": 1.7809618690056137,
+      "low": 1.5779680142662083,
+      "high": 1.9839557237450192,
+      "r2": 0.9933039220882826,
+      "se": 0.07311286448969569,
+      "df": 4,
+      "endpoint_ratio": 39.91240447716554
+    },
+    "dtlz2-r": {
+      "slope": 0.15574530190904717,
+      "low": 0.00859723347721214,
+      "high": 0.3028933703408822,
+      "r2": 0.912046411123963,
+      "se": 0.03419938295481945,
+      "df": 2,
+      "endpoint_ratio": 1.5433526011560694
+    },
+    "alloc-linear": {
+      "slope": 0.9298829062187566,
+      "low": 0.9019003621643032,
+      "high": 0.9578654502732099,
+      "r2": 0.9999021788456142,
+      "se": 0.006503556250292673,
+      "df": 2,
+      "endpoint_ratio": 6.920855614973262
+    }
+  },
+  "source_hash": "f165242dcafcb14b",
+  "tools": {
+    "bend": "bend 2.0.40",
+    "python": "3.12.16"
+  },
+  "note": "Time and wall baselines are per CPU model, from Actions runs 44210506592 (EPYC 7763, two sweeps), 44212931647 (EPYC 9V74), and 44213844582 (Xeon Platinum 8573C). An unknown model fails the job. RSS is one table: the cross-run spread is inside the within-machine margin. Confirmation-sweep medians from GitHub Actions run 44210506592 (ubuntu-latest, two sweeps). Margins are the measured formula, not a hand edit. The endpoint-ratio ceiling on dtlz2-time is what catches the N^2 time loop; the slope intervals meet."
 }

@@ -1,0 +1,129 @@
+{
+  "warmup_runs": 1,
+  "measured_runs": 5,
+  "min_fit_points": 4,
+  "min_n_span": 8.0,
+  "min_r_squared": 0.75,
+  "slack": 0.35,
+  "min_time_ratio": 2.0,
+  "memory_min_ratio": 1.25,
+  "quad_reps": 16000,
+  "note": "slack 0.35 and min_r_squared 0.75 are the adopted scaling-gate constants. legacy_ceiling values are the previous point-estimate ceilings and are not raised. dtlz2-time max_exponent is the ubuntu-latest confirmation-sweep upper bound 1.9895696937018328 plus that interval's half-width 0.20005906222086245, rounded up to 0.001 (2.190). That raise sits above the N^2 loop's lower bound 1.9907, so the slope interval does not separate them. The loop is caught by the endpoint-ratio ceiling instead. quad_reps is the repeat count that puts the N=46 loop above the 1 ms clock; see bench/README.md.",
+  "absolute": {
+    "on_different_machine": "per-cpu"
+  },
+  "workloads": [
+    {
+      "id": "dtlz2-time",
+      "role": "measure",
+      "mode": "fast",
+      "metric": "time",
+      "x": "pop",
+      "expected_exponent": 2.0,
+      "max_exponent": 2.19,
+      "ratio_ceiling": true,
+      "legacy_ceiling": 2.5,
+      "gens": 16,
+      "reference": "m3p12n92",
+      "cells": ["m3p12n46", "m3p12n92", "m3p12n138", "m3p12n184", "m3p12n276", "m3p12n368"]
+    },
+    {
+      "id": "dtlz2-wall",
+      "role": "measure",
+      "mode": "fast",
+      "metric": "wall",
+      "x": "pop",
+      "expected_exponent": 2.0,
+      "legacy_ceiling": 2.5,
+      "gens": 16,
+      "reference": "m3p12n92",
+      "cells": ["m3p12n46", "m3p12n92", "m3p12n138", "m3p12n184", "m3p12n276", "m3p12n368"]
+    },
+    {
+      "id": "dtlz2-r",
+      "role": "measure",
+      "mode": "fast",
+      "metric": "time",
+      "x": "ref_points",
+      "expected_exponent": 1.0,
+      "legacy_ceiling": 1.5,
+      "flat_ok": true,
+      "gens": 16,
+      "reference": "m3p12n92",
+      "cells": ["m3p4n92", "m3p8n92", "m3p12n92", "m3p20n92"]
+    },
+    {
+      "id": "dtlz2-rss",
+      "role": "measure",
+      "mode": "fast",
+      "metric": "rss",
+      "fit": false,
+      "gens": 1,
+      "reference": "m3p12n3000",
+      "cells": ["m3p12n3000"]
+    },
+    {
+      "id": "dtlz2-extra",
+      "role": "record",
+      "mode": "fast",
+      "metric": "time",
+      "fit": false,
+      "gens": 16,
+      "cells": ["m5p4n70", "m8p2n36", "m8p3n120"]
+    },
+    {
+      "id": "dtlz2-floor",
+      "role": "record",
+      "mode": "idle",
+      "metric": "rss",
+      "fit": false,
+      "gens": 0,
+      "cells": ["m0idle"]
+    },
+    {
+      "id": "alloc-linear",
+      "role": "measure",
+      "mode": "alloc",
+      "metric": "rss",
+      "x": "pop",
+      "expected_exponent": 1.0,
+      "gens": 0,
+      "reference": "a3200",
+      "cells": ["a400", "a800", "a1600", "a3200"]
+    },
+    {
+      "id": "control-quadratic",
+      "role": "control",
+      "mode": "quad",
+      "metric": "time",
+      "x": "pop",
+      "allowed_from": "dtlz2-time",
+      "catch": "endpoint-ratio",
+      "ratio_from": "dtlz2-time",
+      "gens": 16,
+      "cells": ["m3p12n46", "m3p12n92", "m3p12n138", "m3p12n184", "m3p12n276", "m3p12n368"]
+    },
+    {
+      "id": "control-alloc",
+      "role": "control",
+      "mode": "alloc2",
+      "metric": "rss",
+      "x": "pop",
+      "allowed_from": "alloc-linear",
+      "gens": 0,
+      "cells": ["a800", "a1600", "a3200", "a6400"]
+    },
+    {
+      "id": "control-uniform",
+      "role": "uniform",
+      "mode": "uniform",
+      "baseline_of": "dtlz2-time",
+      "metric": "time",
+      "x": "pop",
+      "allowed_from": "dtlz2-time",
+      "gens": 16,
+      "reference": "m3p12n92",
+      "cells": ["m3p12n46", "m3p12n92", "m3p12n138", "m3p12n184", "m3p12n276", "m3p12n368"]
+    }
+  ]
+}

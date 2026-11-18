@@ -127,7 +127,11 @@ jobs:
   scaling:
     name: scaling
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      # Already set on the workflow. Repeated here so this job keeps it
+      # even if the workflow-level value changes. verify is untouched.
+      BEND_NO_TELEMETRY: "1"
     steps:
       - name: Check out unsga3-bend
         uses: actions/checkout@v4
@@ -144,23 +148,34 @@ jobs:
       - name: Fitter unit checks
         run: python3 bench/test_scale_gate.py
 
-      - name: Scaling gate on the real Run
+      # Two sweeps only while baseline.json is unrecorded, so the margin
+      # is measured on this runner. A recorded baseline is one sweep.
+      # Exit 2 until that draft is committed. Controls are in the same run:
+      # the N² loop and the N² allocation must be worse, and the uniform
+      # 2× spin must miss the slope and fail the absolute check.
+      - name: Scaling gate
         run: |
-          python3 bench/scale_gate.py --check
-          cp bench/out/report.json "$RUNNER_TEMP/scaling-fast.json"
-
-      - name: Negative control must fail the gate
-        run: |
-          python3 bench/scale_gate.py --check --variant slow --expect fail
-          cp bench/out/report.json "$RUNNER_TEMP/scaling-slow.json"
+          if python3 -c 'import json,sys; sys.exit(0 if json.load(open("bench/baseline.json")).get("recorded") else 1)'; then
+            sweeps=1
+          else
+            sweeps=2
+          fi
+          set +e
+          python3 bench/scale_gate.py --run --sweeps "$sweeps" \
+            --draft bench/out/baseline-draft.json \
+            --report bench/out/report.json
+          code=$?
+          set -e
+          mkdir -p "$RUNNER_TEMP/scaling"
+          cp bench/out/report.json "$RUNNER_TEMP/scaling/" || true
+          cp bench/out/baseline-draft.json "$RUNNER_TEMP/scaling/" || true
+          exit "$code"
 
       - name: Upload scaling reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: scaling-reports
-          path: |
-            ${{ runner.temp }}/scaling-fast.json
-            ${{ runner.temp }}/scaling-slow.json
+          path: ${{ runner.temp }}/scaling
           if-no-files-found: warn
           retention-days: 14

@@ -1,665 +1,906 @@
-#!/usr/bin/env python3
-"""Scaling gate for U-NSGA-III on DTLZ2.
-
-Builds one native binary (``bend bench/scale_run.bend -o …``) and runs a
-fixed grid at ``--threads 1``. Each cell prints ``IO.now`` milliseconds
-around ``Unsga3Algorithm.Run`` (and, on the slow variant, the extra walk
-in ``bench/slow_pass.bend``). This script also records process wall time
-and peak RSS (Linux ``ru_maxrss``, kilobytes).
-
-Two checks, both on medians:
-
-1. Scaling bound. Log-log OLS exponent of time vs population and vs
-   Das–Dennis reference-point count, and the same for peak RSS, must sit
-   at or under the ceilings in ``bench/baseline.json``.
-2. Regression. Those exponents, the series endpoint ratios, and each
-   cell's ratio to the anchor must stay within the committed margins.
-   Ratios and exponents, not absolute milliseconds, so a uniformly
-   slower runner does not fail the job.
-
-``--variant slow`` is the negative control. CI runs it with ``--expect fail``
-and fails the job if the gate accepts it.
-
-No IGD / HV numbers. This does not change ``LAWS.bend`` or ``PROOF.bend``.
-"""
-
-from __future__ import annotations
+# Scaling gate for the Bend U-NSGA-III core.
+#
+# Each point is the median of several runs of a fresh process, after one
+# discarded warmup. A log-log fit passes when its 95% confidence interval's
+# upper bound is at or under the allowed slope and r^2 clears the floor.
+# The absolute check is one-sided at one reference size, with a margin taken
+# from two real sweeps. Controls must be caught by a named check.
 
 import argparse
 import hashlib
 import json
 import math
 import os
+import platform
+import shutil
 import statistics
 import subprocess
 import sys
-import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-BENCH = ROOT / "bench"
-SRC = ROOT / "src"
-DRIVER = BENCH / "scale_run.bend"
-OUT_DIR = BENCH / "out"
+ROOT = Path(__file__).resolve().parents[1]
+BENCH = Path(__file__).resolve().parent
+CONFIG_PATH = BENCH / "gate.config.json"
 BASELINE_PATH = BENCH / "baseline.json"
-REPORT_PATH = OUT_DIR / "report.json"
+RUN_SRC = BENCH / "scale_run.bend"
+OUT_DIR = BENCH / "out"
+DEV_BIN = OUT_DIR / "scale_run-dev"
 
-ANCHOR = "m3p12n92"
-GENS = 16
-REPEATS = 3
-THREADS = 1
-# Inner List.get repeats on the slow variant. Fast runs pass burn=0.
-# Chosen so the slow N-exponent clears the time-vs-N ceiling; see README.
-SLOW_BURN_WEIGHT = 600
-CELL_TIMEOUT_S = 120
-
-# id -> (m, partitions, pop). Keep in lockstep with bench/scale_run.bend.
-CELLS: dict[str, tuple[int, int, int]] = {
-    "m0idle": (0, 0, 0),
-    "m3p12n23": (3, 12, 23),
-    "m3p12n46": (3, 12, 46),
-    "m3p12n92": (3, 12, 92),
-    "m3p4n92": (3, 4, 92),
-    "m3p8n92": (3, 8, 92),
-    "m5p4n70": (5, 4, 70),
-    "m8p2n36": (8, 2, 36),
-    "m8p3n120": (8, 3, 120),
+# Student's t, two-sided 95% (one-sided 97.5%). df = n - 2. df >= 31 uses
+# the normal quantile. The df=2 entry is the published 4.302652729911275.
+STUDENT_T_975 = {
+    1: 12.706204736432095,
+    2: 4.302652729911275,
+    3: 3.182446305284263,
+    4: 2.7764451051977987,
+    5: 2.570581836614739,
+    6: 2.4469118487916806,
+    7: 2.364624251592784,
+    8: 2.306004135204166,
+    9: 2.262157162798205,
+    10: 2.228138851986274,
+    11: 2.200985160946347,
+    12: 2.178812829663417,
+    13: 2.1603686564610127,
+    14: 2.144786687916927,
+    15: 2.131449545559323,
+    16: 2.119905299221252,
+    17: 2.1098155778333156,
+    18: 2.100922040241038,
+    19: 2.093024054408307,
+    20: 2.085963447265861,
+    21: 2.079613844727662,
+    22: 2.0738730679040147,
+    23: 2.0686576104190406,
+    24: 2.0638985616280206,
+    25: 2.059538552753294,
+    26: 2.055529438642871,
+    27: 2.051830516480284,
+    28: 2.048407141795244,
+    29: 2.045229642132703,
+    30: 2.042272456301238,
 }
+T_NORMAL = 1.959963984540054
 
-# x is the measured key. y is the median key. cells are low x -> high x.
-SERIES: list[dict[str, object]] = [
-    {
-        "name": "time_vs_n",
-        "x": "pop",
-        "y": "algo_ms",
-        "cells": ["m3p12n23", "m3p12n46", "m3p12n92"],
-        "ceiling": "time_vs_n_max",
-        "ratio_key": "ratio_margin",
-    },
-    {
-        "name": "time_vs_r",
-        "x": "ref_points",
-        "y": "algo_ms",
-        "cells": ["m3p4n92", "m3p8n92", "m3p12n92"],
-        "ceiling": "time_vs_r_max",
-        "ratio_key": "ratio_margin",
-    },
-    {
-        "name": "wall_vs_n",
-        "x": "pop",
-        "y": "wall_s",
-        "cells": ["m3p12n23", "m3p12n46", "m3p12n92"],
-        "ceiling": "time_vs_n_max",
-        "ratio_key": "ratio_margin",
-    },
-    {
-        "name": "wall_vs_r",
-        "x": "ref_points",
-        "y": "wall_s",
-        "cells": ["m3p4n92", "m3p8n92", "m3p12n92"],
-        "ceiling": "time_vs_r_max",
-        "ratio_key": "ratio_margin",
-    },
-    {
-        "name": "rss_vs_n",
-        "x": "pop",
-        "y": "rss_kb",
-        "cells": ["m3p12n23", "m3p12n46", "m3p12n92"],
-        "ceiling": "rss_vs_n_max",
-        "ratio_key": "rss_ratio_margin",
-    },
-    {
-        "name": "rss_vs_r",
-        "x": "ref_points",
-        "y": "rss_kb",
-        "cells": ["m3p4n92", "m3p8n92", "m3p12n92"],
-        "ceiling": "rss_vs_r_max",
-        "ratio_key": "rss_ratio_margin",
-    },
-]
-
-# Ceilings are expected complexity plus headroom, not a fit to one sample.
-# time vs N: NDS is O(M N^2) and association at fixed R is O(N), so the
-# leading term is quadratic. +0.5 headroom -> 2.5.
-# time vs R: association is O(R) at fixed N, NDS does not read R. +0.5 -> 1.5.
-# RSS: live data is O(N + R). Exponent 1 is the linear ceiling. At this
-# grid the runtime floor dominates, so the observed exponent is ~0; the
-# ceiling still rejects a super-linear footprint once it lifts off the floor.
-# exponent_margin / ratio_margin are the regression bands. See bench/README.md.
-LOCKED_BOUNDS = {
-    "time_vs_n_max": 2.5,
-    "time_vs_r_max": 1.5,
-    "rss_vs_n_max": 1.0,
-    "rss_vs_r_max": 1.0,
-    "exponent_margin": 0.40,
-    "ratio_margin": 1.75,
-    "rss_ratio_margin": 1.15,
+# Point-estimate ceilings from the first gate. Not raised.
+LEGACY_CEILINGS = {
+    "time_vs_n": 2.5,
+    "time_vs_r": 1.5,
+    "rss_vs_n": 1.0,
 }
+LEGACY_EXPONENT_MARGIN = 0.40
+LEGACY_RATIO_MARGIN = 1.75
+LEGACY_RSS_RATIO_MARGIN = 1.15
 
-HELPER = r"""
+
+def load_config(path=None):
+    with open(path or CONFIG_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def workload_by_id(config, name):
+    for w in config["workloads"]:
+        if w["id"] == name:
+            return w
+    raise KeyError(name)
+
+
+def student_t_975(df):
+    if df < 1:
+        raise ValueError("df")
+    if df >= 31:
+        return T_NORMAL
+    return STUDENT_T_975[df]
+
+
+def median(values):
+    xs = sorted(values)
+    n = len(xs)
+    if n == 0:
+        raise ValueError("empty")
+    if n % 2 == 1:
+        return float(xs[n // 2])
+    return (xs[n // 2 - 1] + xs[n // 2]) / 2.0
+
+
+def sample_stdev(values):
+    if len(values) < 2:
+        return 0.0
+    return float(statistics.stdev(values))
+
+
+def coefficient_of_variation(values):
+    mean = statistics.fmean(values)
+    if mean == 0.0:
+        return 0.0
+    return sample_stdev(values) / abs(mean)
+
+
+def round_up_milli(need):
+    """Smallest 0.001 that is >= need. An exact thousandth stays put."""
+    scaled = need * 1000.0
+    # 1e-9 keeps a value that is already a thousandth from rounding up.
+    return math.ceil(scaled - 1e-9) / 1000.0
+
+
+def margin_need(cv, median_a, median_b):
+    """max(5 * CV, 2 * |ratio - 1|). medians are the two sweep medians."""
+    if median_b == 0.0:
+        raise ValueError("median")
+    ratio = median_a / median_b
+    return max(5.0 * cv, 2.0 * abs(ratio - 1.0))
+
+
+def ols(xs, ys):
+    """Log-log OLS of ln(y) on ln(x). Returns slope, intercept, r^2, se, low, high."""
+    n = len(xs)
+    if n != len(ys) or n < 3:
+        raise ValueError("need at least 3 points")
+    if any(x <= 0 or y <= 0 for x, y in zip(xs, ys)):
+        raise ValueError("positive x and y required")
+    lx = [math.log(x) for x in xs]
+    ly = [math.log(y) for y in ys]
+    x_bar = statistics.fmean(lx)
+    y_bar = statistics.fmean(ly)
+    ss_xx = sum((x - x_bar) ** 2 for x in lx)
+    ss_yy = sum((y - y_bar) ** 2 for y in ly)
+    ss_xy = sum((x - x_bar) * (y - y_bar) for x, y in zip(lx, ly))
+    if ss_xx == 0.0:
+        raise ValueError("x does not vary")
+    slope = ss_xy / ss_xx
+    intercept = y_bar - slope * x_bar
+    r2 = 1.0 if ss_yy == 0.0 else (ss_xy * ss_xy) / (ss_xx * ss_yy)
+    df = n - 2
+    residual = ss_yy - slope * ss_xy
+    if residual < 0.0 and residual > -1e-12:
+        residual = 0.0
+    se = math.sqrt((residual / df) / ss_xx) if df > 0 else 0.0
+    half = student_t_975(df) * se
+    return {
+        "n": n,
+        "slope": slope,
+        "intercept": intercept,
+        "r2": r2,
+        "se": se,
+        "df": df,
+        "low": slope - half,
+        "high": slope + half,
+    }
+
+
+def allowed_exponent(workload, config):
+    source = workload
+    name = workload.get("allowed_from")
+    if name:
+        source = workload_by_id(config, name)
+    override = source.get("max_exponent")
+    if override is not None:
+        return float(override)
+    return float(source["expected_exponent"]) + float(config["slack"])
+
+
+def growth_ratio(values):
+    lo = min(values)
+    hi = max(values)
+    if lo <= 0.0:
+        return float("inf")
+    return hi / lo
+
+
+def classify_fit(fit, workload, config):
+    """within / worse / inconclusive / skipped.
+
+    A flat series (growth under the configured ratio) whose upper bound still
+    sits at or under the allowed slope is skipped when the workload says
+    flat_ok. That is the time-vs-R case: NDS does not read R, so the series
+    is supposed to stay flat, and a low r^2 there is not a failed fit.
+    """
+    allowed = allowed_exponent(workload, config)
+    metric = workload["metric"]
+    grew = growth_ratio(fit["ys"])
+    if metric == "time":
+        grew_enough = grew >= float(config["min_time_ratio"])
+    else:
+        grew_enough = grew >= float(config["memory_min_ratio"])
+    if not grew_enough and fit["high"] <= allowed + 1e-12 and workload.get("flat_ok"):
+        return "skipped", allowed
+    if fit["r2"] + 1e-12 < float(config["min_r_squared"]):
+        return "inconclusive", allowed
+    if fit["high"] <= allowed + 1e-12:
+        return "within", allowed
+    if fit["low"] > allowed:
+        return "worse", allowed
+    return "inconclusive", allowed
+
+
+def legacy_point_failures(fit, workload, baseline_fit):
+    """The first gate's point-estimate checks. Kept, not loosened."""
+    ceiling = workload.get("legacy_ceiling")
+    out = []
+    if ceiling is not None and fit["slope"] > float(ceiling) + 1e-12:
+        out.append("ceiling")
+    if baseline_fit is None:
+        return out
+    base_slope = float(baseline_fit["slope"])
+    if fit["slope"] > base_slope + LEGACY_EXPONENT_MARGIN + 1e-12:
+        out.append("exponent-drift")
+    base_ratio = float(baseline_fit["endpoint_ratio"])
+    ratio = endpoint_ratio(fit["ys"])
+    if base_ratio > 0.0 and ratio / base_ratio > _legacy_ratio_margin(workload) + 1e-12:
+        out.append("endpoint-ratio")
+    return out
+
+
+def _legacy_ratio_margin(workload):
+    if workload["metric"] == "rss":
+        return LEGACY_RSS_RATIO_MARGIN
+    return LEGACY_RATIO_MARGIN
+
+
+def endpoint_ratio(ys):
+    if ys[0] <= 0.0:
+        return float("inf")
+    return ys[-1] / ys[0]
+
+
+def span_ok(xs, config):
+    return max(xs) / min(xs) + 1e-12 >= float(config["min_n_span"])
+
+
+def machine_info():
+    model = "unknown"
+    cpuinfo = Path("/proc/cpuinfo")
+    if cpuinfo.exists():
+        for line in cpuinfo.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.lower().startswith("model name"):
+                model = line.split(":", 1)[1].strip()
+                break
+    return {
+        "cpu_model": model,
+        "logical_cpus": os.cpu_count() or 0,
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+    }
+
+
+def same_machine(a, b):
+    return (
+        a.get("cpu_model") == b.get("cpu_model")
+        and int(a.get("logical_cpus") or 0) == int(b.get("logical_cpus") or 0)
+    )
+
+
+def parse_kv(text):
+    fields = {}
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("# ") or "=" not in line:
+            continue
+        key, value = line[2:].split("=", 1)
+        fields[key.strip()] = value.strip()
+    return fields
+
+
+def _to_int(fields, key):
+    if key not in fields:
+        raise RuntimeError(f"missing {key}")
+    return int(fields[key])
+
+
+# ru_maxrss on RUSAGE_CHILDREN is a high-water mark for the calling process,
+# so each sample runs in its own interpreter. Otherwise a later, smaller
+# child would be reported as the earlier peak.
+_CHILD = """
 import resource, subprocess, sys, time
 t0 = time.perf_counter()
-p = subprocess.run(sys.argv[1:], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+proc = subprocess.run(sys.argv[1:], stdout=subprocess.PIPE)
 wall = time.perf_counter() - t0
 rss = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-sys.stdout.buffer.write(p.stdout)
-sys.stdout.write("WALL_S %.6f\n" % wall)
-sys.stdout.write("MAXRSS_KB %d\n" % rss)
-sys.stderr.buffer.write(p.stderr)
-raise SystemExit(p.returncode)
+sys.stdout.buffer.write(proc.stdout)
+sys.stdout.write("\\n# wall_s=%.9f\\n# rss_kb=%d\\n" % (wall, rss))
+sys.exit(proc.returncode)
 """
 
 
-def das_dennis_count(m: int, p: int) -> int:
-    """C(p + M - 1, M - 1). M < 2 is not a simplex count this gate uses."""
-    if m < 2:
-        return 0
-    return math.comb(p + m - 1, m - 1)
-
-
-def log_log_exponent(xs: list[float], ys: list[float]) -> float:
-    """OLS slope of log y on log x. Units cancel, so a slower clock does not move it."""
-    if len(xs) != len(ys) or len(xs) < 2:
-        raise ValueError("need at least two points")
-    if any(x <= 0 or y <= 0 for x, y in zip(xs, ys)):
-        raise ValueError("log-log inputs must be positive")
-    n = len(xs)
-    lx = [math.log(x) for x in xs]
-    ly = [math.log(y) for y in ys]
-    mx = sum(lx) / n
-    my = sum(ly) / n
-    var = sum((x - mx) ** 2 for x in lx)
-    if var == 0:
-        raise ValueError("x values are identical")
-    cov = sum((x - mx) * (y - my) for x, y in zip(lx, ly))
-    return cov / var
-
-
-def median(values: list[float]) -> float:
-    return float(statistics.median(values))
-
-
-def source_hash() -> str:
-    digest = hashlib.sha256()
-    files = sorted(SRC.glob("*.bend")) + [DRIVER, BENCH / "slow_pass.bend"]
-    for path in files:
-        digest.update(path.relative_to(ROOT).as_posix().encode())
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-    return digest.hexdigest()[:16]
-
-
-def binary_path() -> Path:
-    return OUT_DIR / f"scale_run-{source_hash()}"
-
-
-def build_binary(dest: Path) -> float:
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    t0 = time.perf_counter()
+def run_once(binary, cell, mode, gens, burn, threads=1):
+    """Fresh process. Wall time and peak RSS belong to that process only."""
+    args = [str(binary), "--threads", str(threads), cell, f"mode={mode}"]
+    if gens:
+        args.append(f"gens={gens}")
+    if burn:
+        args.append(f"burn={burn}")
     proc = subprocess.run(
-        ["bend", str(DRIVER), "-o", str(dest)],
+        [sys.executable, "-c", _CHILD, *args],
         cwd=ROOT,
         capture_output=True,
         text=True,
     )
-    elapsed = time.perf_counter() - t0
-    if proc.returncode != 0 or not os.access(dest, os.X_OK):
-        sys.stderr.write(proc.stdout)
-        sys.stderr.write(proc.stderr)
-        raise SystemExit(2)
-    return elapsed
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"{cell} mode={mode} exited {proc.returncode}\n{proc.stderr[-500:]}"
+        )
+    fields = parse_kv(proc.stdout)
+    if fields.get("cell") != cell:
+        raise RuntimeError(f"expected cell {cell}, got {fields.get('cell')}")
+    if fields.get("variant") != mode:
+        raise RuntimeError(f"{cell}: expected variant {mode}, got {fields.get('variant')}")
+    return {
+        "cell": cell,
+        "mode": mode,
+        "algo_ms": _to_int(fields, "algo_ms"),
+        "run_ms": _to_int(fields, "run_ms"),
+        "burn_ms": _to_int(fields, "burn_ms"),
+        "wall_s": float(fields["wall_s"]),
+        "rss_kb": _to_int(fields, "rss_kb"),
+        "pop": _to_int(fields, "pop"),
+        "objectives": _to_int(fields, "m"),
+        "ref_points": _to_int(fields, "ref_points"),
+        "pop_len": _to_int(fields, "pop_len"),
+    }
 
 
-def ensure_binary() -> tuple[Path, float | None]:
-    dest = binary_path()
-    if os.access(dest, os.X_OK):
-        return dest, None
-    return dest, build_binary(dest)
+def metric_of(sample, metric):
+    if metric == "time":
+        return float(sample["algo_ms"])
+    if metric == "wall":
+        return float(sample["wall_s"]) * 1000.0
+    if metric == "rss":
+        return float(sample["rss_kb"])
+    raise KeyError(metric)
 
 
-def parse_bend_lines(text: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for line in text.splitlines():
-        if line.startswith("# ") and "=" in line:
-            key, value = line[2:].split("=", 1)
-            out[key] = value
-    return out
+def measure_cell(binary, workload, cell, config, cache):
+    mode = workload["mode"]
+    gens = int(workload.get("gens") or 0)
+    burn = int(workload.get("burn") or 0)
+    if mode == "quad":
+        burn = int(config["quad_reps"])
+    key = (mode, cell, gens, burn)
+    if key in cache:
+        return cache[key]
+    warmup = int(config["warmup_runs"])
+    repeats = int(config["measured_runs"])
+    for _ in range(warmup):
+        run_once(binary, cell, mode, gens, burn)
+    samples = [run_once(binary, cell, mode, gens, burn) for _ in range(repeats)]
+    cache[key] = samples
+    return samples
 
 
-def run_cell(binary: Path, cell: str, *, gens: int, burn: int, slow: bool) -> dict[str, float | str]:
-    cmd = [str(binary), "--threads", str(THREADS), cell, f"gens={gens}", f"burn={burn}"]
-    if slow and cell != "m0idle":
-        cmd.append("slow")
+def series_from_cells(cells, metric, x_key):
+    points = []
+    for cell, samples in cells:
+        xs = [s[x_key] for s in samples]
+        if len(set(xs)) != 1:
+            raise RuntimeError(f"{cell}: x varies across repeats")
+        values = [metric_of(s, metric) for s in samples]
+        points.append(
+            {
+                "cell": cell,
+                "x": xs[0],
+                "median": median(values),
+                "samples": values,
+                "cv": coefficient_of_variation(values),
+            }
+        )
+    points.sort(key=lambda p: p["x"])
+    return points
+
+
+def fit_points(points):
+    xs = [p["x"] for p in points]
+    ys = [p["median"] for p in points]
+    fit = ols(xs, ys)
+    fit["xs"] = xs
+    fit["ys"] = ys
+    fit["endpoint_ratio"] = endpoint_ratio(ys)
+    return fit
+
+
+def hash_sources():
+    files = [RUN_SRC, BENCH / "quad_pass.bend", BENCH / "alloc_pass.bend", BENCH / "slow_pass.bend"]
+    files.extend(sorted((ROOT / "src").glob("*.bend")))
+    digest = hashlib.sha256()
+    for path in files:
+        digest.update(path.name.encode())
+        digest.update(path.read_bytes())
+    return digest.hexdigest()[:16]
+
+
+def bend_exe():
+    found = shutil.which("bend")
+    if found:
+        return found
+    home = Path.home() / ".bend" / "bin" / "bend"
+    if home.exists():
+        return str(home)
+    return "bend"
+
+
+def ensure_binary():
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = OUT_DIR / "scale_run.sha"
+    digest = hash_sources()
+    if DEV_BIN.exists() and stamp.exists() and stamp.read_text(encoding="utf-8").strip() == digest:
+        return DEV_BIN
     proc = subprocess.run(
-        [sys.executable, "-c", HELPER, *cmd],
+        [bend_exe(), str(RUN_SRC), "-o", str(DEV_BIN)],
+        cwd=ROOT,
         capture_output=True,
         text=True,
-        timeout=CELL_TIMEOUT_S,
     )
-    if proc.returncode != 0:
-        sys.stderr.write(proc.stdout)
-        sys.stderr.write(proc.stderr)
-        raise SystemExit(2)
-    fields = parse_bend_lines(proc.stdout)
-    wall_s = None
-    rss_kb = None
-    for line in proc.stdout.splitlines():
-        if line.startswith("WALL_S "):
-            wall_s = float(line.split()[1])
-        elif line.startswith("MAXRSS_KB "):
-            rss_kb = int(line.split()[1])
-    if wall_s is None or rss_kb is None:
-        sys.stderr.write("measurer did not report wall and rss\n")
-        raise SystemExit(2)
-    expect_m, expect_p, expect_n = CELLS[cell]
-    got = {
-        "cell": fields.get("cell", ""),
-        "variant": fields.get("variant", ""),
-        "m": int(fields["m"]),
-        "partitions": int(fields["partitions"]),
-        "pop": int(fields["pop"]),
-        "gens": int(fields["gens"]),
-        "ref_points": int(fields["ref_points"]),
-        "algo_ms": int(fields["algo_ms"]),
-        "run_ms": int(fields["run_ms"]),
-        "burn_ms": int(fields["burn_ms"]),
-        "pop_len": int(fields["pop_len"]),
-        "burn_weight": int(fields["burn_weight"]),
-        "wall_s": wall_s,
-        "rss_kb": rss_kb,
-    }
-    if got["cell"] != cell or got["m"] != expect_m or got["partitions"] != expect_p or got["pop"] != expect_n:
-        sys.stderr.write(f"cell mismatch for {cell}: {got}\n")
-        raise SystemExit(2)
-    if got["gens"] != gens:
-        sys.stderr.write(f"gens mismatch for {cell}: {got['gens']}\n")
-        raise SystemExit(2)
-    if cell != "m0idle":
-        if got["ref_points"] != das_dennis_count(expect_m, expect_p):
-            sys.stderr.write(f"ref_points mismatch for {cell}: {got['ref_points']}\n")
-            raise SystemExit(2)
-        if got["pop_len"] != expect_n:
-            sys.stderr.write(f"pop_len mismatch for {cell}: {got['pop_len']}\n")
-            raise SystemExit(2)
-        if got["algo_ms"] <= 0 or got["wall_s"] <= 0 or got["rss_kb"] <= 0:
-            sys.stderr.write(f"non-positive measurement for {cell}: {got}\n")
-            raise SystemExit(2)
-        expect_variant = "slow" if slow else "fast"
-        if got["variant"] != expect_variant:
-            sys.stderr.write(f"variant mismatch for {cell}: {got['variant']}\n")
-            raise SystemExit(2)
-    return got
+    if proc.returncode != 0 or not DEV_BIN.exists():
+        raise RuntimeError(f"bend -o failed\n{proc.stderr[-800:]}")
+    stamp.write_text(digest + "\n", encoding="utf-8")
+    return DEV_BIN
 
 
-def measure(
-    *,
-    gens: int,
-    repeats: int,
-    slow: bool,
-    burn: int,
-    cells: list[str],
-) -> dict[str, dict]:
-    binary, compile_s = ensure_binary()
-    if compile_s is None:
-        print(f"native: cache hit {binary.name}", file=sys.stderr)
+def run_workload(binary, workload, config, cache):
+    cells = []
+    for cell in workload["cells"]:
+        samples = measure_cell(binary, workload, cell, config, cache)
+        cells.append((cell, samples))
+    return {"id": workload["id"], "cells": cells}
+
+
+def reference_point(measured, cell_id):
+    for cell, samples in measured["cells"]:
+        if cell == cell_id:
+            return cell, samples
+    raise KeyError(cell_id)
+
+
+def summarize_workload(measured, workload, config, baseline, machine):
+    """One workload's verdicts. Does not decide the process exit."""
+    result = {"id": workload["id"], "role": workload["role"], "metric": workload["metric"]}
+    if workload.get("fit", True) and workload["role"] != "record":
+        points = series_from_cells(measured["cells"], workload["metric"], workload["x"])
+        result["points"] = points
+        xs = [p["x"] for p in points]
+        result["span"] = max(xs) / min(xs)
+        if len(points) < int(config["min_fit_points"]) or not span_ok(xs, config):
+            result["fit_status"] = "inconclusive"
+            result["fit_reason"] = "span or point count"
+        else:
+            fit = fit_points(points)
+            status, allowed = classify_fit(fit, workload, config)
+            result["fit"] = {k: fit[k] for k in ("slope", "low", "high", "r2", "se", "df", "endpoint_ratio")}
+            result["fit_status"] = status
+            result["allowed"] = allowed
+            base_fit = None
+            if baseline and baseline.get("recorded"):
+                base_fit = (baseline.get("fits") or {}).get(workload["id"])
+            result["legacy"] = legacy_point_failures(fit, workload, base_fit)
+            result.update(ratio_check_fields(workload, fit, baseline))
+    ref = workload.get("reference")
+    if ref:
+        _, samples = reference_point(measured, ref)
+        values = [metric_of(s, workload["metric"]) for s in samples]
+        result["reference"] = {
+            "cell": ref,
+            "median": median(values),
+            "samples": values,
+            "cv": coefficient_of_variation(values),
+        }
+        result["absolute"] = absolute_status(result["reference"], workload, baseline, machine)
+    return result
+
+
+def cpu_row(base, machine):
+    """The baseline row for this CPU model and logical CPU count, if recorded."""
+    table = base.get("by_cpu") or {}
+    row = table.get(machine.get("cpu_model"))
+    if not row:
+        return None
+    if int(row.get("logical_cpus") or 0) != int(machine.get("logical_cpus") or 0):
+        return None
+    return row
+
+
+def absolute_status(reference, workload, baseline, machine):
+    """Compare one reference median.
+
+    Time and wall are per CPU model. ubuntu-latest is not one CPU, and a
+    foreign burn does not track this algorithm across those models, so an
+    unknown model is skipped-machine (a failure, not a pass). RSS is compared
+    on every model: it does not move with the clock.
+    """
+    if workload["role"] not in ("measure", "uniform"):
+        return "n/a"
+    if not baseline or not baseline.get("recorded"):
+        return "skipped-no-baseline"
+    base_refs = baseline.get("references") or {}
+    # A uniform slowdown is compared with the fast workload's reference.
+    # Storing the slowed median as its own baseline would make 2× look normal.
+    key = workload.get("baseline_of") or workload["id"]
+    if key not in base_refs:
+        return "skipped-no-baseline"
+    base = base_refs[key]
+    reference["cpu"] = machine.get("cpu_model")
+    metric = workload.get("metric")
+    if metric in ("time", "wall"):
+        if base.get("by_cpu"):
+            row = cpu_row(base, machine)
+            if row is None:
+                return "skipped-machine"
+            median = float(row["median"])
+            margin = float(row["margin"])
+        elif not same_machine(machine, baseline.get("machine") or {}):
+            return "skipped-machine"
+        else:
+            median = float(base["median"])
+            margin = float(base["margin"])
     else:
-        print(f"native: compile_s={compile_s:.3f} {binary.name}", file=sys.stderr)
-    out: dict[str, dict] = {}
-    for cell in cells:
-        samples = [
-            run_cell(binary, cell, gens=gens, burn=burn, slow=slow) for _ in range(repeats)
-        ]
-        def col(key: str) -> list[float]:
-            return [float(sample[key]) for sample in samples]
+        median = float(base["median"])
+        margin = float(base["margin"])
+    limit = median * (1.0 + margin)
+    reference["limit"] = limit
+    if reference["median"] > limit + 1e-9:
+        return "fail"
+    return "pass"
 
-        algo = col("algo_ms")
-        wall = col("wall_s")
-        rss = col("rss_kb")
-        run_ms = col("run_ms")
-        burn_ms = col("burn_ms")
-        blob = {
-            "m": int(samples[0]["m"]),
-            "partitions": int(samples[0]["partitions"]),
-            "pop": int(samples[0]["pop"]),
-            "ref_points": int(samples[0]["ref_points"]),
-            "algo_ms": {"median": median(algo), "repeats": algo},
-            "wall_s": {"median": median(wall), "repeats": wall},
-            "rss_kb": {"median": median(rss), "repeats": rss},
-            "run_ms": {"median": median(run_ms), "repeats": run_ms},
-            "burn_ms": {"median": median(burn_ms), "repeats": burn_ms},
-        }
-        out[cell] = blob
-        print(
-            f"{cell} algo_ms={blob['algo_ms']['median']:.0f} "
-            f"wall_s={blob['wall_s']['median']:.3f} "
-            f"rss_kb={blob['rss_kb']['median']:.0f} "
-            f"run_ms={blob['run_ms']['median']:.0f} "
-            f"burn_ms={blob['burn_ms']['median']:.0f} "
-            f"R={blob['ref_points']}",
-            file=sys.stderr,
-        )
+
+def ratio_ceiling_of(baseline, key):
+    if not baseline or not baseline.get("recorded"):
+        return None
+    ref = (baseline.get("references") or {}).get(key) or {}
+    if "ratio_ceiling" not in ref:
+        return None
+    return float(ref["ratio_ceiling"])
+
+
+def ratio_check_fields(workload, fit, baseline):
+    """Endpoint-ratio ceiling.
+
+    On the runner the time slope intervals meet: the algorithm's upper bound
+    and the N² loop's lower bound both sit on 1.99. The slope check cannot
+    both accept the algorithm and reject that loop. The endpoint ratio can.
+    The ceiling is the confirmation sweep's ratio times one measured margin.
+    """
+    catch = workload.get("catch")
+    flagged = bool(workload.get("ratio_ceiling")) or catch == "endpoint-ratio"
+    if not flagged or fit is None:
+        return {}
+    key = workload.get("ratio_from") or workload["id"]
+    ceiling = ratio_ceiling_of(baseline, key)
+    out = {"catch": catch or "measure"}
+    if ceiling is None:
+        out["ratio_check"] = "skipped-no-baseline"
+        return out
+    out["ratio_ceiling"] = ceiling
+    ratio = float(fit["endpoint_ratio"])
+    out["ratio_check"] = "fail" if ratio > ceiling + 1e-9 else "pass"
     return out
 
 
-def view(cells: dict[str, dict]) -> dict[str, dict[str, float]]:
-    """Medians plus the x-axis fields the fitter reads."""
-    out: dict[str, dict[str, float]] = {}
-    for name, blob in cells.items():
-        out[name] = {
-            "pop": float(blob["pop"]),
-            "ref_points": float(blob["ref_points"]),
-            "algo_ms": float(blob["algo_ms"]["median"]),
-            "wall_s": float(blob["wall_s"]["median"]),
-            "rss_kb": float(blob["rss_kb"]["median"]),
-        }
-    return out
+def endpoint_ratio_stats(summary):
+    points = summary["points"]
+    lo, hi = points[0], points[-1]
+    return hi["median"] / lo["median"], math.hypot(lo["cv"], hi["cv"])
 
 
-def series_exponent(samples: dict[str, dict[str, float]], spec: dict[str, object]) -> float:
-    names = spec["cells"]
-    assert isinstance(names, list)
-    xs = [samples[name][str(spec["x"])] for name in names]
-    ys = [samples[name][str(spec["y"])] for name in names]
-    return log_log_exponent(xs, ys)
+def ratio_ceiling_from_sweeps(summary_a, summary_b):
+    """Same margin formula as the absolute check, applied to the endpoint ratios.
 
-
-def endpoint_ratio(samples: dict[str, dict[str, float]], spec: dict[str, object]) -> float:
-    names = spec["cells"]
-    assert isinstance(names, list)
-    y = str(spec["y"])
-    return samples[names[-1]][y] / samples[names[0]][y]
-
-
-def evaluate(samples: dict[str, dict[str, float]], baseline: dict) -> list[str]:
-    """Return human-readable failures. Empty means the gate passed."""
-    bounds = baseline["bounds"]
-    base = view(baseline["cells"])
-    failures: list[str] = []
-    margin = float(bounds["exponent_margin"])
-    for spec in SERIES:
-        name = str(spec["name"])
-        current = series_exponent(samples, spec)
-        recorded = series_exponent(base, spec)
-        ceiling = float(bounds[str(spec["ceiling"])])
-        if current > ceiling:
-            failures.append(
-                f"{name} exponent {current:.4f} exceeds ceiling {ceiling:.4f}"
-            )
-        if current > recorded + margin:
-            failures.append(
-                f"{name} exponent {current:.4f} exceeds baseline {recorded:.4f} "
-                f"+ margin {margin:.4f}"
-            )
-        ratio_margin = float(bounds[str(spec["ratio_key"])])
-        current_ratio = endpoint_ratio(samples, spec)
-        recorded_ratio = endpoint_ratio(base, spec)
-        rel = current_ratio / recorded_ratio
-        if rel > ratio_margin:
-            failures.append(
-                f"{name} endpoint ratio {current_ratio:.4f} / baseline {recorded_ratio:.4f} "
-                f"= {rel:.4f} exceeds margin {ratio_margin:.4f}"
-            )
-    for cell in CELLS:
-        if cell in ("m0idle", ANCHOR):
-            continue
-        for metric, key in (("algo_ms", "ratio_margin"), ("rss_kb", "rss_ratio_margin")):
-            current = samples[cell][metric] / samples[ANCHOR][metric]
-            recorded = base[cell][metric] / base[ANCHOR][metric]
-            rel = current / recorded
-            limit = float(bounds[key])
-            if rel > limit:
-                failures.append(
-                    f"{cell} {metric} / anchor = {current:.4f} vs baseline {recorded:.4f} "
-                    f"(rel {rel:.4f} > {limit:.4f})"
-                )
-    return failures
-
-
-def fit_table(samples: dict[str, dict[str, float]]) -> dict[str, float]:
-    return {str(spec["name"]): series_exponent(samples, spec) for spec in SERIES}
-
-
-def tool_version(cmd: list[str]) -> str:
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    line = (proc.stdout or proc.stderr or "").strip().splitlines()
-    return line[0] if line else "unknown"
-
-
-def recorded_with() -> dict[str, str]:
+    CV of a ratio is the root-sum-square of the two end-point sample CVs.
+    The larger of the two sweeps is kept. The ceiling multiplies the
+    confirmation sweep's ratio.
+    """
+    ratio_a, cv_a = endpoint_ratio_stats(summary_a)
+    ratio_b, cv_b = endpoint_ratio_stats(summary_b)
+    cv = max(cv_a, cv_b)
+    need = margin_need(cv, ratio_a, ratio_b)
+    margin = round_up_milli(need)
     return {
-        "bend": tool_version(["bend", "version"]),
-        "clang": tool_version(["clang", "--version"]),
-        "python": sys.version.split()[0],
-        "platform": os.uname().machine + " " + os.uname().release,
+        "endpoint_ratio": ratio_b,
+        "other_endpoint_ratio": ratio_a,
+        "endpoint_cv": cv,
+        "ratio_margin_need": need,
+        "ratio_margin": margin,
+        "ratio_ceiling": ratio_b * (1.0 + margin),
     }
 
 
-def load_baseline() -> dict:
-    return json.loads(BASELINE_PATH.read_text())
+def control_caught(summary):
+    """A slope control is caught when its fit is worse.
+
+    The N² time loop is caught when its endpoint ratio clears the ceiling.
+    Its slope interval meets the algorithm's, so `worse` is not the check.
+    """
+    if summary.get("catch") == "endpoint-ratio":
+        return summary.get("ratio_check") == "fail"
+    return summary.get("fit_status") == "worse"
 
 
-def bounds_for_record() -> dict:
-    if BASELINE_PATH.is_file():
-        existing = load_baseline()
-        if "bounds" in existing:
-            return existing["bounds"]
-    return dict(LOCKED_BOUNDS)
+def uniform_caught(summary):
+    """A uniform slowdown must miss the slope and trip the absolute check."""
+    return summary.get("fit_status") == "within" and summary.get("absolute") == "fail"
 
 
-def write_baseline(cells: dict[str, dict], *, gens: int, repeats: int, bounds: dict) -> None:
-    payload = {
-        "schema": 1,
-        "problem": "dtlz2",
-        "k": 10,
-        "gens": gens,
-        "seed": 1,
-        "tournament": "pymoo",
-        "threads": THREADS,
-        "repeats": repeats,
-        "anchor": ANCHOR,
-        "note": "Bounds and margins are explained in bench/README.md. Medians are from this file's repeats.",
-        "recorded_with": recorded_with(),
-        "bounds": bounds,
-        "cells": cells,
-    }
-    BASELINE_PATH.write_text(json.dumps(payload, indent=2) + "\n")
+def measure_ok(summary):
+    if summary["role"] != "measure":
+        return True
+    fit_ok = summary.get("fit_status") in (None, "within", "skipped")
+    legacy_ok = not summary.get("legacy")
+    ratio_ok = summary.get("ratio_check") in (None, "pass", "skipped-no-baseline")
+    absolute = summary.get("absolute")
+    # skipped-machine is not a pass. The job must say the check did not run.
+    abs_ok = absolute in (None, "n/a", "pass")
+    return fit_ok and legacy_ok and ratio_ok and abs_ok
 
 
-def check_protocol(baseline: dict, *, gens: int) -> None:
-    if int(baseline["gens"]) != gens:
-        sys.stderr.write(f"baseline gens={baseline['gens']} but this run uses gens={gens}\n")
-        raise SystemExit(2)
-    if int(baseline["threads"]) != THREADS:
-        sys.stderr.write("baseline threads do not match this runner\n")
-        raise SystemExit(2)
-    missing = [cell for cell in CELLS if cell not in baseline["cells"]]
-    if missing:
-        sys.stderr.write(f"baseline missing cells: {missing}\n")
-        raise SystemExit(2)
+def decide(summaries):
+    """Exit 0 when every measure passes and every control is caught the intended way.
 
-
-def format_report(
-    *,
-    samples: dict[str, dict[str, float]],
-    cells: dict[str, dict],
-    baseline: dict | None,
-    failures: list[str],
-    variant: str,
-    expect_fail: bool,
-    gens: int,
-) -> str:
-    lines: list[str] = []
-    accepted = not failures
-    if expect_fail:
-        verdict = "control_rejected" if failures else "control_accepted"
-    else:
-        verdict = "pass" if accepted else "fail"
-    lines.append(f"verdict={verdict} variant={variant}")
-    lines.append(
-        f"threads={THREADS} gens={gens} "
-        f"anchor={ANCHOR}"
-    )
-    lines.append("")
-    lines.append(
-        f"{'cell':<12} {'M':>2} {'p':>3} {'R':>4} {'N':>4} "
-        f"{'algo_ms':>8} {'wall_s':>8} {'rss_kb':>8} {'burn_ms':>8}"
-    )
-    for name, blob in cells.items():
-        lines.append(
-            f"{name:<12} {blob['m']:2d} {blob['partitions']:3d} {blob['ref_points']:4d} {blob['pop']:4d} "
-            f"{blob['algo_ms']['median']:8.1f} {blob['wall_s']['median']:8.3f} "
-            f"{blob['rss_kb']['median']:8.0f} {blob['burn_ms']['median']:8.1f}"
-        )
-    lines.append("")
-    lines.append("exponents (log-log OLS on medians)")
-    fits = fit_table(samples)
-    base_fits = fit_table(view(baseline["cells"])) if baseline else None
-    for spec in SERIES:
-        name = str(spec["name"])
-        current = fits[name]
-        extra = ""
-        if baseline is not None:
-            ceiling = float(baseline["bounds"][str(spec["ceiling"])])
-            recorded = base_fits[name] if base_fits else float("nan")
-            extra = f"  ceiling={ceiling:.2f}  baseline={recorded:.4f}"
-        lines.append(f"  {name:<12} {current:.4f}{extra}")
-    if baseline is not None:
-        lines.append("")
-        lines.append("endpoint ratios (high / low) and rel to baseline")
-        base = view(baseline["cells"])
-        for spec in SERIES:
-            name = str(spec["name"])
-            current_ratio = endpoint_ratio(samples, spec)
-            recorded_ratio = endpoint_ratio(base, spec)
-            rel = current_ratio / recorded_ratio
-            lines.append(
-                f"  {name:<12} {current_ratio:.4f}  baseline={recorded_ratio:.4f}  rel={rel:.4f}"
+    Exit 2 when the only miss is a missing baseline (absolute skipped).
+    Exit 1 when a measure fails or a control is not caught by its named check.
+    """
+    missing_baseline = False
+    problems = []
+    for s in summaries:
+        role = s["role"]
+        if role == "record":
+            continue
+        if role == "measure":
+            if s.get("absolute") == "skipped-machine":
+                note_skipped_machine(s)
+                problems.append(f"{s['id']}:absolute:skipped-machine")
+            fit_only_ok = s.get("fit_status") in (None, "within", "skipped") and not s.get("legacy") and s.get("ratio_check") in (
+                None,
+                "pass",
+                "skipped-no-baseline",
             )
-    if failures:
-        lines.append("")
-        lines.append("failures:")
-        for item in failures:
-            lines.append(f"  - {item}")
-    else:
-        lines.append("")
-        lines.append("failures: none")
+            if s.get("absolute") == "skipped-no-baseline" and fit_only_ok:
+                missing_baseline = True
+                problems.append(f"{s['id']}:absolute:skipped-no-baseline")
+            elif not measure_ok(s) and not (s.get("absolute") == "skipped-machine" and fit_only_ok):
+                problems.append(f"{s['id']}:fail")
+        elif role == "control":
+            if s.get("catch") == "endpoint-ratio" and s.get("ratio_check") == "skipped-no-baseline":
+                missing_baseline = True
+                problems.append(f"{s['id']}:endpoint-ratio:skipped-no-baseline")
+            elif not control_caught(s):
+                kind = "endpoint-ratio:not-over" if s.get("catch") == "endpoint-ratio" else f"{s['metric']}:not-worse"
+                problems.append(f"{s['id']}:{kind}")
+        elif role == "uniform":
+            if s.get("fit_status") != "within":
+                problems.append(f"{s['id']}:time:not-within")
+            if s.get("absolute") == "skipped-no-baseline":
+                missing_baseline = True
+                problems.append(f"{s['id']}:absolute:skipped-no-baseline")
+            elif s.get("absolute") == "skipped-machine":
+                # Not caught. e3acad68 failed here; a later commit must not pass it.
+                note_skipped_machine(s)
+                problems.append(f"{s['id']}:absolute:not-fail")
+            elif s.get("absolute") != "fail":
+                problems.append(f"{s['id']}:absolute:not-fail")
+    real = [p for p in problems if "skipped-no-baseline" not in p]
+    if real:
+        return 1, problems
+    if missing_baseline:
+        return 2, problems
+    return 0, problems
+
+
+def note_skipped_machine(summary):
+    cpu = (summary.get("reference") or {}).get("cpu") or "unknown"
+    sys.stderr.write(
+        f"::warning title=absolute skipped::{summary['id']} absolute skipped-machine "
+        f"cpu={cpu}; the reference-size check did not run\n"
+    )
+
+
+def margin_from_sweeps(ref_a, ref_b):
+    cv = max(ref_a["cv"], ref_b["cv"])
+    need = margin_need(cv, ref_a["median"], ref_b["median"])
+    return {"cv": cv, "need": need, "margin": round_up_milli(need)}
+
+
+def apply_config_overrides(config, args):
+    if args.warmup is not None:
+        config["warmup_runs"] = args.warmup
+    if args.repeats is not None:
+        config["measured_runs"] = args.repeats
+    return config
+
+
+def select_workloads(config, only):
+    if not only:
+        return config["workloads"]
+    wanted = set(only)
+    return [w for w in config["workloads"] if w["id"] in wanted]
+
+
+def run_sweep(binary, workloads, config):
+    cache = {}
+    return [run_workload(binary, w, config, cache) for w in workloads]
+
+
+def tool_versions():
+    bend = bend_exe()
+    try:
+        out = subprocess.run([bend, "version"], capture_output=True, text=True, timeout=30)
+        bend_v = (out.stdout or out.stderr).strip().splitlines()
+        bend_v = bend_v[-1] if bend_v else "unknown"
+    except (OSError, subprocess.TimeoutExpired):
+        bend_v = "unknown"
+    return {"bend": bend_v, "python": platform.python_version()}
+
+
+def build_draft(config, sweep_a, sweep_b, machine):
+    """Baseline body from two sweeps. The confirmation sweep's medians are stored."""
+    references = {}
+    fits = {}
+    by_id_b = {m["id"]: m for m in sweep_b}
+    by_id_a = {m["id"]: m for m in sweep_a}
+    for workload in config["workloads"]:
+        if workload["role"] != "measure":
+            continue
+        if "reference" not in workload:
+            continue
+        summary_a = summarize_workload(by_id_a[workload["id"]], workload, config, None, machine)
+        summary_b = summarize_workload(by_id_b[workload["id"]], workload, config, None, machine)
+        margin = margin_from_sweeps(summary_a["reference"], summary_b["reference"])
+        ref = summary_b["reference"]
+        references[workload["id"]] = {
+            "cell": ref["cell"],
+            "metric": workload["metric"],
+            "median": ref["median"],
+            "samples": ref["samples"],
+            "cv": ref["cv"],
+            "other_median": summary_a["reference"]["median"],
+            "other_cv": summary_a["reference"]["cv"],
+            "margin": margin["margin"],
+            "margin_need": margin["need"],
+        }
+        if "fit" in summary_b:
+            fits[workload["id"]] = summary_b["fit"]
+        if workload.get("ratio_ceiling"):
+            references[workload["id"]].update(ratio_ceiling_from_sweeps(summary_a, summary_b))
+    return {
+        "schema": 2,
+        "recorded": True,
+        "machine": machine,
+        "absolute": config["absolute"],
+        "references": references,
+        "fits": fits,
+        "source_hash": hash_sources(),
+        "tools": tool_versions(),
+    }
+
+
+def format_report(summaries, code, problems):
+    lines = [f"verdict={'pass' if code == 0 else 'fail'}", f"exit={code}"]
+    for s in summaries:
+        if s["role"] == "record":
+            cells = ",".join(cell for cell, _ in []) if False else ""
+            bits = []
+            for cell, samples in s.get("cells_raw", []) or []:
+                bits.append(cell)
+            # measured cells are not on the summary; points may be absent.
+            line = f"{s['id']} record"
+            if "reference" in s:
+                line += f" ref={s['reference']['median']:.4g}"
+            lines.append(line)
+            continue
+        fit = s.get("fit")
+        if fit:
+            lines.append(
+                f"{s['id']} {s['metric']} {s['fit_status']} "
+                f"slope={fit['slope']:.4f} low={fit['low']:.4f} high={fit['high']:.4f} "
+                f"allowed={s['allowed']:.4f} r2={fit['r2']:.4f} "
+                f"ratio={fit['endpoint_ratio']:.4f}"
+            )
+        elif "fit_status" in s:
+            lines.append(f"{s['id']} {s['metric']} {s['fit_status']}")
+        if s.get("legacy"):
+            lines.append(f"{s['id']} legacy {','.join(s['legacy'])}")
+        if s.get("ratio_check"):
+            ceiling = s.get("ratio_ceiling")
+            extra = f" ceiling={ceiling:.4f}" if ceiling is not None else ""
+            lines.append(f"{s['id']} ratio {s['ratio_check']}{extra}")
+        if "absolute" in s:
+            ref = s.get("reference") or {}
+            limit = ref.get("limit")
+            limit_bit = f" limit={limit:.4f}" if isinstance(limit, (int, float)) else ""
+            cpu = ref.get("cpu") or ""
+            cpu_bit = f" cpu={cpu}" if cpu else ""
+            lines.append(
+                f"{s['id']} absolute {s['absolute']} "
+                f"median={ref.get('median', float('nan')):.4g}{limit_bit}{cpu_bit}"
+            )
+    if problems:
+        lines.append("problems: " + "; ".join(problems))
     return "\n".join(lines) + "\n"
 
 
-def finish(report: str, *, failures: list[str], expect_fail: bool, payload: dict) -> int:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(json.dumps(payload, indent=2) + "\n")
-    sys.stdout.write(report)
-    if expect_fail:
-        if failures:
-            sys.stdout.write("negative control: gate rejected the slow variant\n")
-            return 0
-        sys.stdout.write("negative control was accepted; the gate is too loose\n")
-        return 1
-    return 1 if failures else 0
+def attach_raw(summaries, measured):
+    by_id = {m["id"]: m for m in measured}
+    for s in summaries:
+        raw = by_id.get(s["id"])
+        if raw:
+            s["cells_raw"] = [
+                (
+                    cell,
+                    [
+                        {
+                            "algo_ms": sample["algo_ms"],
+                            "wall_s": sample["wall_s"],
+                            "rss_kb": sample["rss_kb"],
+                            "pop": sample["pop"],
+                            "ref_points": sample["ref_points"],
+                        }
+                        for sample in samples
+                    ],
+                )
+                for cell, samples in raw["cells"]
+            ]
+    return summaries
 
 
-def parse_args(argv: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="DTLZ2 scaling gate")
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--measure", action="store_true", help="run the grid and print it")
-    mode.add_argument("--record", action="store_true", help="rewrite bench/baseline.json from a fast run")
-    mode.add_argument("--check", action="store_true", help="run the grid and compare to the baseline")
-    parser.add_argument("--variant", choices=("fast", "slow"), default="fast")
-    parser.add_argument("--expect", choices=("pass", "fail"), default="pass")
-    parser.add_argument("--gens", type=int, default=GENS)
-    parser.add_argument("--repeats", type=int, default=REPEATS)
-    parser.add_argument("--burn-weight", type=int, default=None)
-    parser.add_argument("--cells", nargs="*", default=None)
-    return parser.parse_args(argv)
-
-
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(sys.argv[1:] if argv is None else argv)
-    if args.repeats < 1 or args.gens < 1:
-        sys.stderr.write("gens and repeats must be positive\n")
-        return 2
-    slow = args.variant == "slow"
-    if args.record and slow:
-        sys.stderr.write("--record writes the fast baseline; it does not record the slow variant\n")
-        return 2
-    burn = args.burn_weight
-    if burn is None:
-        burn = SLOW_BURN_WEIGHT if slow else 0
-    cells = args.cells if args.cells else list(CELLS)
-    unknown = [cell for cell in cells if cell not in CELLS]
-    if unknown:
-        sys.stderr.write(f"unknown cells: {unknown}\n")
-        return 2
-    if args.check or args.record:
-        if not BASELINE_PATH.is_file() and args.check:
-            sys.stderr.write(f"missing {BASELINE_PATH}\n")
-            return 2
-    try:
-        measured = measure(
-            gens=args.gens,
-            repeats=args.repeats,
-            slow=slow,
-            burn=burn,
-            cells=cells,
-        )
-    except subprocess.TimeoutExpired:
-        sys.stderr.write(f"cell exceeded {CELL_TIMEOUT_S}s\n")
-        return 2
-    samples = view(measured)
-    payload: dict = {
-        "variant": args.variant,
-        "burn_weight": burn,
-        "gens": args.gens,
-        "repeats": args.repeats,
-        "threads": THREADS,
-        "fits": fit_table(samples),
-        "cells": measured,
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--run", action="store_true")
+    parser.add_argument("--sweeps", type=int, default=1)
+    parser.add_argument("--warmup", type=int)
+    parser.add_argument("--repeats", type=int)
+    parser.add_argument("--only", action="append", default=[])
+    parser.add_argument("--draft", type=Path)
+    parser.add_argument("--report", type=Path, default=OUT_DIR / "report.json")
+    parser.add_argument("--baseline", type=Path, default=BASELINE_PATH)
+    parser.add_argument("--config", type=Path, default=CONFIG_PATH)
+    args = parser.parse_args(argv)
+    if not args.run:
+        parser.error("pass --run")
+    config = apply_config_overrides(load_config(args.config), args)
+    workloads = select_workloads(config, args.only)
+    if args.sweeps < 1:
+        parser.error("--sweeps must be >= 1")
+    binary = ensure_binary()
+    machine = machine_info()
+    baseline = None
+    if args.baseline.exists():
+        baseline = json.loads(args.baseline.read_text(encoding="utf-8"))
+    measure = [w for w in workloads if w["role"] == "measure"]
+    sweep_a = run_sweep(binary, workloads, config)
+    sweep_b = run_sweep(binary, measure, config) if args.sweeps >= 2 else None
+    by_id = {m["id"]: m for m in sweep_a}
+    summaries = [
+        summarize_workload(by_id[w["id"]], w, config, baseline, machine) for w in workloads
+    ]
+    attach_raw(summaries, sweep_a)
+    if sweep_b is not None:
+        by_b = {m["id"]: m for m in sweep_b}
+        for w in measure:
+            extra = summarize_workload(by_b[w["id"]], w, config, baseline, machine)
+            extra["sweep"] = "confirm"
+            summaries.append(extra)
+    code, problems = decide([s for s in summaries if s.get("sweep") != "confirm"])
+    # A confirmation sweep that fails its own checks fails the run too.
+    if sweep_b is not None:
+        code_b, problems_b = decide([s for s in summaries if s.get("sweep") == "confirm"])
+        if code_b == 1 or (code_b == 2 and code == 0):
+            code = code_b
+        problems.extend(f"confirm {p}" for p in problems_b)
+    draft = None
+    if args.draft and sweep_b is not None:
+        draft = build_draft(config, sweep_a, sweep_b, machine)
+        args.draft.parent.mkdir(parents=True, exist_ok=True)
+        args.draft.write_text(json.dumps(draft, indent=2) + "\n", encoding="utf-8")
+    report = {
+        "exit": code,
+        "problems": problems,
+        "machine": machine,
+        "tools": tool_versions(),
+        "source_hash": hash_sources(),
+        "summaries": summaries,
+        "draft_written": str(args.draft) if draft else None,
     }
-    if args.measure or args.record:
-        if args.record:
-            if set(cells) != set(CELLS):
-                sys.stderr.write("--record runs the full grid\n")
-                return 2
-            write_baseline(
-                measured,
-                gens=args.gens,
-                repeats=args.repeats,
-                bounds=bounds_for_record(),
-            )
-            payload["baseline_path"] = str(BASELINE_PATH)
-        baseline_now = load_baseline() if BASELINE_PATH.is_file() else None
-        report = format_report(
-            samples=samples,
-            cells=measured,
-            baseline=baseline_now,
-            failures=[],
-            variant=args.variant,
-            expect_fail=False,
-            gens=args.gens,
-        )
-        return finish(report, failures=[], expect_fail=False, payload=payload)
-
-    baseline = load_baseline()
-    check_protocol(baseline, gens=args.gens)
-    if set(cells) != set(CELLS):
-        sys.stderr.write("--check runs the full grid\n")
-        return 2
-    failures = evaluate(samples, baseline)
-    expect_fail = args.expect == "fail"
-    payload["failures"] = failures
-    payload["fits_baseline"] = fit_table(view(baseline["cells"]))
-    report = format_report(
-        samples=samples,
-        cells=measured,
-        baseline=baseline,
-        failures=failures,
-        variant=args.variant,
-        expect_fail=expect_fail,
-        gens=args.gens,
-    )
-    return finish(report, failures=failures, expect_fail=expect_fail, payload=payload)
+    args.report.parent.mkdir(parents=True, exist_ok=True)
+    args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    sys.stdout.write(format_report(summaries, code, problems))
+    return code
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.exit(main())
