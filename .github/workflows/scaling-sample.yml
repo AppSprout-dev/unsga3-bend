@@ -1,5 +1,6 @@
 # Temporary. Collects scaling-gate measurements on separate ubuntu-latest
 # VMs so a per-CPU baseline row can be derived from several runs.
+# Wave 2: the first 12 VMs were not five of any unlisted model.
 # Delete this file once those rows are committed. It is not the `scaling`
 # check and it does not change whether that check is required.
 
