@@ -155,6 +155,8 @@ python3 ab/profile_bend_run.py --problem zdt2 --partitions 12 --pop 52 --gens 25
 | `dump_pymoo_nsga3.py` | optional pymoo **NSGA-III** front (same knobs); skips if pymoo missing. Catalog names use `catalog_knobs` when flags are omitted, and skip when the pymoo box is not the Bend/C# box |
 | `dump_csharp_catalog.py` | optional C# catalog Run (not `OracleCompare`, which only accepts zdt1/zdt2/dtlz2). Skips without `UNSGA3_CS_ROOT` / `dotnet`. Does not clone Unsga3 |
 | `oracle_multiseed.py` | 15-seed IGD table for ZDT1 / ZDT2 / DTLZ2: Bend `--native` + C# + pymoo NSGA-III, scored with `igd_vs_pymoo.py` |
+| `best_of_k.py` | Pre-registered best-of-3 check: front-only `E_assoc` vs IGD on Bend seeds 1–15. Reuses `ab/out/oracle_multiseed` (`--reuse`) or `dump_bend_run.py --native`. Does not change the algorithm. Table: [docs/BEST_OF_K.md](../docs/BEST_OF_K.md) |
+| `test_best_of_k.py` | Hand-built `E_assoc` cases and a deterministic shuffled-E control. No Bend run |
 | `oracle_catalog.py` | Catalog IGD table under `catalog_knobs`. Every cell is `igd=` or `skip:`. OSY / TNK / C1-DTLZ1 are not this budget |
 | `oracle_constrained.py` | OSY / TNK / C1-DTLZ1 IGD under `constrained_knobs` (PymooCompatible). Every cell is `igd=` or `skip:` |
 | `indicators.py` | GD, GD+, IGD, IGD+ (C# `PerformanceIndicators`). No measured table |
@@ -163,6 +165,6 @@ python3 ab/profile_bend_run.py --problem zdt2 --partitions 12 --pop 52 --gens 25
 | `fixture_check.py` | Layer-1 bit-check: dump Bend + C# selected fronts on a JSON fixture, then `compare.py` |
 | `test_catalog_smoke.py` | `bend src/catalog_smoke.bend`: catalog dims, box ends, Evaluate(x=0.5), pop=4 gens=1 Run. No IGD |
 
-Multi-seed ZDT1 / ZDT2 / DTLZ2 tables + fixture matrix: [docs/ORACLE-MULTISEED.md](../docs/ORACLE-MULTISEED.md). Catalog measurements: [docs/ORACLE-CATALOG.md](../docs/ORACLE-CATALOG.md) (`python3 ab/oracle_catalog.py`).
+Multi-seed ZDT1 / ZDT2 / DTLZ2 tables + fixture matrix: [docs/ORACLE-MULTISEED.md](../docs/ORACLE-MULTISEED.md). Best-of-k on those Bend seeds: [docs/BEST_OF_K.md](../docs/BEST_OF_K.md) (`python3 ab/best_of_k.py`). Catalog measurements: [docs/ORACLE-CATALOG.md](../docs/ORACLE-CATALOG.md) (`python3 ab/oracle_catalog.py`).
 
 ZDT2 multi-seed collapse on **both** stacks at gens=100: [docs/ZDT2_COLLAPSE.md](../docs/ZDT2_COLLAPSE.md). A/B default is gens=250 / `pymoo`. `dump_bend_run.py --tournament rank_niche` and `dump_csharp_run.py --tournament rank_niche` are diagnostic.

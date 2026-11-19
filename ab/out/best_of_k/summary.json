@@ -1,0 +1,455 @@
+{
+  "criterion_a": {
+    "n_pass": 0,
+    "need": 2,
+    "pass": false,
+    "rho_min": 0.5
+  },
+  "criterion_b": {
+    "improve_min": 0.05,
+    "n_improve": 2,
+    "need_improve": 2,
+    "not_worse": true,
+    "pass": true,
+    "worse_max": 0.05
+  },
+  "criterion_c": {
+    "band": 0.02,
+    "pass": false
+  },
+  "host": {
+    "bend": "bend 2.0.40",
+    "bend_pin": false,
+    "clang": "Ubuntu clang version 18.1.3 (1ubuntu1)",
+    "date": "2026-11-19",
+    "pymoo": "0.6.2",
+    "python": "3.12.3"
+  },
+  "n_reused": 1,
+  "n_rows": 45,
+  "problems": {
+    "dtlz2": {
+      "control_pass": true,
+      "disjoint": [
+        {
+          "energy_igd": 0.003913783624645774,
+          "energy_seed": 1,
+          "oracle_igd": 0.0037772516263725048,
+          "oracle_seed": 3,
+          "random_igd": 0.00398043447851341,
+          "seeds": [
+            1,
+            2,
+            3
+          ],
+          "shuffled_igd": 0.004250268184521951,
+          "shuffled_seed": 2
+        },
+        {
+          "energy_igd": 0.004369477334923864,
+          "energy_seed": 4,
+          "oracle_igd": 0.004025886485299157,
+          "oracle_seed": 6,
+          "random_igd": 0.00441437956718757,
+          "seeds": [
+            4,
+            5,
+            6
+          ],
+          "shuffled_igd": 0.004369477334923864,
+          "shuffled_seed": 4
+        },
+        {
+          "energy_igd": 0.004003830550065756,
+          "energy_seed": 9,
+          "oracle_igd": 0.003602611928428671,
+          "oracle_seed": 7,
+          "random_igd": 0.003949713333375008,
+          "seeds": [
+            7,
+            8,
+            9
+          ],
+          "shuffled_igd": 0.003602611928428671,
+          "shuffled_seed": 7
+        },
+        {
+          "energy_igd": 0.003726527781921591,
+          "energy_seed": 11,
+          "oracle_igd": 0.003726527781921591,
+          "oracle_seed": 11,
+          "random_igd": 0.004503081030625526,
+          "seeds": [
+            10,
+            11,
+            12
+          ],
+          "shuffled_igd": 0.003726527781921591,
+          "shuffled_seed": 11
+        },
+        {
+          "energy_igd": 0.0045024007391203024,
+          "energy_seed": 13,
+          "oracle_igd": 0.004065501417885731,
+          "oracle_seed": 14,
+          "random_igd": 0.004308147462826367,
+          "seeds": [
+            13,
+            14,
+            15
+          ],
+          "shuffled_igd": 0.0045024007391203024,
+          "shuffled_seed": 13
+        }
+      ],
+      "improve_pass": false,
+      "median_igd_energy": 0.004065501417885731,
+      "median_igd_oracle": 0.0037772516263725048,
+      "median_igd_random": 0.004224103277960249,
+      "median_igd_shuffled": 0.004242697521630597,
+      "n_triples": 455,
+      "not_worse_pass": true,
+      "problem": "dtlz2",
+      "rel_energy": 0.03754687081209443,
+      "rel_oracle": 0.1057861567730233,
+      "rel_shuffled": -0.004401938694862332,
+      "rho": 0.125,
+      "rho_pass": false,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "shuffle_perm": [
+        1,
+        10,
+        9,
+        5,
+        11,
+        2,
+        3,
+        7,
+        8,
+        4,
+        0,
+        14,
+        12,
+        6,
+        13
+      ]
+    },
+    "zdt1": {
+      "control_pass": false,
+      "disjoint": [
+        {
+          "energy_igd": 0.06252597642386959,
+          "energy_seed": 2,
+          "oracle_igd": 0.06160279513969024,
+          "oracle_seed": 1,
+          "random_igd": 0.07948106030061641,
+          "seeds": [
+            1,
+            2,
+            3
+          ],
+          "shuffled_igd": 0.06252597642386959,
+          "shuffled_seed": 2
+        },
+        {
+          "energy_igd": 0.04591567885518977,
+          "energy_seed": 6,
+          "oracle_igd": 0.04591567885518977,
+          "oracle_seed": 6,
+          "random_igd": 0.07133362809874363,
+          "seeds": [
+            4,
+            5,
+            6
+          ],
+          "shuffled_igd": 0.08475608900274678,
+          "shuffled_seed": 4
+        },
+        {
+          "energy_igd": 0.06174889535209476,
+          "energy_seed": 9,
+          "oracle_igd": 0.060659434852078795,
+          "oracle_seed": 7,
+          "random_igd": 0.0682232894008321,
+          "seeds": [
+            7,
+            8,
+            9
+          ],
+          "shuffled_igd": 0.06174889535209476,
+          "shuffled_seed": 9
+        },
+        {
+          "energy_igd": 0.15123639947003306,
+          "energy_seed": 11,
+          "oracle_igd": 0.08464007325774058,
+          "oracle_seed": 10,
+          "random_igd": 0.12095128869856923,
+          "seeds": [
+            10,
+            11,
+            12
+          ],
+          "shuffled_igd": 0.12697739336793407,
+          "shuffled_seed": 12
+        },
+        {
+          "energy_igd": 0.06946194034159836,
+          "energy_seed": 14,
+          "oracle_igd": 0.0611829281260158,
+          "oracle_seed": 13,
+          "random_igd": 0.0673732032116605,
+          "seeds": [
+            13,
+            14,
+            15
+          ],
+          "shuffled_igd": 0.07147474116736735,
+          "shuffled_seed": 15
+        }
+      ],
+      "improve_pass": true,
+      "median_igd_energy": 0.06946194034159836,
+      "median_igd_oracle": 0.0611829281260158,
+      "median_igd_random": 0.0791823819275465,
+      "median_igd_shuffled": 0.06946194034159836,
+      "n_triples": 455,
+      "not_worse_pass": true,
+      "problem": "zdt1",
+      "rel_energy": 0.12276015635450999,
+      "rel_oracle": 0.22731639745316787,
+      "rel_shuffled": 0.12276015635450999,
+      "rho": 0.30357142857142855,
+      "rho_pass": false,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "shuffle_perm": [
+        1,
+        10,
+        9,
+        5,
+        11,
+        2,
+        3,
+        7,
+        8,
+        4,
+        0,
+        14,
+        12,
+        6,
+        13
+      ]
+    },
+    "zdt2": {
+      "control_pass": false,
+      "disjoint": [
+        {
+          "energy_igd": 0.02562148379942608,
+          "energy_seed": 2,
+          "oracle_igd": 0.024549599644311613,
+          "oracle_seed": 1,
+          "random_igd": 0.026087990596008342,
+          "seeds": [
+            1,
+            2,
+            3
+          ],
+          "shuffled_igd": 0.024549599644311613,
+          "shuffled_seed": 1
+        },
+        {
+          "energy_igd": 0.024795234621791708,
+          "energy_seed": 6,
+          "oracle_igd": 0.023678552931522205,
+          "oracle_seed": 4,
+          "random_igd": 0.052331351105690704,
+          "seeds": [
+            4,
+            5,
+            6
+          ],
+          "shuffled_igd": 0.023678552931522205,
+          "shuffled_seed": 4
+        },
+        {
+          "energy_igd": 0.025846974954796733,
+          "energy_seed": 9,
+          "oracle_igd": 0.022319840240286465,
+          "oracle_seed": 7,
+          "random_igd": 0.04116495134956974,
+          "seeds": [
+            7,
+            8,
+            9
+          ],
+          "shuffled_igd": 0.025846974954796733,
+          "shuffled_seed": 9
+        },
+        {
+          "energy_igd": 0.023552742532375166,
+          "energy_seed": 10,
+          "oracle_igd": 0.023552742532375166,
+          "oracle_seed": 10,
+          "random_igd": 0.04965572731066733,
+          "seeds": [
+            10,
+            11,
+            12
+          ],
+          "shuffled_igd": 0.033345525365082514,
+          "shuffled_seed": 11
+        },
+        {
+          "energy_igd": 0.024121731370176817,
+          "energy_seed": 13,
+          "oracle_igd": 0.022634937443589142,
+          "oracle_seed": 15,
+          "random_igd": 0.03604530688667817,
+          "seeds": [
+            13,
+            14,
+            15
+          ],
+          "shuffled_igd": 0.024121731370176817,
+          "shuffled_seed": 13
+        }
+      ],
+      "improve_pass": true,
+      "median_igd_energy": 0.024795234621791708,
+      "median_igd_oracle": 0.023552742532375166,
+      "median_igd_random": 0.04081437123856806,
+      "median_igd_shuffled": 0.024549599644311613,
+      "n_triples": 455,
+      "not_worse_pass": true,
+      "problem": "zdt2",
+      "rel_energy": 0.3924876490964748,
+      "rel_oracle": 0.4229301636253384,
+      "rel_shuffled": 0.39850599435149076,
+      "rho": 0.225,
+      "rho_pass": false,
+      "seeds": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "shuffle_perm": [
+        1,
+        10,
+        9,
+        5,
+        11,
+        2,
+        3,
+        7,
+        8,
+        4,
+        0,
+        14,
+        12,
+        6,
+        13
+      ]
+    }
+  },
+  "protocol": {
+    "control": "argmin of E_assoc after one Fisher-Yates of the 15 energies",
+    "energy": "E_assoc",
+    "k": 3,
+    "knobs": {
+      "dtlz2": {
+        "gens": 150,
+        "partitions": 12,
+        "pop": 92,
+        "tournament": "pymoo"
+      },
+      "zdt1": {
+        "gens": 100,
+        "partitions": 12,
+        "pop": 52,
+        "tournament": "pymoo"
+      },
+      "zdt2": {
+        "gens": 250,
+        "partitions": 12,
+        "pop": 52,
+        "tournament": "pymoo"
+      }
+    },
+    "n_triples": 455,
+    "oracle": "min IGD of the triple",
+    "pf_points": 500,
+    "problems": [
+      "zdt1",
+      "zdt2",
+      "dtlz2"
+    ],
+    "random": "mean IGD of the triple",
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "shuffle_seed": 0,
+    "tied_energy": "lower seed",
+    "tournament": "pymoo"
+  },
+  "sentence": "a front-only energy does not find the better seed here.",
+  "skips": [],
+  "verdict": "negative"
+}
