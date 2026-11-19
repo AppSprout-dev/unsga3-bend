@@ -9,9 +9,6 @@
   "memory_min_ratio": 1.25,
   "quad_reps": 16000,
   "note": "slack 0.35 and min_r_squared 0.75 are the adopted scaling-gate constants. legacy_ceiling values are the previous point-estimate ceilings and are not raised. dtlz2-time max_exponent is the ubuntu-latest confirmation-sweep upper bound 1.9895696937018328 plus that interval's half-width 0.20005906222086245, rounded up to 0.001 (2.190). That raise sits above the N^2 loop's lower bound 1.9907, so the slope interval does not separate them. The loop is caught by the endpoint-ratio ceiling instead. quad_reps is the repeat count that puts the N=46 loop above the 1 ms clock; see bench/README.md.",
-  "absolute": {
-    "on_different_machine": "per-cpu"
-  },
   "workloads": [
     {
       "id": "dtlz2-time",

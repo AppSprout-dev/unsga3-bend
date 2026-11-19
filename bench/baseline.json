@@ -7,9 +7,6 @@
     "platform": "Linux-7.0.0-1019-azure-x86_64-with-glibc2.43",
     "machine": "x86_64"
   },
-  "absolute": {
-    "on_different_machine": "per-cpu"
-  },
   "references": {
     "dtlz2-time": {
       "cell": "m3p12n92",
@@ -93,6 +90,80 @@
           ],
           "margin_need": 0.05593525561987126,
           "margin": 0.056
+        },
+        "AMD EPYC 9V45 96-Core Processor": {
+          "logical_cpus": 4,
+          "median": 147.0,
+          "cv": 0.034561261863113146,
+          "within_cv": 0.02112877061850616,
+          "runs": [
+            "135795663155",
+            "135813491669",
+            "135813492165",
+            "135813492272",
+            "135818545157"
+          ],
+          "run_medians": [
+            137.0,
+            148.0,
+            140.0,
+            147.0,
+            147.0
+          ],
+          "within_cvs": [
+            0.012178457445910852,
+            0.01222469860335461,
+            0.02112877061850616,
+            0.017226417275651298,
+            0.011703045997087009
+          ],
+          "ci95": {
+            "n": 5,
+            "df": 4,
+            "mean": 143.8,
+            "sd": 4.969909455915671,
+            "low": 137.62904235425705,
+            "high": 149.97095764574297
+          },
+          "margin_need": 0.14864864864864868,
+          "margin": 0.149
+        },
+        "Intel(R) Xeon(R) 6975P-C": {
+          "logical_cpus": 4,
+          "median": 234.0,
+          "cv": 0.01780127716029948,
+          "within_cv": 0.01576755146095646,
+          "runs": [
+            "135813492243",
+            "135813492346",
+            "135813492408",
+            "135818542915",
+            "135818544655"
+          ],
+          "run_medians": [
+            235.0,
+            231.0,
+            233.0,
+            242.0,
+            234.0
+          ],
+          "within_cvs": [
+            0.01576755146095646,
+            0.01486738890617062,
+            0.009863637046462157,
+            0.01361817421631651,
+            0.007749958244276855
+          ],
+          "ci95": {
+            "n": 5,
+            "df": 4,
+            "mean": 235.0,
+            "sd": 4.183300132670378,
+            "low": 229.80574683158216,
+            "high": 240.19425316841784
+          },
+          "margin_need": 0.09090909090909083,
+          "margin": 0.091
         }
       }
     },
@@ -172,6 +243,80 @@
           ],
           "margin_need": 0.06353942485629982,
           "margin": 0.064
+        },
+        "AMD EPYC 9V45 96-Core Processor": {
+          "logical_cpus": 4,
+          "median": 149.411149,
+          "cv": 0.03369602386846169,
+          "within_cv": 0.018140220252137795,
+          "runs": [
+            "135795663155",
+            "135813491669",
+            "135813492165",
+            "135813492272",
+            "135818545157"
+          ],
+          "run_medians": [
+            139.409432,
+            149.63512500000002,
+            142.21658100000002,
+            149.791683,
+            149.411149
+          ],
+          "within_cvs": [
+            0.014727397183118378,
+            0.013642810611155711,
+            0.018140220252137795,
+            0.01547212062228535,
+            0.012220542058009777
+          ],
+          "ci95": {
+            "n": 5,
+            "df": 4,
+            "mean": 146.092794,
+            "sd": 4.922746273634257,
+            "low": 139.9803971797366,
+            "high": 152.2051908202634
+          },
+          "margin_need": 0.13862252952989373,
+          "margin": 0.139
+        },
+        "Intel(R) Xeon(R) 6975P-C": {
+          "logical_cpus": 4,
+          "median": 235.984385,
+          "cv": 0.018097793043345568,
+          "within_cv": 0.016826647715438462,
+          "runs": [
+            "135813492243",
+            "135813492346",
+            "135813492408",
+            "135818542915",
+            "135818544655"
+          ],
+          "run_medians": [
+            236.384486,
+            232.11649300000002,
+            234.73736300000002,
+            243.62345699999997,
+            235.984385
+          ],
+          "within_cvs": [
+            0.016826647715438462,
+            0.015990682684961087,
+            0.011940030911777196,
+            0.013300580241977384,
+            0.008217629161020056
+          ],
+          "ci95": {
+            "n": 5,
+            "df": 4,
+            "mean": 236.5692368,
+            "sd": 4.28138108802861,
+            "low": 231.2532000404044,
+            "high": 241.8852735595956
+          },
+          "margin_need": 0.09446515653047283,
+          "margin": 0.095
         }
       }
     },
@@ -251,6 +396,80 @@
           ],
           "margin_need": 0.05593525561987126,
           "margin": 0.056
+        },
+        "AMD EPYC 9V45 96-Core Processor": {
+          "logical_cpus": 4,
+          "median": 147.0,
+          "cv": 0.034561261863113146,
+          "within_cv": 0.02112877061850616,
+          "runs": [
+            "135795663155",
+            "135813491669",
+            "135813492165",
+            "135813492272",
+            "135818545157"
+          ],
+          "run_medians": [
+            137.0,
+            148.0,
+            140.0,
+            147.0,
+            147.0
+          ],
+          "within_cvs": [
+            0.012178457445910852,
+            0.01222469860335461,
+            0.02112877061850616,
+            0.017226417275651298,
+            0.011703045997087009
+          ],
+          "ci95": {
+            "n": 5,
+            "df": 4,
+            "mean": 143.8,
+            "sd": 4.969909455915671,
+            "low": 137.62904235425705,
+            "high": 149.97095764574297
+          },
+          "margin_need": 0.14864864864864868,
+          "margin": 0.149
+        },
+        "Intel(R) Xeon(R) 6975P-C": {
+          "logical_cpus": 4,
+          "median": 234.0,
+          "cv": 0.01780127716029948,
+          "within_cv": 0.01576755146095646,
+          "runs": [
+            "135813492243",
+            "135813492346",
+            "135813492408",
+            "135818542915",
+            "135818544655"
+          ],
+          "run_medians": [
+            235.0,
+            231.0,
+            233.0,
+            242.0,
+            234.0
+          ],
+          "within_cvs": [
+            0.01576755146095646,
+            0.01486738890617062,
+            0.009863637046462157,
+            0.01361817421631651,
+            0.007749958244276855
+          ],
+          "ci95": {
+            "n": 5,
+            "df": 4,
+            "mean": 235.0,
+            "sd": 4.183300132670378,
+            "low": 229.80574683158216,
+            "high": 240.19425316841784
+          },
+          "margin_need": 0.09090909090909083,
+          "margin": 0.091
         }
       }
     },
@@ -354,5 +573,5 @@
     "bend": "bend 2.0.40",
     "python": "3.12.16"
   },
-  "note": "Time and wall baselines are per CPU model, from Actions runs 44210506592 (EPYC 7763, two sweeps), 44212931647 (EPYC 9V74), and 44213844582 (Xeon Platinum 8573C). An unknown model fails the job. RSS is one table: the cross-run spread is inside the within-machine margin. Confirmation-sweep medians from GitHub Actions run 44210506592 (ubuntu-latest, two sweeps). Margins are the measured formula, not a hand edit. The endpoint-ratio ceiling on dtlz2-time is what catches the N^2 time loop; the slope intervals meet."
+  "note": "Time and wall baselines are per CPU model. EPYC 7763 stays the two-sweep confirmation from run 44210506592 (median 208, margin 0.043); later VMs of that model were not folded in, because that would widen the margin, and the top-level medians and the ratio ceiling stay tied to that run. EPYC 9V74 stays the single-run row from run 44212931647 (time median 221, margin 0.077). EPYC 9V45 (5 VMs) and Xeon 6975P-C (5 VMs) are the median of per-VM medians. Each VM median is five fresh processes. The margin is max(5 * largest within-VM CV, 2 * |min/max - 1|), rounded up to the next 0.001. ci95 on those rows is the 95% CI of the mean of the VM medians (df = VMs - 1) and is not the limit. Xeon Platinum 8573C stays the single-run row from run 44213844582. Xeon 6973P-C was seen on two VMs and has no row. An unknown model fails the job. RSS margins 0.109 and 0.003 and the endpoint-ratio ceiling 46.67056578947369 are unchanged."
 }

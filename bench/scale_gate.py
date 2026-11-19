@@ -696,6 +696,66 @@ def margin_from_sweeps(ref_a, ref_b):
     return {"cv": cv, "need": need, "margin": round_up_milli(need)}
 
 
+def mean_ci95(values):
+    """Two-sided 95% CI of the mean. df = n - 1. Same t table as the slope fit."""
+    n = len(values)
+    if n < 2:
+        raise ValueError("need at least 2")
+    mean = statistics.fmean(values)
+    sd = sample_stdev(values)
+    df = n - 1
+    half = student_t_975(df) * sd / math.sqrt(n)
+    return {
+        "n": n,
+        "df": df,
+        "mean": mean,
+        "sd": sd,
+        "low": mean - half,
+        "high": mean + half,
+    }
+
+
+def derive_cpu_row(run_medians, within_cvs, run_ids, logical_cpus):
+    """One CPU row from at least five separate VMs.
+
+    Each median is already the median of five fresh processes. The committed
+    median is the median of those VM medians. The margin is the published
+    formula: the larger within-run sample CV, and the widest pair of VM
+    medians. The 95% CI of the mean is recorded beside that margin. It is
+    not the limit.
+    """
+    if len(run_medians) < 5:
+        raise ValueError("need at least 5 separate runs")
+    if not (len(run_medians) == len(within_cvs) == len(run_ids)):
+        raise ValueError("length")
+    triples = sorted(
+        (
+            (str(run_id), float(med), float(cv))
+            for run_id, med, cv in zip(run_ids, run_medians, within_cvs)
+        ),
+        key=lambda item: item[0],
+    )
+    ids = [item[0] for item in triples]
+    medians = [item[1] for item in triples]
+    cvs = [item[2] for item in triples]
+    cv = max(cvs)
+    lo, hi = min(medians), max(medians)
+    need = margin_need(cv, lo, hi)
+    return {
+        "logical_cpus": int(logical_cpus),
+        "median": median(medians),
+        "samples": medians,
+        "cv": coefficient_of_variation(medians),
+        "within_cv": cv,
+        "runs": ids,
+        "run_medians": medians,
+        "within_cvs": cvs,
+        "ci95": mean_ci95(medians),
+        "margin_need": need,
+        "margin": round_up_milli(need),
+    }
+
+
 def apply_config_overrides(config, args):
     if args.warmup is not None:
         config["warmup_runs"] = args.warmup
@@ -761,7 +821,6 @@ def build_draft(config, sweep_a, sweep_b, machine):
         "schema": 2,
         "recorded": True,
         "machine": machine,
-        "absolute": config["absolute"],
         "references": references,
         "fits": fits,
         "source_hash": hash_sources(),

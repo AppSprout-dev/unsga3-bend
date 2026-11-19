@@ -101,6 +101,24 @@ class MarginTests(unittest.TestCase):
     def test_exact_thousandth_is_not_rounded_up(self):
         self.assertEqual(g.round_up_milli(0.500), 0.5)
 
+    def test_five_vm_row_uses_the_published_margin_and_a_mean_ci(self):
+        medians = [100.0, 102.0, 101.0, 104.0, 103.0]
+        cvs = [0.01, 0.02, 0.015, 0.012, 0.011]
+        ids = ["j5", "j1", "j4", "j2", "j3"]
+        row = g.derive_cpu_row(medians, cvs, ids, 4)
+        self.assertEqual(row["runs"], ["j1", "j2", "j3", "j4", "j5"])
+        self.assertEqual(row["median"], g.median(medians))
+        need = g.margin_need(max(cvs), min(medians), max(medians))
+        self.assertEqual(row["margin"], g.round_up_milli(need))
+        self.assertAlmostEqual(row["margin_need"], need, places=12)
+        ordered = [med for _, med in sorted(zip(ids, medians))]
+        ci = g.mean_ci95(ordered)
+        self.assertEqual(row["ci95"]["df"], 4)
+        self.assertAlmostEqual(row["ci95"]["high"], ci["high"], places=9)
+        self.assertEqual(g.student_t_975(4), 2.7764451051977987)
+        with self.assertRaises(ValueError):
+            g.derive_cpu_row(medians[:4], cvs[:4], ids[:4], 4)
+
     def test_margin_uses_the_larger_cv(self):
         a = {"cv": 0.01, "median": 100.0}
         b = {"cv": 0.04, "median": 110.0}
@@ -115,7 +133,6 @@ class DecisionTests(unittest.TestCase):
         baseline = {
             "recorded": True,
             "machine": machine,
-            "absolute": {"on_different_machine": "skip"},
             "references": {
                 "dtlz2-time": {"median": 200.0, "margin": 0.20},
             },
@@ -182,13 +199,28 @@ class DecisionTests(unittest.TestCase):
         self.assertAlmostEqual(time["ratio_ceiling"], time["endpoint_ratio"] * (1.0 + time["ratio_margin"]))
         for key in ("dtlz2-time", "dtlz2-wall", "dtlz2-r"):
             for cpu, row in base["references"][key]["by_cpu"].items():
-                if "other_median" in row:
+                if "run_medians" in row:
+                    got = g.derive_cpu_row(
+                        row["run_medians"], row["within_cvs"], row["runs"], row["logical_cpus"]
+                    )
+                    self.assertEqual(row["median"], got["median"], f"{key} {cpu}")
+                    self.assertEqual(row["margin"], got["margin"], f"{key} {cpu}")
+                    self.assertAlmostEqual(row["margin_need"], got["margin_need"], places=12, msg=f"{key} {cpu}")
+                    self.assertAlmostEqual(row["ci95"]["low"], got["ci95"]["low"], places=9, msg=f"{key} {cpu}")
+                    self.assertAlmostEqual(row["ci95"]["high"], got["ci95"]["high"], places=9, msg=f"{key} {cpu}")
+                    self.assertGreaterEqual(len(row["runs"]), 5, f"{key} {cpu}")
+                    limit = row["median"] * (1.0 + row["margin"])
+                    for med in row["run_medians"]:
+                        self.assertLessEqual(med, limit + 1e-9, f"{key} {cpu}")
+                elif "other_median" in row:
                     cv = max(row["cv"], row["other_cv"])
                     need = g.margin_need(cv, row["other_median"], row["median"])
+                    self.assertEqual(row["margin"], g.round_up_milli(need), f"{key} {cpu}")
+                    self.assertAlmostEqual(row["margin_need"], need, places=12, msg=f"{key} {cpu}")
                 else:
                     need = 5.0 * row["cv"]
-                self.assertEqual(row["margin"], g.round_up_milli(need), f"{key} {cpu}")
-                self.assertAlmostEqual(row["margin_need"], need, places=12, msg=f"{key} {cpu}")
+                    self.assertEqual(row["margin"], g.round_up_milli(need), f"{key} {cpu}")
+                    self.assertAlmostEqual(row["margin_need"], need, places=12, msg=f"{key} {cpu}")
         for key in ("dtlz2-rss", "alloc-linear"):
             ref = base["references"][key]
             cross = ref["cross_run"]
@@ -230,7 +262,6 @@ class DecisionTests(unittest.TestCase):
         baseline = {
             "recorded": True,
             "machine": {"cpu_model": "A", "logical_cpus": 4},
-            "absolute": {"on_different_machine": "per-cpu"},
             "references": {
                 "dtlz2-time": {
                     "median": 200.0,
@@ -328,7 +359,7 @@ class DecisionTests(unittest.TestCase):
         self.assertNotIn("a400", by_id["control-alloc"]["cells"])
         self.assertGreaterEqual(6400 / 800, config["min_n_span"])
         self.assertGreaterEqual(368 / 46, config["min_n_span"])
-        self.assertEqual(config["absolute"]["on_different_machine"], "per-cpu")
+        self.assertNotIn("absolute", config)
         self.assertEqual(config["min_r_squared"], 0.75)
         self.assertEqual(config["slack"], 0.35)
         self.assertEqual(config["measured_runs"], 5)
