@@ -1,0 +1,104 @@
+# Temporary. Collects scaling-gate measurements on separate ubuntu-latest
+# VMs so a per-CPU baseline row can be derived from several runs.
+# Delete this file once those rows are committed. It is not the `scaling`
+# check and it does not change whether that check is required.
+
+name: scaling-sample
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sample:
+    name: scaling-sample
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        i: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    env:
+      BEND_NO_TELEMETRY: "1"
+      SAMPLE_INDEX: ${{ matrix.i }}
+    steps:
+      - name: Check out unsga3-bend
+        uses: actions/checkout@v4
+
+      - name: Install current Bend (never pinned)
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://bend-lang.com/install.sh | sh
+          echo "$HOME/.bend/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The absolute check may fail on a CPU that has no row yet. Keep the
+      # report either way. One cubic sample records slow_pass at N=92.
+      - name: Measure
+        run: |
+          mkdir -p "$RUNNER_TEMP/scaling"
+          set +e
+          python3 bench/scale_gate.py --run --report "$RUNNER_TEMP/scaling/report.json"
+          code=$?
+          set -e
+          python3 - "$code" << 'PY'
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, "bench")
+          import scale_gate as g
+          report_path = Path(os.environ["RUNNER_TEMP"]) / "scaling" / "report.json"
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          binary = g.ensure_binary()
+          cubic = g.run_once(binary, "m3p12n92", "cubic", 16, 600)
+          meta = {
+              "run_id": os.environ.get("GITHUB_RUN_ID"),
+              "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+              "matrix": os.environ.get("SAMPLE_INDEX"),
+              "sha": os.environ.get("GITHUB_SHA"),
+              "gate_exit": int(sys.argv[1]),
+              "cpu_model": report["machine"]["cpu_model"],
+              "logical_cpus": report["machine"]["logical_cpus"],
+              "source_hash": report["source_hash"],
+              "bend": report["tools"]["bend"],
+              "cubic_m3p12n92": cubic,
+          }
+          out = Path(os.environ["RUNNER_TEMP"]) / "scaling" / "meta.json"
+          out.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+          by_id = {}
+          for summary in report["summaries"]:
+              if summary.get("sweep") == "confirm":
+                  continue
+              by_id.setdefault(summary["id"], summary)
+          def med(name):
+              ref = by_id[name].get("reference") or {}
+              return ref.get("median")
+          quad = by_id["control-quadratic"]
+          alloc = by_id["control-alloc"]
+          cpu = report["machine"]["cpu_model"]
+          print(
+              f"sample matrix={meta['matrix']} run={meta['run_id']} "
+              f"cpu={cpu} cpus={meta['logical_cpus']} "
+              f"time={med('dtlz2-time')} wall={med('dtlz2-wall')} "
+              f"uniform={med('control-uniform')} "
+              f"quad_ratio={quad.get('fit', {}).get('endpoint_ratio')} "
+              f"quad_check={quad.get('ratio_check')} "
+              f"alloc_fit={alloc.get('fit_status')} "
+              f"cubic_burn_ms={cubic['burn_ms']} cubic_algo_ms={cubic['algo_ms']} "
+              f"gate_exit={meta['gate_exit']}"
+          )
+          PY
+
+      - name: Upload sample
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scaling-sample-${{ matrix.i }}
+          path: ${{ runner.temp }}/scaling
+          if-no-files-found: warn
+          retention-days: 14
