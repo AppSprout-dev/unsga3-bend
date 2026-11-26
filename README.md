@@ -47,20 +47,20 @@ Develop against `src/` in this checkout with a local path:
 import ./src/lib.bend as Unsga3
 ```
 
-`src/lib.bend` is the module-graph facade (core + variation + problems + `Run`). See [CHANGELOG.md](CHANGELOG.md).
+`src/lib.bend` is the consumer facade (re-exporting `run`, `run_with`, `run_seeded`, `run_seeded_with`, `mk_config`, `das_dennis`, `nd_front`, `feas_nd`, `select`, `pymoo`, `rank_niche`, `box`, `interval`, `unit_box`, `span_box`, `scored`, `plain`, and named problem constructors) as well as the module-graph entry point; submodules (`algorithm.bend`, `problems.bend`, `survival.bend`, etc.) remain directly importable. `src/LICENSE` carries the MIT license beside `src/lib.bend` for future hub publishes. See [CHANGELOG.md](CHANGELOG.md).
 
 ## What is in this tree
 
-Shipped in the **0.2.2** hub package (algorithm + A/B helpers):
+Shipped in the **0.2.2** hub package (algorithm + A/B helpers; newer unreleased fixes are on `main`):
 
 - **Core** — non-dominated sort, NSGA-III normalization, Das–Dennis directions, niching / association, survival
-- **Variation + Run** — decision variables, SBX (η=30, p=1.0), polynomial mutation (η=20, p=1/n), ZDT1 / ZDT2 / DTLZ2 (3-obj), `PymooCompatible` tournament, `Unsga3Algorithm.Run`
+- **Variation + Run** — decision variables, SBX (η=30, p=1.0), polynomial mutation (η=20, p=1/n), ZDT1 / ZDT2 / DTLZ2 (3-obj), `PymooCompatible` tournament, `Unsga3Algorithm.Run`, and custom-evaluator `run_with` / `run_seeded_with`
 - **Catalog** — ZDT3 / ZDT4 / ZDT6, DTLZ1 / DTLZ3 / DTLZ4 / DTLZ7, Sphere / Ackley / Rosenbrock. In this hub hash, including the DTLZ3 axis clamp. Dumpable. Measured IGD: [docs/ORACLE-CATALOG.md](docs/ORACLE-CATALOG.md)
 - **Constrained demos** — OSY, TNK, C1-DTLZ1 in this hub hash. Feasible-only survival and hyperplane. Smoke binary: `bend src/constrained_smoke.bend -o`. Cells: [docs/CONSTRAINED-SURFACES.md](docs/CONSTRAINED-SURFACES.md)
-- **Constraints + offspring** — Deb constraint-domination (`cv` on `Individual`), CV-first tournaments, survivor-set duplicate keys, odd-N SBX (parent `N-1` with parent `0`). A/B stays `PymooCompatible`
+- **Constraints + offspring** — Deb constraint-domination (`cv` on `Individual`), CV-first tournaments, survivor-set duplicate keys, odd-N SBX (parent `N-1` with parent `0`), cycling duplicate-retry pair cursor (`next_pair`). A/B stays `PymooCompatible`
 - **Parallel maps** — independent per-individual work uses Bend `a b = f(lo) f(hi)` mid-splits. Tournament, SBX, mutation, and last-front niching stay sequential so a fixed seed consumes RNG in the same order
 - **Native dumps** — `bend src/….bend -o …` then run the binary. `ab/dump_bend_run.py --native` prefers that path and falls back to `bend file.bend` if the build fails
-- **Proofs** — `bend PROOF.bend` is 0 `?TODO`. Public “proves” / “resolved” verbs follow [docs/PROOF-SURFACE.md](docs/PROOF-SURFACE.md).
+- **Proofs** — `bend PROOF.bend` and `bend src/lib.bend` exit `0` with 0 `?TODO` and **0 `@unsafe`** taint. Public “proves” / “resolved” verbs follow [docs/PROOF-SURFACE.md](docs/PROOF-SURFACE.md).
 
 Measured native phase tables (not IGD): [docs/PERF_NOTES.md](docs/PERF_NOTES.md). Scaling gate (time and peak RSS vs population and reference-point count, plus a slow negative control): [bench/README.md](bench/README.md). Protocol: [docs/EQUIVALENCE.md](docs/EQUIVALENCE.md).
 
@@ -71,9 +71,9 @@ Measured native phase tables (not IGD): [docs/PERF_NOTES.md](docs/PERF_NOTES.md)
 | `Normalization` | NSGA-III adaptive hyperplane (persistent across `Run`) |
 | `ReferenceDirections` | Das–Dennis directions / count |
 | `Survival` | niching association + environmental selection |
-| `problems` | `Zdt1` / `Zdt2` / `Zdt3` / `Zdt4` / `Zdt6`, `Dtlz1` / `Dtlz2` / `Dtlz3` / `Dtlz4` / `Dtlz7`, `Sphere` / `Ackley` / `Rosenbrock`, `Osy` / `Tnk` / `C1Dtlz1` |
+| `problems` | `Zdt1` / `Zdt2` / `Zdt3` / `Zdt4` / `Zdt6`, `Dtlz1` / `Dtlz2` / `Dtlz3` / `Dtlz4` / `Dtlz7`, `Sphere` / `Ackley` / `Rosenbrock`, `Osy` / `Tnk` / `C1Dtlz1`, plus `evaluate_all_with` |
 | `tournament` | `TournamentSelection` / `TournamentMode` |
-| `algorithm` | `Unsga3Algorithm.Run` |
+| `algorithm` | `Unsga3Algorithm.Run` + `run_with` / `run_seeded_with` |
 
 ## How A/B works
 
@@ -93,7 +93,7 @@ Protocol (same as C# `docs/EQUIVALENCE.md` / `tools/OracleCompare`; dump default
 
 Operators: SBX η=30, PM η=20, p_c=1.0, p_m=1/n. Smoke is labeled smoke and is **not** an oracle claim. ZDT2 **quality protocol is gens=250**; **gens=100 is an early-stress snapshot** (PR #16: Bend 10/15 and C# 8/15 collapse), not the A/B default — see [docs/ZDT2_COLLAPSE.md](docs/ZDT2_COLLAPSE.md) and [`ab/protocol.py`](ab/protocol.py). RankNicheDistance is an optional dump flag (`--tournament rank_niche`), not the new default.
 
-**Intentional deltas vs C#:** Sort uses Deb constraint-domination (equal infeasible CV is mutual non-domination; published C# `CompareConstraintDominated` still Pareto-compares that tie). Oracle ZDT1 / ZDT2 / DTLZ2 stay unconstrained (CV 0); OSY / TNK / C1-DTLZ1 exercise the Deb / CV path. Bend RNG is a portable LCG (not `System.Random`), so fronts will not match bit-for-bit. `Run` survival niching threads rng for min-count niche ties (C# `Select(..., rng)`); last-front extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` (that LCG path collapsed oracle ZDT2). v0 `select` stays deterministic. Duplicate keys round decision variables to 12 decimal places (`round(x*1e12)/1e12`), which is not C# `ToString("G12")` significant digits (small variables diverge; see `src/g12_key.bend`). Unequal-length objectives are mutual non-domination (C# `ComparePareto` throws; see `src/nds_unequal.bend`). C# ctor default tournament is `RankNicheDistance`; Bend A/B / smoke uses `PymooCompatible`. GitHub **0.1.2** orders that optional key as rank, then niche count, then perpendicular distance, then a coin. DTLZ2 IGD uses a Das–Dennis-density PF (see [ab/README.md](ab/README.md)); pymoo’s default ~136-pt PF is a different yardstick.
+**Intentional deltas vs C#:** Both Bend and current C# `CompareConstraintDominated` follow Deb constraint-domination (equal infeasible CV is mutual non-domination). Oracle ZDT1 / ZDT2 / DTLZ2 stay unconstrained (CV 0); OSY / TNK / C1-DTLZ1 exercise the Deb / CV path. Bend RNG is a portable LCG (not `System.Random`), so fronts will not match bit-for-bit. `Run` survival niching threads rng for min-count niche ties (C# `Select(..., rng)`); last-front extras are random among near-best on the ray, not uniform `inNiche[rng.Next]` (that LCG path collapsed oracle ZDT2). v0 `select` stays deterministic. Duplicate keys round decision variables to 12 decimal places (`round(x*1e12)/1e12`), which is not C# `ToString("G12")` significant digits (small variables diverge; see `src/g12_key.bend`). Unequal-length objectives are mutual non-domination (C# `ComparePareto` throws; see `src/nds_unequal.bend`). C# ctor default tournament is `RankNicheDistance`; Bend A/B / smoke uses `PymooCompatible`. GitHub **0.1.2** orders that optional key as rank, then niche count, then perpendicular distance, then a coin. DTLZ2 IGD uses a Das–Dennis-density PF (see [ab/README.md](ab/README.md)); pymoo’s default ~136-pt PF is a different yardstick.
 
 ## Install Bend and check this tree
 
@@ -109,11 +109,12 @@ bend guide
 **Smoke** (not the quality protocol — ZDT1 pop=8, gens=3):
 
 ```bash
-bend src/lib.bend       # module graph: All terms check (Bend 2.0.10+)
-bend src/ab_select.bend # v0 selection smoke (prints CSV front)
-bend src/op_smoke.bend  # SBX + poly mutation on a 2-var box, seed 42
-bend src/run_smoke.bend # short fixed-seed ZDT1 Run; prints ND front CSV
-bend PROOF.bend         # gate: all LAWS.bend claims closed (0 ?TODO)
+bend src/lib.bend          # module graph: exit 0, 0 @unsafe
+bend src/ab_select.bend    # v0 selection smoke (prints CSV front)
+bend src/op_smoke.bend     # SBX + poly mutation on a 2-var box, seed 42
+bend src/run_smoke.bend    # short fixed-seed ZDT1 Run; prints ND front CSV
+bend src/custom_smoke.bend # custom evaluator via Lib.run_with
+bend PROOF.bend            # gate: all LAWS.bend claims closed (exit 0, 0 ?TODO, 0 @unsafe)
 mkdir -p ab/out
 bend src/run_smoke.bend -o ab/out/run_smoke   # clang 14+
 ./ab/out/run_smoke --threads 8

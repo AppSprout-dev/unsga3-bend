@@ -497,35 +497,30 @@ def normalize_nd.go(state: State, +pop: List<&2, Ind.Individual>, nd: List<&2, N
     case MkState{n_objectives, ideal, worst, nadir, intercepts, extremes}:
       normalize_nd.body(ideal, worst, extremes, pop, nd)
 
-# A computed Bool is matched only as a parameter. The recursive result
-# is an argument, so these walks are not mutually recursive.
-def has_infeas.on(later: Bool, feas: Bool) -> Bool:
-  match feas:
-    case False{}:
+# Short-circuit scans: match hit flag before inspecting the tail.
+def has_infeas.go(pop: List<&2, Ind.Individual>, hit: Bool) -> Bool:
+  match pop hit:
+    case _ True{}:
       True{}
-    case True{}:
-      later
+    case Nil{} False{}:
+      False{}
+    case h <> t False{}:
+      has_infeas.go(t, Bool.not(Ind.feasible(h)))
 
 def has_infeas(pop: List<&2, Ind.Individual>) -> Bool:
-  match pop:
-    case Nil{}:
-      False{}
-    case h <> t:
-      has_infeas.on(has_infeas(t), Ind.feasible(h))
+  has_infeas.go(pop, False{})
 
-def has_feas.on(later: Bool, feas: Bool) -> Bool:
-  match feas:
-    case True{}:
+def has_feas.go(pop: List<&2, Ind.Individual>, hit: Bool) -> Bool:
+  match pop hit:
+    case _ True{}:
       True{}
-    case False{}:
-      later
+    case Nil{} False{}:
+      False{}
+    case h <> t False{}:
+      has_feas.go(t, Ind.feasible(h))
 
 def has_feas(pop: List<&2, Ind.Individual>) -> Bool:
-  match pop:
-    case Nil{}:
-      False{}
-    case h <> t:
-      has_feas.on(has_feas(t), Ind.feasible(h))
+  has_feas.go(pop, False{})
 
 def feas_inds.on(+h: Ind.Individual, rest: List<&2, Ind.Individual>, ok: Bool) -> List<&2, Ind.Individual>:
   match ok:
@@ -588,11 +583,14 @@ def nd_mixed(pop: List<&2, Ind.Individual>, nd: List<&2, Nat>) -> List<&2, Nat>:
   nd_mixed.go(nd, feas_idx(pop))
 
 # All-infeasible: do not write ideal / nadir. A fresh state projects with
-# this generation's min/max only. A persisted state reuses its hyperplane.
+# this generation's min/max (with collapsed-span unit fallback matching C#
+# ProjectWithFixedHyperplane). A persisted state reuses its hyperplane.
 def project_fixed.back(n: Nat, +ideal: List<&2, F32>, worst: List<&2, F32>, +nadir: List<&2, F32>, intercepts: List<&2, F32>, extremes: List<&2, List<&2, F32>>, +pop: List<&2, Ind.Individual>, open: Bool) -> State & List<&2, List<&2, F32>>:
   match open:
     case True{}:
-      (MkState{n, ideal, worst, nadir, intercepts, extremes}, map_norm(col_min(pop), col_max(pop), pop))
+      +lo = col_min(pop)
+      +hi = fallback_unit(col_max(pop), lo)
+      (MkState{n, ideal, worst, nadir, intercepts, extremes}, map_norm(lo, hi, pop))
     case False{}:
       (MkState{n, ideal, worst, nadir, intercepts, extremes}, map_norm(ideal, nadir, pop))
 

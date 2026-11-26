@@ -431,7 +431,7 @@ def main() -> int:
     print(f"front_rows={len(front)}")
     print(f"pf_rows={len(pf)}")
     print(f"pf_source={pf_source}")
-    if args.problem in ("dtlz1", "dtlz2", "dtlz3", "dtlz4"):
+    if args.problem in ("dtlz1", "dtlz2", "dtlz3", "dtlz4", "c1dtlz1"):
         print(f"partitions={args.partitions}")
     if args.problem == "zdt3":
         print(f"points_per_segment={args.points_per_segment}")

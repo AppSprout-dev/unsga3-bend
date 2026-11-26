@@ -53,14 +53,13 @@ The 2026-09-30 run (seeds 1–15) is recorded in [ORACLE-CATALOG.md](ORACLE-CATA
 - both infeasible, equal `cv` → mutual non-domination (objectives are not compared)
 - both feasible → Pareto, including the existing unequal-length rule (mutual non-domination)
 
-Published C# `CompareConstraintDominated` still falls through to Pareto when both are infeasible and the violations are equal. This tree follows Deb: equal `cv` does not Pareto-compare. `NDS.dominates` stays the Pareto predicate locked by `dominates_irreflexive`. [`src/cd_contract.bend`](../src/cd_contract.bend) locks the split.
+Current C# `CompareConstraintDominated` and this tree both follow Deb: equal infeasible `cv` is mutual non-domination (`0`). `NDS.dominates` stays the Pareto predicate locked by `dominates_irreflexive`. [`src/cd_contract.bend`](../src/cd_contract.bend) locks the split.
 
 Both tournament modes take `cv` first. `PymooCompatible` (A/B default): if either parent is infeasible, the smaller `cv` wins and equal `cv` is a coin (rank and distance are not consulted). `RankNicheDistance`: a feasible parent beats an infeasible one; both infeasible and unequal `cv` → smaller `cv`; equal `cv` falls through to rank, then niche count, then perpendicular distance, then a coin. Feasible-only behavior of both modes is unchanged. A/B is not switched to `RankNicheDistance`.
 
 ## Intentional deltas vs C#
 
 - Bend RNG is a portable LCG, not `System.Random` — fronts will not match bit-for-bit.
-- Equal infeasible `cv` is mutual non-domination. Published C# `CompareConstraintDominated` Pareto-compares that case.
 - `Run` niching threads rng for min-count niche ties; last-front extras are random among near-best on the ray.
 - Duplicate keys round each decision variable to 12 decimal places (`round(x*1e12)/1e12`). C# `DecisionKey` is `ToString("G12")` (12 significant digits). Those formats diverge for small variables (`1.234567e-8` → Bend `1.2346e-8`). The 12-dp key is intentional; it is not a unit-box match to C#.
 
@@ -68,7 +67,7 @@ Both tournament modes take `cv` first. `PymooCompatible` (A/B default): if eithe
 
 Elimination hashes the **survivor** population, then each accepted child. A member of P who lost every tournament is still forbidden. The key stays 12 decimal places. After `pop·40` SBX pair attempts, up to `max(pop·20, 1)` further mutations must still be a new key. Remaining slots may then be duplicates so the loop terminates. That is the C# `CreateOffspring` cap shape. [`src/cd_contract.bend`](../src/cd_contract.bend) rejects a child that copies an unpicked survivor and accepts one the mating sample alone would have allowed.
 
-The pair cursor is still `0, 2, 4, …`. For even N the lookup is unchanged: use the cursor while `cursor+1 < N`, otherwise parent `0` with parent `1`. For odd N, cursor `N-1` is parent `N-1` crossed with parent `0` (that parent used to be skipped). Later cursors still resolve to pair `(0, 1)`. N = 1 crosses the only parent with itself. Oracle pops 52 and 92 are even, so this lookup does not move those pair sequences.
+The pair cursor cycles `0, 2, 4, …` via `next_pair` (matching C# `AdvanceMatingPair`): for even N, `(0, 1), (2, 3), …, (N-2, N-1)` wraps cleanly back to `(0, 1)` on duplicate retries rather than pinning at `(0, 1)`; for odd N, cursor `N-1` pairs parent `N-1` with parent `0` and then wraps to `0`. N = 1 crosses the only parent with itself.
 
 ## How to dump (no invented fronts)
 

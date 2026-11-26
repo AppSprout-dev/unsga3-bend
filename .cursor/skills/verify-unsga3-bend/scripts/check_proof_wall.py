@@ -1,28 +1,23 @@
 #!/usr/bin/env python3
 """Proof-wall gate for unsga3-bend, as CONTRIBUTING.md describes it.
 
-`bend PROOF.bend` exits 1 even when the wall is closed, because Bend reports
-the accepted @unsafe Das-Dennis defs as "SOME PROOFS FAIL". So the exit code
-alone cannot be the verdict. This script passes only when:
+Both `bend PROOF.bend` and `bend src/lib.bend` exit 0 with zero `@unsafe`
+taint. This script passes only when:
 
   * PROOF.bend has 0 `?TODO` and Bend reports no TODO and no type error;
   * every `law X` in LAWS.bend has exactly one `def Laws.X` in PROOF.bend;
-  * the @unsafe-tainted set from `bend PROOF.bend` equals EXPECTED_PROOF_UNSAFE,
-    and from `bend src/lib.bend` equals EXPECTED_LIB_UNSAFE (CONTRIBUTING.md
-    "Proof wall" names these);
+  * `bend PROOF.bend` and `bend src/lib.bend` exit 0 and report zero @unsafe
+    taint (`EXPECTED_PROOF_UNSAFE == set()`, `EXPECTED_LIB_UNSAFE == set()`);
   * `bend LAWS.bend --check-only` reports one TODO per law (open claims);
   * `bend challenges/NicheCountSum.challenge.bend` reports exactly `1 TODO found`.
 
-It never edits LAWS.bend or PROOF.bend. A change in either expected set is a
-finding to report (a new taint is a regression; a vanished taint means the
-docs and this list need a reviewed update), not something to paper over.
+It never edits LAWS.bend or PROOF.bend. Any @unsafe taint or unexpected
+checker output fails the wall.
 
-Bend output is parsed strictly. The only non-taint lines allowed are
-`SOME PROOFS FAIL`, `Error: <N> defs rely on unsafe or foreign code:` (N must
-equal the number of names listed), and the names themselves: one
-`defs that depend on @unsafe: a, b` line (2.0.39+) or `- name` lines right
-after the header (2.0.34). Any other line, including a type error's
-`Error:` / `- expected :` block, fails the wall.
+Bend output is parsed strictly. On clean exit-0 runs, only Bend's clean
+banners (`ALL PROOFS CHECK`, `Use --verdict for mathematical validity.`, or
+`All terms check...`) are allowed. Any taint block, TODO report, or type
+error fails the wall.
 
 Usage:
   check_proof_wall.py [--evidence DIR] [--root DIR]   exit 0 = wall as documented
@@ -43,21 +38,8 @@ from pathlib import Path
 ROOT = Path(subprocess.check_output(
     ["git", "-C", str(Path(__file__).parent), "rev-parse", "--show-toplevel"], text=True).strip())
 
-EXPECTED_PROOF_UNSAFE = {
-    "src/reference_directions.nth_comp.go", "src/reference_directions.nth_comp",
-    "src/reference_directions.nth_row", "src/reference_directions.comps_all",
-    "src/reference_directions.das_dennis.from", "src/reference_directions.das_dennis",
-    "src/algorithm.smoke_zdt1", "src/algorithm.oracle_zdt1", "src/algorithm.oracle_dtlz2",
-    "src/algorithm.run_zdt1_smoke",
-    "LAWS.das_dennis_m1_len", "LAWS.das_dennis_len", "comps_all_len", "das_ge2_len",
-}
-EXPECTED_LIB_UNSAFE = {
-    "reference_directions.nth_comp.go", "reference_directions.nth_comp",
-    "reference_directions.nth_row", "reference_directions.comps_all",
-    "reference_directions.das_dennis.from", "reference_directions.das_dennis",
-    "algorithm.smoke_zdt1", "algorithm.oracle_zdt1", "algorithm.oracle_dtlz2",
-    "algorithm.run_zdt1_smoke", "das_dennis_m1",
-}
+EXPECTED_PROOF_UNSAFE: set[str] = set()
+EXPECTED_LIB_UNSAFE: set[str] = set()
 
 
 def bend(root: Path, *args: str) -> tuple[int, str]:
@@ -68,11 +50,15 @@ def bend(root: Path, *args: str) -> tuple[int, str]:
 TAINT_HEADER = re.compile(r"^Error: (\d+) defs rely on unsafe or foreign code:$")
 TAINT_LIST_239 = re.compile(r"^defs that depend on @unsafe: (.+)$")
 TAINT_ITEM_234 = re.compile(r"^- ([A-Za-z0-9_./]+)$")
+CLEAN_LINES = (
+    "ALL PROOFS CHECK",
+    "Use --verdict for mathematical validity.",
+)
 
 
 def parse_taint(out: str) -> tuple[set[str], list[str]]:
-    """Return (tainted names, unexpected lines) for a `bend <file>` run that
-    should fail only because of @unsafe taint. Unexpected lines fail the wall."""
+    """Return (tainted names, unexpected lines) for a `bend <file>` run.
+    Unexpected lines fail the wall."""
     names: list[str] = []
     unexpected: list[str] = []
     header_n: int | None = None
@@ -81,7 +67,11 @@ def parse_taint(out: str) -> tuple[set[str], list[str]]:
         if not line.strip():
             in_list = False
             continue
-        if line == "SOME PROOFS FAIL" or line.startswith("All terms check"):
+        if (
+            line in CLEAN_LINES
+            or line == "SOME PROOFS FAIL"
+            or line.startswith("All terms check")
+        ):
             in_list = False
             continue
         m = TAINT_HEADER.match(line)
@@ -150,6 +140,8 @@ def check(root: Path, evidence: Path | None = None) -> tuple[str, list[str]]:
     for key, expected in (("proof", EXPECTED_PROOF_UNSAFE), ("lib", EXPECTED_LIB_UNSAFE)):
         rc, out = runs[key]
         got, other = parse_taint(out)
+        if not expected and rc != 0:
+            problems.append(f"{key}: expected exit 0 (no @unsafe taint), got rc={rc}")
         if todo_count(out):
             problems.append(f"{key}: {todo_count(out)} TODO found")
         if got != expected:
@@ -176,22 +168,26 @@ def check(root: Path, evidence: Path | None = None) -> tuple[str, list[str]]:
 
 # --- self-test -------------------------------------------------------------
 
-_NAMES = sorted(EXPECTED_PROOF_UNSAFE)
-_TAINT_239 = ("SOME PROOFS FAIL\nError: 14 defs rely on unsafe or foreign code:\n"
-              "defs that depend on @unsafe: " + ", ".join(_NAMES) + "\n")
-_TAINT_234 = ("SOME PROOFS FAIL\nError: 14 defs rely on unsafe or foreign code:\n"
-              + "".join(f"- {n}\n" for n in _NAMES))
+_CLEAN_240 = "ALL PROOFS CHECK\nUse --verdict for mathematical validity.\n"
+_CLEAN_234 = "All terms check\n"
+_SAMPLE_UNSAFE = ["src/reference_directions.nth_comp.go"]
+_TAINT_239 = ("SOME PROOFS FAIL\nError: 1 defs rely on unsafe or foreign code:\n"
+              "defs that depend on @unsafe: " + ", ".join(_SAMPLE_UNSAFE) + "\n")
+_TAINT_234 = ("SOME PROOFS FAIL\nError: 1 defs rely on unsafe or foreign code:\n"
+              + "".join(f"- {n}\n" for n in _SAMPLE_UNSAFE))
 _TYPE_ERR = ("Error:\n- expected : {A == B : Nat}\n- observed : Nat\nContext:\n- asgs   : List<&2, X>\n"
              "Location: Laws.niche_count_sum\n")
 
 # (name, synthetic `bend PROOF.bend` output, wall must pass?)
 PARSER_CASES = [
-    ("taint only, 2.0.39 shape", _TAINT_239, True),
-    ("taint only, 2.0.34 shape", _TAINT_234, True),
-    ("taint + bare Error: type error", _TAINT_239 + _TYPE_ERR, False),
-    ("taint + 'Error: <msg>' line", _TAINT_239 + "Error: Type mismatch in Laws.x\n", False),
+    ("clean, 2.0.40 shape", _CLEAN_240, True),
+    ("clean, 2.0.34 shape", _CLEAN_234, True),
+    ("taint rejected, 2.0.39 shape", _TAINT_239, False),
+    ("taint rejected, 2.0.34 shape", _TAINT_234, False),
+    ("clean + bare Error: type error", _CLEAN_240 + _TYPE_ERR, False),
+    ("clean + 'Error: <msg>' line", _CLEAN_240 + "Error: Type mismatch in Laws.x\n", False),
     ("2.0.34 taint + '- expected' lines", _TAINT_234 + "- expected : Nat\n- observed : Bool\n", False),
-    ("header count != names listed", _TAINT_239.replace("Error: 14", "Error: 15"), False),
+    ("header count != names listed", _TAINT_239.replace("Error: 1", "Error: 2"), False),
     ("second taint-shaped Error line", _TAINT_239 + "Error: 3 defs rely on unsafe or foreign code:\n", False),
 ]
 

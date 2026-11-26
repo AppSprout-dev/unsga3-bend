@@ -1,0 +1,19 @@
+{
+  "problem": "fixture",
+  "n_obj": 3,
+  "partitions": 3,
+  "target_size": 6,
+  "notes": "3-objective mix where front 0 (4 pts) is kept in full and front 1 (4 pts) splits under Das-Dennis p=3 (10 directions), exercising 3D extreme points, hyperplane solve, and multi-front niching.",
+  "objectives": [
+    [0.0, 0.0, 1.0],
+    [0.0, 1.0, 0.0],
+    [1.0, 0.0, 0.0],
+    [0.3, 0.3, 0.3],
+    [0.4, 0.35, 0.8],
+    [0.8, 0.4, 0.35],
+    [0.35, 0.8, 0.4],
+    [0.55, 0.55, 0.55],
+    [0.9, 0.9, 0.9],
+    [1.0, 1.0, 1.0]
+  ]
+}

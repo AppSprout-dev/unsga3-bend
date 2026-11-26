@@ -71,6 +71,41 @@ class FillOmittedTest(unittest.TestCase):
         self.assertEqual((zdt1["pop"], zdt1["gens"]), (52, 100))
         self.assertEqual((dtlz2["pop"], dtlz2["gens"]), (92, 150))
 
+    def test_source_digest_tracks_src_tree(self) -> None:
+        import tempfile
+        from pathlib import Path
+        import dump_bend_run as dbr
+        import profile_bend_run as pbr
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "src").mkdir()
+            (root / "ab").mkdir()
+            drv = root / "ab" / "driver.bend"
+            drv.write_text("driver\n", encoding="utf-8")
+            lib = root / "src" / "a.bend"
+            lib.write_text("v1\n", encoding="utf-8")
+            prof = root / "ab" / "profile_run.bend"
+            prof.write_text("p1\n", encoding="utf-8")
+
+            orig_dbr_root, orig_pbr_root = dbr.ROOT, pbr.ROOT
+            try:
+                dbr.ROOT = root
+                pbr.ROOT = root
+                d1 = dbr.source_digest(drv)
+                p1 = pbr.source_digest(drv)
+                lib.write_text("v2\n", encoding="utf-8")
+                d2 = dbr.source_digest(drv)
+                p2 = pbr.source_digest(drv)
+                self.assertNotEqual(d1, d2)
+                self.assertNotEqual(p1, p2)
+                prof.write_text("p2\n", encoding="utf-8")
+                p3 = pbr.source_digest(drv)
+                self.assertNotEqual(p2, p3)
+            finally:
+                dbr.ROOT = orig_dbr_root
+                pbr.ROOT = orig_pbr_root
+
 
 if __name__ == "__main__":
     raise SystemExit(unittest.main())

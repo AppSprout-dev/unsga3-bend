@@ -21,8 +21,17 @@ OUT_DIR = ROOT / "ab" / "out"
 
 
 def f32_lit(x: object) -> str:
-    s = str(x)
-    return s if "." in s or "e" in s or "E" in s else f"{s}.0"
+    val = float(x)
+    neg = val < 0.0
+    mag = -val if neg else val
+    s = str(mag)
+    if "e" in s or "E" in s:
+        s = f"{mag:.12f}".rstrip("0")
+        if s.endswith("."):
+            s += "0"
+    elif "." not in s:
+        s = f"{s}.0"
+    return f"F32.neg({s})" if neg else s
 
 
 def vec_lit(row: list[object]) -> str:
@@ -64,9 +73,23 @@ def run_bend(path: Path) -> str:
     return proc.stdout
 
 
+CHECKER_PREFIXES = (
+    "All terms check",
+    "ALL PROOFS CHECK",
+    "Use --verdict for mathematical validity.",
+)
+
+
 def write_csv(text: str, dest: Path) -> int:
     dest.parent.mkdir(parents=True, exist_ok=True)
-    lines = [ln for ln in text.splitlines() if ln.strip()]
+    lines = []
+    for ln in text.splitlines():
+        s = ln.strip()
+        if not s:
+            continue
+        if any(s.startswith(p) for p in CHECKER_PREFIXES):
+            continue
+        lines.append(s)
     dest.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
     return len(lines)
 

@@ -132,8 +132,11 @@ def init_loop(fuel: Nat, hold: IHold, +box: Bounds.Box, +n_obj: Nat) -> Rng.Stat
     case 1n+f h:
       init_loop(f, init_next(box, n_obj, h), box, n_obj)
 
+def init_pop_box(+box: Bounds.Box, n: Nat, rng: Rng.State) -> Rng.State & List<&2, Ind.Individual>:
+  init_loop(n, IH{rng, Nil{}}, box, Bounds.n_obj(box))
+
 def init_pop(+prob: Prob.Problem, n: Nat, rng: Rng.State) -> Rng.State & List<&2, Ind.Individual>:
-  init_loop(n, IH{rng, Nil{}}, Prob.box_of(prob), Prob.n_obj(prob))
+  init_pop_box(Prob.box_of(prob), n, rng)
 
 def vars_of.go(xs: List<&2, Ind.Individual>, acc: List<&2, List<&2, F32>>) -> List<&2, List<&2, F32>>:
   match xs:
@@ -150,11 +153,15 @@ def try_add.go(+acc: List<&2, Ind.Individual>, +child: Ind.Individual, +seen: Li
     case True{}:
       (acc, seen, False{})
     case False{}:
-      (List.append(&2, Ind.Individual, acc, [child]), key <> seen, True{})
+      (child <> acc, key <> seen, True{})
 
 def try_add(+acc: List<&2, Ind.Individual>, +child: Ind.Individual, +seen: List<&2, List<&2, F32>>, elim: Bool) -> List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool:
-  +key = Util.g12_vec(Ind.variables(child))
-  try_add.go(acc, child, seen, key, Bool.and(elim, Util.has_f32s(key, seen)))
+  match elim:
+    case False{}:
+      (child <> acc, seen, True{})
+    case True{}:
+      +key = Util.g12_vec(Ind.variables(child))
+      try_add.go(acc, child, seen, key, Util.has_f32s(key, seen))
 
 def pred_or_zero(n: Nat) -> Nat:
   match n:
@@ -202,6 +209,18 @@ def pair_mate.go(+i: Nat, ok: Bool) -> Nat:
 def pair_mate(+p0: Nat, +n: Nat) -> Nat:
   pair_mate.go(1n+p0, Nat.is_lt(1n+p0, n))
 
+# Next cursor after using wrapped parent `p0` (matches C# AdvanceMatingPair):
+# if p0 + 1 < n → p0 + 2 (even wraps back to (0, 1) -> 2); else 0 (odd last parent).
+def next_pair.go(+p0: Nat, ok: Bool) -> Nat:
+  match ok:
+    case True{}:
+      Nat.add(p0, 2n)
+    case False{}:
+      0n
+
+def next_pair(+p0: Nat, +n: Nat) -> Nat:
+  next_pair.go(p0, Nat.is_lt(1n+p0, n))
+
 # C# fallback cap: max(pop * 20, 1). Unique-key stage before duplicates.
 def dup_fallback_cap(n: Nat) -> Nat:
   Util.nat_max(Nat.mul(n, 20n), 1n)
@@ -214,21 +233,21 @@ type FHold is Data:
 
 def fallback_next.m(acc: List<&2, Ind.Individual>, pair: Rng.State & Ind.Individual) -> FHold:
   (rng, extra) = pair
-  FH{rng, List.append(&2, Ind.Individual, acc, [extra])}
+  FH{rng, extra <> acc}
 
-def fallback_next(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, hold: FHold) -> FHold:
+def fallback_next(+parents: List<&2, Ind.Individual>, +box: Bounds.Box, +mut_p: F32, hold: FHold) -> FHold:
   match hold:
     case FH{rng, acc}:
       +n = Util.list_len(Ind.Individual, parents)
       +rng_i = Rng.next_nat(rng, n)
-      fallback_next.m(acc, Poly.mutate(Poly.default(), get_ind(parents, Rng.last_nat(rng_i)), Prob.box_of(prob), rng_i, mut_p))
+      fallback_next.m(acc, Poly.mutate(Poly.default(), get_ind(parents, Rng.last_nat(rng_i)), box, rng_i, mut_p))
 
-def fallback_loop(need: Nat, hold: FHold, +parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32) -> Rng.State & List<&2, Ind.Individual>:
+def fallback_loop(need: Nat, hold: FHold, +parents: List<&2, Ind.Individual>, +box: Bounds.Box, +mut_p: F32) -> Rng.State & List<&2, Ind.Individual>:
   match need hold:
     case 0n FH{rng, acc}:
-      (rng, acc)
+      (rng, List.reverse(&2, Ind.Individual, acc))
     case 1n+k h:
-      fallback_loop(k, fallback_next(parents, prob, mut_p, h), parents, prob, mut_p)
+      fallback_loop(k, fallback_next(parents, box, mut_p, h), parents, box, mut_p)
 
 def offs_add2.hit(+need1: Nat, trip: List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool) -> Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>:
   (acc2, seen2, hit2) = trip
@@ -261,35 +280,34 @@ def offs_pair.m2(+need: Nat, +acc: List<&2, Ind.Individual>, +seen: List<&2, Lis
   (rng3, m2) = pair
   offs_pair.done(rng3, offs_add2(need, acc, seen, elim, m2, try_add(acc, m1, seen, elim)))
 
-def offs_pair.m1(+need: Nat, +acc: List<&2, Ind.Individual>, +seen: List<&2, List<&2, F32>>, +prob: Prob.Problem, +mut_p: F32, +elim: Bool, +c2: Ind.Individual, pair: Rng.State & Ind.Individual) -> Rng.State & Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>:
+def offs_pair.m1(+need: Nat, +acc: List<&2, Ind.Individual>, +seen: List<&2, List<&2, F32>>, +box: Bounds.Box, +mut_p: F32, +elim: Bool, +c2: Ind.Individual, pair: Rng.State & Ind.Individual) -> Rng.State & Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>:
   (rng2, m1) = pair
-  offs_pair.m2(need, acc, seen, elim, m1, Poly.mutate(Poly.default(), c2, Prob.box_of(prob), rng2, mut_p))
+  offs_pair.m2(need, acc, seen, elim, m1, Poly.mutate(Poly.default(), c2, box, rng2, mut_p))
 
-def offs_pair.sbx(+need: Nat, +acc: List<&2, Ind.Individual>, +seen: List<&2, List<&2, F32>>, +prob: Prob.Problem, +mut_p: F32, +elim: Bool, trip: Rng.State & Ind.Individual & Ind.Individual) -> Rng.State & Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>:
+def offs_pair.sbx(+need: Nat, +acc: List<&2, Ind.Individual>, +seen: List<&2, List<&2, F32>>, +box: Bounds.Box, +mut_p: F32, +elim: Bool, trip: Rng.State & Ind.Individual & Ind.Individual) -> Rng.State & Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>:
   (rng1, c1, c2) = trip
-  offs_pair.m1(need, acc, seen, prob, mut_p, elim, c2, Poly.mutate(Poly.default(), c1, Prob.box_of(prob), rng1, mut_p))
+  offs_pair.m1(need, acc, seen, box, mut_p, elim, c2, Poly.mutate(Poly.default(), c1, box, rng1, mut_p))
 
 def offs_pair(
   +parents: List<&2, Ind.Individual>,
-  +pair: Nat,
+  +p0: Nat,
+  +n: Nat,
   +need: Nat,
   +acc: List<&2, Ind.Individual>,
   +seen: List<&2, List<&2, F32>>,
   rng: Rng.State,
-  +prob: Prob.Problem,
+  +box: Bounds.Box,
   +mut_p: F32,
   +elim: Bool
 ) -> Rng.State & Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>:
-  +n = Util.list_len(Ind.Individual, parents)
-  +p0 = wrap_pair(pair, n)
   offs_pair.sbx(
     need,
     acc,
     seen,
-    prob,
+    box,
     mut_p,
     elim,
-    Sbx.crossover(Sbx.default(), get_ind(parents, p0), get_ind(parents, pair_mate(p0, n)), Prob.box_of(prob), rng)
+    Sbx.crossover(Sbx.default(), get_ind(parents, p0), get_ind(parents, pair_mate(p0, n)), box, rng)
   )
 
 type OHold is Data:
@@ -301,14 +319,16 @@ type OHold is Data:
     seen: List<&2, List<&2, F32>>
   }
 
-def offs_next.q(+pair0: Nat, quad: Rng.State & Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>) -> OHold:
+def offs_next.q(+next_p: Nat, quad: Rng.State & Nat & List<&2, Ind.Individual> & List<&2, List<&2, F32>>) -> OHold:
   (rng, need, acc, seen) = quad
-  OH{need, Nat.add(pair0, 2n), rng, acc, seen}
+  OH{need, next_p, rng, acc, seen}
 
-def offs_next(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, +elim: Bool, hold: OHold) -> OHold:
+def offs_next(+parents: List<&2, Ind.Individual>, +box: Bounds.Box, +mut_p: F32, +elim: Bool, hold: OHold) -> OHold:
   match hold:
     case OH{need, +pair, rng, acc, seen}:
-      offs_next.q(pair, offs_pair(parents, pair, need, acc, seen, rng, prob, mut_p, elim))
+      +n = Util.list_len(Ind.Individual, parents)
+      +p0 = wrap_pair(pair, n)
+      offs_next.q(next_pair(p0, n), offs_pair(parents, p0, n, need, acc, seen, rng, box, mut_p, elim))
 
 # Middle loop: mutation that must still be a new key. `need` is the
 # remaining slots. Cap is max(pop*20, 1), counted in `fuel`.
@@ -323,12 +343,12 @@ type UHold is Data:
 def u_have(hold: UHold) -> Rng.State & List<&2, Ind.Individual>:
   match hold:
     case UH{rng, acc, seen, need}:
-      (rng, acc)
+      (rng, List.reverse(&2, Ind.Individual, acc))
 
-def u_fallback(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, hold: UHold) -> Rng.State & List<&2, Ind.Individual>:
+def u_fallback(+parents: List<&2, Ind.Individual>, +box: Bounds.Box, +mut_p: F32, hold: UHold) -> Rng.State & List<&2, Ind.Individual>:
   match hold:
     case UH{rng, acc, seen, need}:
-      fallback_loop(need, FH{rng, acc}, parents, prob, mut_p)
+      fallback_loop(need, FH{rng, acc}, parents, box, mut_p)
 
 def u_step.hold(+rng: Rng.State, +need: Nat, trip: List<&2, Ind.Individual> & List<&2, List<&2, F32>> & Bool) -> UHold:
   (acc2, seen2, hit) = trip
@@ -341,38 +361,55 @@ def u_step(+elim: Bool, +acc: List<&2, Ind.Individual>, +seen: List<&2, List<&2,
   (rng, child) = pair
   u_step.child(elim, acc, seen, need, rng, child)
 
-def u_next(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, +elim: Bool, hold: UHold) -> UHold:
+def u_next(+parents: List<&2, Ind.Individual>, +box: Bounds.Box, +mut_p: F32, +elim: Bool, hold: UHold) -> UHold:
   match hold:
     case UH{rng, acc, seen, need}:
       +n = Util.list_len(Ind.Individual, parents)
       +rng_i = Rng.next_nat(rng, n)
-      u_step(elim, acc, seen, need, Poly.mutate(Poly.default(), get_ind(parents, Rng.last_nat(rng_i)), Prob.box_of(prob), rng_i, mut_p))
+      u_step(elim, acc, seen, need, Poly.mutate(Poly.default(), get_ind(parents, Rng.last_nat(rng_i)), box, rng_i, mut_p))
 
 def u_loop(
   fuel: Nat,
   hold: UHold,
   +parents: List<&2, Ind.Individual>,
-  +prob: Prob.Problem,
+  +box: Bounds.Box,
   +mut_p: F32,
   +elim: Bool
 ) -> Rng.State & List<&2, Ind.Individual>:
   match fuel hold:
     case 0n h:
-      u_fallback(parents, prob, mut_p, h)
+      u_fallback(parents, box, mut_p, h)
     case 1n+f UH{rng, acc, seen, 0n}:
       u_have(UH{rng, acc, seen, 0n})
     case 1n+f UH{rng, acc, seen, 1n+k}:
-      u_loop(f, u_next(parents, prob, mut_p, elim, UH{rng, acc, seen, 1n+k}), parents, prob, mut_p, elim)
+      u_loop(f, u_next(parents, box, mut_p, elim, UH{rng, acc, seen, 1n+k}), parents, box, mut_p, elim)
 
-def offs_done(+parents: List<&2, Ind.Individual>, +prob: Prob.Problem, +mut_p: F32, +elim: Bool, +n: Nat, hold: OHold) -> Rng.State & List<&2, Ind.Individual>:
+def offs_done(+parents: List<&2, Ind.Individual>, +box: Bounds.Box, +mut_p: F32, +elim: Bool, +n: Nat, hold: OHold) -> Rng.State & List<&2, Ind.Individual>:
   match hold:
     case OH{nrest, pair, rng, acc, seen}:
-      u_loop(dup_fallback_cap(n), UH{rng, acc, seen, nrest}, parents, prob, mut_p, elim)
+      u_loop(dup_fallback_cap(n), UH{rng, acc, seen, nrest}, parents, box, mut_p, elim)
 
 def offs_have(hold: OHold) -> Rng.State & List<&2, Ind.Individual>:
   match hold:
     case OH{need, pair, rng, acc, seen}:
-      (rng, acc)
+      (rng, List.reverse(&2, Ind.Individual, acc))
+
+def offs_loop_box(
+  fuel: Nat,
+  hold: OHold,
+  +parents: List<&2, Ind.Individual>,
+  +box: Bounds.Box,
+  +mut_p: F32,
+  +elim: Bool,
+  +n: Nat
+) -> Rng.State & List<&2, Ind.Individual>:
+  match fuel hold:
+    case 0n h:
+      offs_done(parents, box, mut_p, elim, n, h)
+    case 1n+f OH{0n, pair, rng, acc, seen}:
+      offs_have(OH{0n, pair, rng, acc, seen})
+    case 1n+f OH{1n+k, pair, rng, acc, seen}:
+      offs_loop_box(f, offs_next(parents, box, mut_p, elim, OH{1n+k, pair, rng, acc, seen}), parents, box, mut_p, elim, n)
 
 def offs_loop(
   fuel: Nat,
@@ -383,13 +420,7 @@ def offs_loop(
   +elim: Bool,
   +n: Nat
 ) -> Rng.State & List<&2, Ind.Individual>:
-  match fuel hold:
-    case 0n h:
-      offs_done(parents, prob, mut_p, elim, n, h)
-    case 1n+f OH{0n, pair, rng, acc, seen}:
-      offs_have(OH{0n, pair, rng, acc, seen})
-    case 1n+f OH{1n+k, pair, rng, acc, seen}:
-      offs_loop(f, offs_next(parents, prob, mut_p, elim, OH{1n+k, pair, rng, acc, seen}), parents, prob, mut_p, elim, n)
+  offs_loop_box(fuel, hold, parents, Prob.box_of(prob), mut_p, elim, n)
 
 # Hash the survivor population (not the mating sample). An individual
 # who lost every tournament is still a duplicate of P.
@@ -400,6 +431,24 @@ def seen_start(+survivors: List<&2, Ind.Individual>, elim: Bool) -> List<&2, Lis
     case False{}:
       Nil{}
 
+def create_offspring_box(
+  +box: Bounds.Box,
+  +survivors: List<&2, Ind.Individual>,
+  +parents: List<&2, Ind.Individual>,
+  +n: Nat,
+  rng: Rng.State,
+  +elim: Bool
+) -> Rng.State & List<&2, Ind.Individual>:
+  offs_loop_box(
+    Nat.mul(n, 40n),
+    OH{n, 0n, rng, Nil{}, seen_start(survivors, elim)},
+    parents,
+    box,
+    Poly.typical_probability(Bounds.n_var(box)),
+    elim,
+    n
+  )
+
 def create_offspring(
   +prob: Prob.Problem,
   +survivors: List<&2, Ind.Individual>,
@@ -408,15 +457,7 @@ def create_offspring(
   rng: Rng.State,
   +elim: Bool
 ) -> Rng.State & List<&2, Ind.Individual>:
-  offs_loop(
-    Nat.mul(n, 40n),
-    OH{n, 0n, rng, Nil{}, seen_start(survivors, elim)},
-    parents,
-    prob,
-    Poly.typical_probability(Prob.n_var(prob)),
-    elim,
-    n
-  )
+  create_offspring_box(Prob.box_of(prob), survivors, parents, n, rng, elim)
 
 def nd_front(+pop: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
   Surv.gather(pop, Surv.front0(NDS.sort(pop)))
@@ -461,14 +502,13 @@ def one_gen.prep(+rng: Rng.State, pair: Norm.State & List<&2, Ind.Individual>) -
   (st, xs) = pair
   GH{st, xs, rng}
 
-def one_gen.s(+prob: Prob.Problem, +cfg: Config, trip: Norm.State & List<&2, Ind.Individual> & Rng.State) -> GHold:
+def one_gen.s(+cfg: Config, trip: Norm.State & List<&2, Ind.Individual> & Rng.State) -> GHold:
   (st, xs, rng) = trip
   one_gen.prep(rng, Tour.prepare(xs, cfg_dirs(cfg), st))
 
 def one_gen.o(+prob: Prob.Problem, +cfg: Config, +pop: List<&2, Ind.Individual>, +state: Norm.State, trip: Rng.State & List<&2, Ind.Individual>) -> GHold:
   (rng2, offs) = trip
   one_gen.s(
-    prob,
     cfg,
     Surv.select_st(
       List.append(&2, Ind.Individual, pop, Prob.evaluate_all(prob, offs)),
@@ -544,6 +584,132 @@ def run_seeded.sized(+prob: Prob.Problem, +cfg: Config, +seed_x: List<&2, F32>, 
 def run_seeded(+prob: Prob.Problem, +cfg: Config, +seed_x: List<&2, F32>) -> List<&2, Ind.Individual>:
   +n = cfg_pop(cfg)
   Util.list_take_pad(Ind.Individual, Ind.from_objectives(Nil{}), run_seeded.sized(prob, cfg, seed_x, n), n)
+
+# Custom-problem template API: caller passes `~eval: @+x:List<&2, F32> -> Prob.Scored`
+# and decision-space `box`, reusing the exact same U-NSGA-III loop and parallel evaluation.
+def one_gen_with.o(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  +cfg: Config,
+  +pop: List<&2, Ind.Individual>,
+  +state: Norm.State,
+  trip: Rng.State & List<&2, Ind.Individual>
+) -> GHold:
+  (rng2, offs) = trip
+  one_gen.s(
+    cfg,
+    Surv.select_st(
+      List.append(&2, Ind.Individual, pop, Prob.evaluate_all_with(~eval, offs)),
+      cfg_pop(cfg),
+      cfg_dirs(cfg),
+      state,
+      rng2
+    )
+  )
+
+def one_gen_with.p(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  +box: Bounds.Box,
+  +cfg: Config,
+  +pop: List<&2, Ind.Individual>,
+  +state: Norm.State,
+  trip: Rng.State & List<&2, Ind.Individual>
+) -> GHold:
+  (rng1, parents) = trip
+  one_gen_with.o(~eval, cfg, pop, state, create_offspring_box(box, pop, parents, cfg_pop(cfg), rng1, cfg_elim(cfg)))
+
+def one_gen_with(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  +box: Bounds.Box,
+  +cfg: Config,
+  hold: GHold
+) -> GHold:
+  match hold:
+    case GH{st, +xs, rng}:
+      one_gen_with.p(~eval, box, cfg, xs, st, Tour.select_parents(cfg_mode(cfg), xs, cfg_pop(cfg), rng))
+
+def gen_loop_with(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  fuel: Nat,
+  hold: GHold,
+  +box: Bounds.Box,
+  +cfg: Config
+) -> List<&2, Ind.Individual>:
+  match fuel hold:
+    case 0n h:
+      gen_pop(h)
+    case 1n+g h:
+      gen_loop_with(~eval, g, one_gen_with(~eval, box, cfg, h), box, cfg)
+
+def run_with.after_prep(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  +box: Bounds.Box,
+  +cfg: Config,
+  rng: Rng.State,
+  pair: Norm.State & List<&2, Ind.Individual>
+) -> List<&2, Ind.Individual>:
+  (st1, pop1) = pair
+  gen_loop_with(~eval, cfg_gens(cfg), GH{st1, pop1, rng}, box, cfg)
+
+def run_with.go(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  +box: Bounds.Box,
+  +cfg: Config,
+  pair: Rng.State & List<&2, Ind.Individual>
+) -> List<&2, Ind.Individual>:
+  (rng, raw) = pair
+  run_with.after_prep(~eval, box, cfg, rng, Tour.prepare(Prob.evaluate_all_with(~eval, raw), cfg_dirs(cfg), Norm.new_state(Bounds.n_obj(box))))
+
+def run_with.sized(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  +box: Bounds.Box,
+  +cfg: Config,
+  n: Nat
+) -> List<&2, Ind.Individual>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      run_with.go(~eval, box, cfg, init_pop_box(box, 1n+p, Rng.from_nat(cfg_seed(cfg))))
+
+def run_with(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  +box: Bounds.Box,
+  +cfg: Config
+) -> List<&2, Ind.Individual>:
+  +n = cfg_pop(cfg)
+  Util.list_take_pad(Ind.Individual, Ind.from_objectives(Nil{}), run_with.sized(~eval, box, cfg, n), n)
+
+def run_seeded_with.go(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  +box: Bounds.Box,
+  +cfg: Config,
+  +seed_x: List<&2, F32>,
+  pair: Rng.State & List<&2, Ind.Individual>
+) -> List<&2, Ind.Individual>:
+  (rng, raw) = pair
+  run_with.go(~eval, box, cfg, (rng, replace_head(seed_x, Bounds.n_obj(box), raw)))
+
+def run_seeded_with.sized(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  +box: Bounds.Box,
+  +cfg: Config,
+  +seed_x: List<&2, F32>,
+  n: Nat
+) -> List<&2, Ind.Individual>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      run_seeded_with.go(~eval, box, cfg, seed_x, init_pop_box(box, 1n+p, Rng.from_nat(cfg_seed(cfg))))
+
+def run_seeded_with(
+  ~eval: @+x:List<&2, F32> -> Prob.Scored,
+  +box: Bounds.Box,
+  +cfg: Config,
+  +seed_x: List<&2, F32>
+) -> List<&2, Ind.Individual>:
+  +n = cfg_pop(cfg)
+  Util.list_take_pad(Ind.Individual, Ind.from_objectives(Nil{}), run_seeded_with.sized(~eval, box, cfg, seed_x, n), n)
 
 def run_zdt1_smoke() -> List<&2, Ind.Individual>:
   run(Prob.zdt1(30n), smoke_zdt1())

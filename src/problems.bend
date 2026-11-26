@@ -397,8 +397,9 @@ def map_prefix_pow(+xs: List<&2, F32>, fuel: Nat, +alpha: F32) -> List<&2, F32>:
   map_prefix_pow.go(fuel, xs, alpha)
 
 # C# Dtlz4Problem: DTLZ2 with x^α inside the sine/cosine map. g is still GDtlz2.
+# Clamp via nn_objs like dtlz3_f so F32 cos(π/2) < 0 cannot create negative objectives.
 def dtlz4_f(+x: List<&2, F32>, +m: Nat, +alpha: F32) -> List<&2, F32>:
-  dtlz2_f(map_prefix_pow(x, pred(m), alpha), m)
+  nn_objs(dtlz2_f(map_prefix_pow(x, pred(m), alpha), m))
 
 def pos_or.fin(+x: F32, +fallback: F32, ok: Bool) -> F32:
   match ok:
@@ -515,6 +516,9 @@ type Scored is Data:
     f: List<&2, F32>
     g: List<&2, F32>
   }
+
+def scored(+f: List<&2, F32>, +g: List<&2, F32>) -> Scored:
+  Scored{f, g}
 
 def plain(+f: List<&2, F32>) -> Scored:
   Scored{f, Nil{}}
@@ -652,3 +656,27 @@ def evaluate(+p: Problem, +ind: Ind.Individual) -> Ind.Individual:
 # Independent per individual. Mid-split + parallel recurse; same order as cons.
 def evaluate_all(+p: Problem, +xs: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
   Util.map_halves(~Ind.Individual, ~Ind.Individual, ~Problem, ~evaluate, p, xs)
+
+# Parallel template-based evaluator for caller-defined objective/constraint functions.
+def evaluate_all_with.go(
+  ~eval: @+x:List<&2, F32> -> Scored,
+  +fuel: Nat,
+  xs: List<&2, Ind.Individual>
+) -> List<&2, Ind.Individual>:
+  match fuel xs:
+    case 0n Nil{}:
+      Nil{}
+    case 0n +ind <> rest:
+      apply_score(ind, eval(Ind.variables(ind))) <> evaluate_all_with.go(~eval, 0n, rest)
+    case 1n+p Nil{}:
+      Nil{}
+    case 1n+p +ind <> Nil{}:
+      apply_score(ind, eval(Ind.variables(ind))) <> Nil{}
+    case 1n+p h <> t:
+      +all = {h <> t : List<&2, Ind.Individual>}
+      +mid = Nat.div(Util.list_len(Ind.Individual, all), 2n)
+      a b = evaluate_all_with.go(~eval, p, List.take(&2, Ind.Individual, all, mid)) evaluate_all_with.go(~eval, p, List.drop(&2, Ind.Individual, all, mid))
+      List.append(&2, Ind.Individual, a, b)
+
+def evaluate_all_with(~eval: @+x:List<&2, F32> -> Scored, +xs: List<&2, Ind.Individual>) -> List<&2, Ind.Individual>:
+  evaluate_all_with.go(~eval, Util.list_len(Ind.Individual, xs), xs)

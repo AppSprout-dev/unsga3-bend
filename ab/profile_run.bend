@@ -327,21 +327,20 @@ def trip_xs(+t: Trip) -> List<&2, Ind.Individual>:
 
 # Mirrors Surv.select_st.big + size_lock + gather, with clocks.
 def select_big.fin(
-  +pop: List<&2, Ind.Individual>,
   +st: Norm.State,
+  +kept: List<&2, Ind.Individual>,
+  rng: Rng.State,
   +acc: Buckets,
   +t0: Nat,
   +t1: Nat,
   +t2: Nat,
   +t3: Nat,
-  +t4: Nat,
-  pair_i: List<&2, Nat> & Rng.State
+  +t4: Nat
 ) -> Sel:
-  +ir = ir_of(pair_i)
   Sel{
     st,
-    Surv.gather(pop, ir_idxs(ir)),
-    ir_rng(ir),
+    kept,
+    rng,
     add_niche(
       add_asg_sel(add_norm_sel(add_nds_sel(acc, elapsed(t0, t1)), elapsed(t1, t2)), elapsed(t2, t3)),
       elapsed(t3, t4)
@@ -365,13 +364,16 @@ def select_big.after_asgs(
   +n = Util.list_len(Ind.Individual, pop)
   +want = Util.nat_min(target, n)
   do IO<Sel>:
-    pair_i : List<&2, Nat> & Rng.State = Surv.size_lock.rng(
-      want,
-      n,
-      Surv.fill.wrap.rng(fronts, target, asgs, Util.list_len(List<&2, F32>, dirs), rng)
+    +ir : IR = ir_of(
+      Surv.size_lock.rng(
+        want,
+        n,
+        Surv.fill.wrap.rng(fronts, target, asgs, Util.list_len(List<&2, F32>, dirs), rng)
+      )
     )
+    kept : List<&2, Ind.Individual> = Surv.gather(pop, ir_idxs(ir))
     t4 : Nat <- IO.now()
-    return select_big.fin(pop, nf_st(nf), acc, t0, t1, t2, t3, t4, pair_i)
+    return select_big.fin(nf_st(nf), kept, ir_rng(ir), acc, t0, t1, t2, t3, t4)
 
 def select_big.after_norm(
   +pop: List<&2, Ind.Individual>,
@@ -461,6 +463,44 @@ def select_dirs(
     case False{}:
       select_big(pop, target, dirs, state, rng, acc)
 
+def select_constrained.fin(
+  +acc: Buckets,
+  +t0: Nat,
+  +t1: Nat,
+  trip: Norm.State & List<&2, Ind.Individual> & Rng.State
+) -> Sel:
+  (st, xs, rng2) = trip
+  Sel{st, xs, rng2, add_niche(acc, elapsed(t0, t1))}
+
+def select_constrained_timed(
+  +pop: List<&2, Ind.Individual>,
+  +target: Nat,
+  +dirs: List<&2, List<&2, F32>>,
+  state: Norm.State,
+  rng: Rng.State,
+  acc: Buckets
+) -> IO(Sel):
+  do IO<Sel>:
+    t0 : Nat <- IO.now()
+    trip : Norm.State & List<&2, Ind.Individual> & Rng.State = Surv.select_st.constrained(pop, target, dirs, state, rng)
+    t1 : Nat <- IO.now()
+    return select_constrained.fin(acc, t0, t1, trip)
+
+def select_st_timed.large(
+  +pop: List<&2, Ind.Individual>,
+  +target: Nat,
+  +dirs: List<&2, List<&2, F32>>,
+  state: Norm.State,
+  rng: Rng.State,
+  acc: Buckets,
+  bad: Bool
+) -> IO(Sel):
+  match bad:
+    case False{}:
+      select_dirs(pop, target, dirs, state, rng, acc, List.is_empty(&2, List<&2, F32>, dirs))
+    case True{}:
+      select_constrained_timed(pop, target, dirs, state, rng, acc)
+
 def select_st_timed.by(
   +pop: List<&2, Ind.Individual>,
   +target: Nat,
@@ -474,7 +514,7 @@ def select_st_timed.by(
     case True{}:
       select_keep(pop, state, rng, acc)
     case False{}:
-      select_dirs(pop, target, dirs, state, rng, acc, List.is_empty(&2, List<&2, F32>, dirs))
+      select_st_timed.large(pop, target, dirs, state, rng, acc, Surv.any_infeas(pop))
 
 def select_st_timed(
   +pop: List<&2, Ind.Individual>,
@@ -501,7 +541,7 @@ def prepare_fin(
   +ranked = Tour.stamp_ranks(fronts, pop, 0n)
   Prep{
     nf_st(nf),
-    Tour.stamp_asgs(ranked, Surv.associate(ranked, nf_F(nf), dirs)),
+    Tour.prepare.assign(dirs, ranked, nf_F(nf), Bool.and(Norm.has_feas(ranked), Norm.has_infeas(ranked))),
     add_asg_prep(add_norm_prep(add_nds_prep(acc, elapsed(t0, t1)), elapsed(t1, t2)), elapsed(t2, t3))
   }
 
@@ -637,15 +677,15 @@ def hold_xs(hold: Hold) -> List<&2, Ind.Individual>:
     case H{st, xs, rng}:
       xs
 
-def front_from_step(step: Step, +t0: Nat, +t1: Nat) -> Front:
+def run_after.looped(+n: Nat, step: Step) -> IO(Front):
   match step:
     case Step{hold, acc}:
-      Front{Algo.nd_front(hold_xs(hold)), add_nds_fin(acc, elapsed(t0, t1))}
-
-def run_after.looped(+t0: Nat, step: Step) -> IO(Front):
-  do IO<Front>:
-    t1 : Nat <- IO.now()
-    return front_from_step(step, t0, t1)
+      do IO<Front>:
+        padded : List<&2, Ind.Individual> = Util.list_take_pad(Ind.Individual, Ind.from_objectives(Nil{}), hold_xs(hold), n)
+        t0 : Nat <- IO.now()
+        nd : List<&2, Ind.Individual> = Algo.nd_front(padded)
+        t1 : Nat <- IO.now()
+        return Front{nd, add_nds_fin(acc, elapsed(t0, t1))}
 
 def run_after(
   +prob: Prob.Problem,
@@ -657,8 +697,7 @@ def run_after(
     case Prep{st, pop, acc}:
       do IO<Front>:
         looped : Step <- gen_loop(cfg_gens(cfg), Step{H{st, pop, rng}, acc}, prob, cfg)
-        t0 : Nat <- IO.now()
-        run_after.looped(t0, looped)
+        run_after.looped(cfg_pop(cfg), looped)
 
 def run_go(
   +prob: Prob.Problem,
@@ -690,16 +729,9 @@ def run_sized(+prob: Prob.Problem, +cfg: Algo.Config, n: Nat) -> IO(Front):
         t1 : Nat <- IO.now()
         run_go(prob, cfg, add_init(zero(), elapsed(t0, t1)), pair)
 
-def pad_front(+n: Nat, front: Front) -> Front:
-  match front:
-    case Front{xs, acc}:
-      Front{Util.list_take_pad(Ind.Individual, Ind.from_objectives(Nil{}), xs, n), acc}
-
 def run_profile(+prob: Prob.Problem, +cfg: Algo.Config) -> IO(Front):
   +n = cfg_pop(cfg)
-  do IO<Front>:
-    raw : Front <- run_sized(prob, cfg, n)
-    return pad_front(n, raw)
+  run_sized(prob, cfg, n)
 
 def emit_front_of(front: Front, +wall: Nat, +label: String, +n_obj: Nat, +partitions: Nat, +cfg: Algo.Config) -> IO(Unit):
   match front:
