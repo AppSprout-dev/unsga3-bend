@@ -26,6 +26,11 @@ DUMP_BEND = ROOT / "ab" / "dump_bend_front.py"
 DUMP_CS = ROOT / "ab" / "dump_csharp_front.py"
 COMPARE = ROOT / "ab" / "compare.py"
 DEFAULT_FIXTURE = ROOT / "ab" / "fixtures" / "core_2obj.json"
+DEFAULT_FIXTURES = [
+    ROOT / "ab" / "fixtures" / "core_2obj.json",
+    ROOT / "ab" / "fixtures" / "core_3obj.json",
+    ROOT / "ab" / "fixtures" / "collapsed_span_2obj.json",
+]
 
 
 def _env() -> dict[str, str]:
@@ -138,8 +143,8 @@ def main() -> int:
         "--fixtures",
         nargs="+",
         type=Path,
-        default=[DEFAULT_FIXTURE],
-        help="JSON fixtures (default: ab/fixtures/core_2obj.json)",
+        default=DEFAULT_FIXTURES,
+        help="JSON fixtures (default: all checked-in ab/fixtures/*.json)",
     )
     parser.add_argument("--out-dir", type=Path, default=OUT / "fixture_check")
     args = parser.parse_args()

@@ -57,7 +57,24 @@ def nat_pow(+b: Nat, e: Nat) -> Nat:
     case 1n+p:
       Nat.mul(b, nat_pow(b, p))
 
-# C(n, k). Das–Dennis count = C(p + M - 1, M - 1).
+# C(n, k) in O(min(k, n-k)) steps. Das–Dennis count = C(p + M - 1, M - 1).
+# Keeps binomial(n, 0n) == 1n definitionally for Laws.binomial_k0.
+def binomial.step(rem: Nat, +n_minus_k: Nat, +i: Nat, +acc: Nat) -> Nat:
+  match rem:
+    case 0n:
+      acc
+    case 1n+r:
+      +i1 = Nat.add(i, 1n)
+      binomial.step(r, n_minus_k, i1, Nat.div(Nat.mul(acc, Nat.add(n_minus_k, i1)), i1))
+
+def binomial.le(+n: Nat, +k: Nat, gt: Bool) -> Nat:
+  match gt:
+    case True{}:
+      0n
+    case False{}:
+      +kk = nat_min(k, Nat.sub(n, k))
+      binomial.step(kk, Nat.sub(n, kk), 0n, 1n)
+
 def binomial(+n: Nat, +k: Nat) -> Nat:
   match n k:
     case x 0n:
@@ -65,7 +82,7 @@ def binomial(+n: Nat, +k: Nat) -> Nat:
     case 0n 1n+pk:
       0n
     case 1n+pn 1n+pk:
-      Nat.add(binomial(pn, pk), binomial(pn, 1n+pk))
+      binomial.le(1n+pn, 1n+pk, Nat.is_gt(1n+pk, 1n+pn))
 
 def in_nats(+x: Nat, xs: List<&2, Nat>) -> Bool:
   List.contains(~Nat, ~Nat.is_eq, xs, x)
@@ -230,23 +247,33 @@ def csv_step(x: F32, acc: String) -> String:
 def show_f32s(xs: List<&2, F32>) -> String:
   List.foldr(~&2, ~F32, ~String, ~csv_step, xs, "")
 
-def f32s_eq(a: List<&2, F32>, b: List<&2, F32>) -> Bool:
-  match a b:
-    case Nil{} Nil{}:
+def f32s_eq.go(a: List<&2, F32>, b: List<&2, F32>, ok: Bool) -> Bool:
+  match a b ok:
+    case Nil{} Nil{} True{}:
       True{}
-    case x <> xs y <> ys:
-      Bool.and(F32.is_eq(x, y), f32s_eq(xs, ys))
-    case Nil{} y <> ys:
+    case x <> xs y <> ys True{}:
+      f32s_eq.go(xs, ys, F32.is_eq(x, y))
+    case _ _ False{}:
       False{}
-    case x <> xs Nil{}:
+    case Nil{} y <> ys True{}:
+      False{}
+    case x <> xs Nil{} True{}:
       False{}
 
-def has_f32s(+needle: List<&2, F32>, xs: List<&2, List<&2, F32>>) -> Bool:
-  match xs:
-    case Nil{}:
+def f32s_eq(a: List<&2, F32>, b: List<&2, F32>) -> Bool:
+  f32s_eq.go(a, b, True{})
+
+def has_f32s.go(xs: List<&2, List<&2, F32>>, hit: Bool, +needle: List<&2, F32>) -> Bool:
+  match xs hit:
+    case _ True{}:
+      True{}
+    case Nil{} False{}:
       False{}
-    case h <> t:
-      Bool.or(f32s_eq(needle, h), has_f32s(needle, t))
+    case h <> t False{}:
+      has_f32s.go(t, f32s_eq(needle, h), needle)
+
+def has_f32s(+needle: List<&2, F32>, xs: List<&2, List<&2, F32>>) -> Bool:
+  has_f32s.go(xs, False{}, needle)
 
 # Decision-variable duplicate key: 12 decimal places, round(x*1e12)/1e12.
 # C# DecisionKey is double.ToString("G12") (12 significant digits). Those

@@ -86,7 +86,15 @@ def winner_pymoo.gate(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State, ei
     case True{}:
       winner_pymoo.cv(a, b, rng, F32.is_lt(Ind.constraint_violation(a), Ind.constraint_violation(b)), F32.is_lt(Ind.constraint_violation(b), Ind.constraint_violation(a)))
     case False{}:
-      winner_pymoo.same(a, b, rng, Nat.is_eq(Ind.associated_ref(a), Ind.associated_ref(b)))
+      winner_pymoo.same(
+        a,
+        b,
+        rng,
+        Bool.and(
+          Bool.and(Ind.niche_linked(a), Ind.niche_linked(b)),
+          Nat.is_eq(Ind.associated_ref(a), Ind.associated_ref(b))
+        )
+      )
 
 def winner_pymoo(+a: Ind.Individual, +b: Ind.Individual, rng: Rng.State) -> Rng.State & Ind.Individual:
   winner_pymoo.gate(
@@ -233,13 +241,41 @@ def stamp_asgs.go(+fuel: Nat, pop: List<&2, Ind.Individual>, +asgs: List<&2, Sur
 def stamp_asgs(+pop: List<&2, Ind.Individual>, asgs: List<&2, Surv.Assignment>) -> List<&2, Ind.Individual>:
   stamp_asgs.go(Util.list_len(Ind.Individual, pop), pop, asgs)
 
+def stamp_asgs_mixed.pick(+a: Surv.Assignment, +ind: Ind.Individual, ok: Bool) -> Ind.Individual:
+  match ok:
+    case True{}:
+      stamp_asgs.one(a, ind)
+    case False{}:
+      Ind.clear_niche(ind)
+
+def stamp_asgs_mixed.one(+a: Surv.Assignment, +ind: Ind.Individual) -> Ind.Individual:
+  stamp_asgs_mixed.pick(a, ind, Ind.feasible(ind))
+
+def stamp_asgs_mixed(pop: List<&2, Ind.Individual>, asgs: List<&2, Surv.Assignment>) -> List<&2, Ind.Individual>:
+  match pop asgs:
+    case Nil{} _:
+      Nil{}
+    case +ind <> rest Nil{}:
+      ind <> rest
+    case +ind <> rest +a <> as:
+      stamp_asgs_mixed.one(a, ind) <> stamp_asgs_mixed(rest, as)
+
+def prepare.assign(+dirs: List<&2, List<&2, F32>>, +ranked: List<&2, Ind.Individual>, +F: List<&2, List<&2, F32>>, mixed: Bool) -> List<&2, Ind.Individual>:
+  match mixed:
+    case True{}:
+      stamp_asgs_mixed(ranked, Surv.associate_feas(ranked, F, dirs))
+    case False{}:
+      stamp_asgs(ranked, Surv.associate(ranked, F, dirs))
+
 def prepare.with(+dirs: List<&2, List<&2, F32>>, +pop: List<&2, Ind.Individual>, +fronts: List<&2, List<&2, Nat>>, pair: Norm.State & List<&2, List<&2, F32>>) -> Norm.State & List<&2, Ind.Individual>:
   (st, F) = pair
   +ranked = stamp_ranks(fronts, pop, 0n)
-  (st, stamp_asgs(ranked, Surv.associate(ranked, F, dirs)))
+  +mixed = Bool.and(Norm.has_infeas(ranked), Norm.has_feas(ranked))
+  (st, prepare.assign(dirs, ranked, F, mixed))
 
 # Recompute ranks + niche association (C# PrepareForSelection). Threads
-# the persistent Normalization state.
+# the persistent Normalization state. On mixed feasible/infeasible pools,
+# infeasible fillers are excluded from niche counts and left unlinked.
 def prepare(+pop: List<&2, Ind.Individual>, +dirs: List<&2, List<&2, F32>>, state: Norm.State) -> Norm.State & List<&2, Ind.Individual>:
   +fronts = NDS.sort(pop)
   prepare.with(dirs, pop, fronts, Norm.normalize_nd_cv(state, pop, Surv.front0(fronts)))

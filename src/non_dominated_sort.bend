@@ -97,9 +97,8 @@ def compare_pareto.go(a: List<&2, F32>, b: List<&2, F32>, ab: Bool, bb: Bool) ->
 def compare_pareto(a: List<&2, F32>, b: List<&2, F32>) -> Nat:
   compare_pareto.go(a, b, False{}, False{})
 
-# Equal CV among infeasible points: 0. Deb does not Pareto-compare.
-# C# CompareConstraintDominated on published main falls through to
-# Pareto; this tree does not (Deb / constraint-domination target).
+# Equal CV among infeasible points: 0. Deb does not Pareto-compare
+# (matches C# NonDominatedSort.CompareConstraintDominated).
 def compare_cd.infeas(+cva: F32, +cvb: F32, a_lt: Bool, b_lt: Bool) -> Nat:
   match a_lt:
     case True{}:
@@ -163,20 +162,32 @@ def dominates_ff(+fa: List<&2, F32>, +fb: List<&2, F32>) -> Bool:
 def dominates_cd(+fa: List<&2, F32>, +cva: F32, +fb: List<&2, F32>, +cvb: F32) -> Bool:
   dominates.fin(compare_cd(fa, fb, cva, cvb))
 
-# Sequential OR so a first hit can skip the rest. Candidate-level
-# parallelism lives in split_walk (coarse mid-split). Walks `all`
-# rows directly — no List.get into the population.
-def is_dominated(+all: List<&2, Row>, +i: Nat, +fi: List<&2, F32>, +cvi: F32) -> Bool:
-  match all:
-    case Nil{}:
+# True CBV short-circuit scan: match hit flag and self-check before
+# checking dominance or recursing on the tail. Single recursive def keeps
+# structural termination without @unsafe.
+def row_beats.same(+fi: List<&2, F32>, +cvi: F32, +fj: List<&2, F32>, +cvj: F32, same: Bool) -> Bool:
+  match same:
+    case True{}:
       False{}
-    case +r <> rs:
-      match r:
-        case Row{+j, +fj, +cvj}:
-          Bool.or(
-            Bool.and(Bool.not(Nat.is_eq(i, j)), dominates_cd(fj, cvj, fi, cvi)),
-            is_dominated(rs, i, fi, cvi)
-          )
+    case False{}:
+      dominates_cd(fj, cvj, fi, cvi)
+
+def row_beats(r: Row, +i: Nat, +fi: List<&2, F32>, +cvi: F32) -> Bool:
+  match r:
+    case Row{+j, +fj, +cvj}:
+      row_beats.same(fi, cvi, fj, cvj, Nat.is_eq(i, j))
+
+def is_dominated.go(all: List<&2, Row>, hit: Bool, +i: Nat, +fi: List<&2, F32>, +cvi: F32) -> Bool:
+  match all hit:
+    case _ True{}:
+      True{}
+    case Nil{} False{}:
+      False{}
+    case r <> rs False{}:
+      is_dominated.go(rs, row_beats(r, i, fi, cvi), i, fi, cvi)
+
+def is_dominated(all: List<&2, Row>, +i: Nat, +fi: List<&2, F32>, +cvi: F32) -> Bool:
+  is_dominated.go(all, False{}, i, fi, cvi)
 
 def row_dom(+all: List<&2, Row>, +r: Row) -> Bool:
   match r:

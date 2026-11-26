@@ -42,7 +42,11 @@ PROBLEMS = {
 }
 
 PHASE_RE = re.compile(r"^# phase (\S+) ms=(\d+)(?: pct=(\d+))?")
-CHECKER_PREFIXES = ("All terms check",)
+CHECKER_PREFIXES = (
+    "All terms check",
+    "ALL PROOFS CHECK",
+    "Use --verdict for mathematical validity.",
+)
 
 
 def generate_bend(problem: str, partitions: int, pop: int, gens: int, seed: int) -> str:
@@ -71,8 +75,30 @@ def run_cmd(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, check=False, capture_output=True, text=True)
 
 
+def bend_version_bytes() -> bytes:
+    proc = run_cmd(["bend", "version"])
+    out = (proc.stdout or "") + (proc.stderr or "")
+    return out.strip().encode("utf-8")
+
+
 def source_digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    h = hashlib.sha256()
+    h.update(b"bend:")
+    h.update(bend_version_bytes())
+    h.update(b"\0driver:")
+    h.update(path.read_bytes())
+    prof = ROOT / "ab" / "profile_run.bend"
+    if prof.is_file():
+        h.update(b"\0ab/profile_run.bend:")
+        h.update(prof.read_bytes())
+    src_dir = ROOT / "src"
+    if src_dir.is_dir():
+        for src_file in sorted(src_dir.glob("*.bend")):
+            h.update(b"\0src/")
+            h.update(src_file.name.encode("utf-8"))
+            h.update(b":")
+            h.update(src_file.read_bytes())
+    return h.hexdigest()
 
 
 def cache_bin_for(src: Path) -> Path:

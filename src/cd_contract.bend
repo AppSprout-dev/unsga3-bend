@@ -8,6 +8,7 @@
 import Base
 import ./individual.bend as Ind
 import ./non_dominated_sort.bend as NDS
+import ./normalization.bend as Norm
 import ./tournament.bend as Tour
 import ./rng.bend as Rng
 import ./algorithm.bend as Algo
@@ -160,6 +161,32 @@ def offs_filled(pair: Rng.State & List<&2, Ind.Individual>) -> Bool:
     case +h <> rest:
       Bool.and(Nat.is_eq(Util.list_len(Ind.Individual, h <> rest), 1n), Util.f32s_eq(Ind.variables(h), [0.25]))
 
+def unlinked_a() -> Ind.Individual:
+  Ind.clear_niche(Ind.stamp(Ind.from_objectives([0.1, 0.9]), 0n, 0n, 0n, 0.01))
+
+def unlinked_b() -> Ind.Individual:
+  Ind.clear_niche(Ind.stamp(Ind.from_objectives([0.9, 0.1]), 1n, 0n, 0n, 0.9))
+
+def mixed_prep_check(xs: List<&2, Ind.Individual>) -> Bool:
+  match xs:
+    case +a <> +b <> Nil{}:
+      Bool.and(
+        Bool.and(Ind.niche_linked(a), Nat.is_eq(Ind.niche(a), 1n)),
+        Bool.and(Bool.not(Ind.niche_linked(b)), Nat.is_eq(Ind.niche(b), 0n))
+      )
+    case _:
+      False{}
+
+def mixed_prep_unpack(pair: Norm.State & List<&2, Ind.Individual>) -> Bool:
+  (st, out) = pair
+  mixed_prep_check(out)
+
+def mixed_prep_ok() -> Bool:
+  +dirs = {[[1.0, 0.0], [0.0, 1.0]] : List<&2, List<&2, F32>>}
+  +f0 = Ind.from_objectives([0.0, 1.0])
+  +bad = Ind.set_constraints(Ind.from_objectives([0.0, 1.0]), [2.0])
+  mixed_prep_unpack(Tour.prepare(f0 <> bad <> Nil{}, dirs, Norm.new_state(2n)))
+
 def main() -> IO(Unit):
   +feas_pop = pair_pop(feas_worse(), infeas_better())
   +eq_pop = pair_pop(eq_dom(), eq_worse())
@@ -180,6 +207,8 @@ def main() -> IO(Unit):
     IO.print(line(obj_is([0.3, 0.7], Tour.winner(Tour.pymoo(), cv_rank0(), cv_rank5(), seed682())), "pymoo_equal_cv_coin"))
     IO.print(line(Bool.and(obj_is([0.2, 0.8], Tour.winner(Tour.rank_niche(), cv_rank0(), cv_rank5(), seed682())), nocoin(Tour.winner(Tour.rank_niche(), cv_rank0(), cv_rank5(), seed682()))), "rn_equal_cv_rank"))
     IO.print(line(Bool.and(obj_is([0.3, 0.7], Tour.winner(Tour.rank_niche(), bad_cv_good_rank(), small_cv_bad_rank(), seed682())), nocoin(Tour.winner(Tour.rank_niche(), bad_cv_good_rank(), small_cv_bad_rank(), seed682()))), "rn_smaller_cv"))
+    IO.print(line(obj_is([0.9, 0.1], Tour.winner(Tour.pymoo(), unlinked_a(), unlinked_b(), seed682())), "pymoo_unlinked_coins"))
+    IO.print(line(mixed_prep_ok(), "mixed_prep_no_infeas_niche"))
     IO.print(line(Bool.not(hit_of(Algo.try_add(Nil{}, unpicked(), seen_pop(), True{}))), "unpicked_rejected"))
     IO.print(line(hit_of(Algo.try_add(Nil{}, unpicked(), seen_mates(), True{})), "mates_would_accept"))
     IO.print(line(hit_of(Algo.try_add(Nil{}, fresh(), seen_pop(), True{})), "fresh_accepted"))
@@ -187,6 +216,8 @@ def main() -> IO(Unit):
     IO.print(line(both(slot(2n, 4n), mate(2n, 4n), 2n, 3n), "even_2"))
     IO.print(line(both(slot(4n, 4n), mate(4n, 4n), 0n, 1n), "even_4"))
     IO.print(line(both(slot(6n, 4n), mate(6n, 4n), 0n, 1n), "even_6"))
+    IO.print(line(both(Algo.wrap_pair(Algo.next_pair(Algo.wrap_pair(2n, 4n), 4n), 4n), Algo.wrap_pair(Algo.next_pair(Algo.wrap_pair(4n, 4n), 4n), 4n), 0n, 2n), "next_pair_even"))
+    IO.print(line(both(Algo.next_pair(2n, 5n), Algo.next_pair(4n, 5n), 4n, 0n), "next_pair_odd"))
     IO.print(line(both(slot(0n, 5n), mate(0n, 5n), 0n, 1n), "odd_0"))
     IO.print(line(both(slot(2n, 5n), mate(2n, 5n), 2n, 3n), "odd_2"))
     IO.print(line(both(slot(4n, 5n), mate(4n, 5n), 4n, 0n), "odd_last"))

@@ -72,6 +72,8 @@ CASES: list[tuple[Path, list[str]]] = [
             "ok pymoo_equal_cv_coin",
             "ok rn_equal_cv_rank",
             "ok rn_smaller_cv",
+            "ok pymoo_unlinked_coins",
+            "ok mixed_prep_no_infeas_niche",
             "ok unpicked_rejected",
             "ok mates_would_accept",
             "ok fresh_accepted",
@@ -79,6 +81,8 @@ CASES: list[tuple[Path, list[str]]] = [
             "ok even_2",
             "ok even_4",
             "ok even_6",
+            "ok next_pair_even",
+            "ok next_pair_odd",
             "ok odd_0",
             "ok odd_2",
             "ok odd_last",
@@ -86,6 +90,13 @@ CASES: list[tuple[Path, list[str]]] = [
             "ok odd_n1",
             "ok dup_cap",
             "ok dup_fallback_fills",
+        ],
+    ),
+    (
+        ROOT / "src" / "custom_smoke.bend",
+        [
+            "ok custom_run_with_pop8",
+            "ok custom_run_with_feas_front",
         ],
     ),
 ]

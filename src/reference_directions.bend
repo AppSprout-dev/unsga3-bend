@@ -50,8 +50,10 @@ def to_dirs(+p: Nat, rows: List<&2, List<&2, Nat>>) -> List<&2, List<&2, F32>>:
 
 # k-th composition of `p` into `m` parts, C# DFS order (first coord
 # increases 0..p). Enumerating `range(Count)` makes |DasDennis| = Count
-# by construction. @unsafe: Bool dispatch on `k < count(rest)` then
-# either shrinks M or advances i; fuel is a bound, not the shrink key.
+# by construction. Fuel is 2*(p+1)*(m+1) and shrinks on every step
+# (each outer step alternates ready=False -> ready=True and either
+# shrinks m or increments i <= p), so the function is structurally total
+# with no @unsafe taint.
 type DasCtx is Data:
   DasCtx{
     m: Nat
@@ -67,10 +69,10 @@ def nth_comp.fallback(m: Nat, p: Nat) -> List<&2, Nat>:
     case 1n+rd:
       0n <> nth_comp.fallback(rd, p)
 
-@unsafe def nth_comp.go(
+def nth_comp.go(
+  fuel: Nat,
   ready: Bool,
   take: Bool,
-  fuel: Nat,
   +m: Nat,
   +p: Nat,
   +k: Nat,
@@ -78,14 +80,14 @@ def nth_comp.fallback(m: Nat, p: Nat) -> List<&2, Nat>:
   left: Nat,
   c: Nat
 ) -> List<&2, Nat>:
-  match ready take fuel:
-    case True{} True{} f:
-      i <> nth_comp.go(False{}, False{}, f, m, left, k, 0n, 0n, 0n)
-    case True{} False{} f:
-      nth_comp.go(False{}, False{}, f, 1n+m, p, Nat.sub(k, c), 1n+i, 0n, 0n)
-    case False{} t 0n:
+  match fuel ready take:
+    case 0n r t:
       nth_comp.fallback(m, p)
-    case False{} t 1n+f:
+    case 1n+f True{} True{}:
+      i <> nth_comp.go(f, False{}, False{}, m, left, k, 0n, 0n, 0n)
+    case 1n+f True{} False{}:
+      nth_comp.go(f, False{}, False{}, 1n+m, p, Nat.sub(k, c), 1n+i, 0n, 0n)
+    case 1n+f False{} t:
       match m:
         case 0n:
           Nil{}
@@ -94,10 +96,10 @@ def nth_comp.fallback(m: Nat, p: Nat) -> List<&2, Nat>:
         case 1n+rd:
           +left2 = Nat.sub(p, i)
           +c2 = count(rd, left2)
-          nth_comp.go(True{}, Nat.is_lt(k, c2), f, rd, p, k, i, left2, c2)
+          nth_comp.go(f, True{}, Nat.is_lt(k, c2), rd, p, k, i, left2, c2)
 
 def nth_comp(+m: Nat, +p: Nat, +k: Nat) -> List<&2, Nat>:
-  nth_comp.go(False{}, False{}, Nat.mul(Nat.add(p, 1n), Nat.add(m, 1n)), m, p, k, 0n, 0n, 0n)
+  nth_comp.go(Nat.mul(2n, Nat.mul(Nat.add(p, 1n), Nat.add(m, 1n))), False{}, False{}, m, p, k, 0n, 0n, 0n)
 
 def nth_row(+ctx: DasCtx, +k: Nat) -> List<&2, Nat>:
   match ctx:

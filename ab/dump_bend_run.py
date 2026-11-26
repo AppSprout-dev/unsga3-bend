@@ -83,7 +83,11 @@ TOURNAMENTS = {
     "rank_niche": ("Tour.rank_niche()", "RankNicheDistance"),
 }
 
-CHECKER_PREFIXES = ("All terms check",)
+CHECKER_PREFIXES = (
+    "All terms check",
+    "ALL PROOFS CHECK",
+    "Use --verdict for mathematical validity.",
+)
 
 
 def resolve_dump_knobs(
@@ -173,8 +177,26 @@ def run_bend_interpret(path: Path) -> str:
     return proc.stdout
 
 
+def bend_version_bytes() -> bytes:
+    proc = run_cmd(["bend", "version"])
+    out = (proc.stdout or "") + (proc.stderr or "")
+    return out.strip().encode("utf-8")
+
+
 def source_digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    h = hashlib.sha256()
+    h.update(b"bend:")
+    h.update(bend_version_bytes())
+    h.update(b"\0driver:")
+    h.update(path.read_bytes())
+    src_dir = ROOT / "src"
+    if src_dir.is_dir():
+        for src_file in sorted(src_dir.glob("*.bend")):
+            h.update(b"\0src/")
+            h.update(src_file.name.encode("utf-8"))
+            h.update(b":")
+            h.update(src_file.read_bytes())
+    return h.hexdigest()
 
 
 def cache_bin_for(src: Path) -> Path:

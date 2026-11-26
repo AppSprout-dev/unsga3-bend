@@ -17,7 +17,7 @@ concurrency:
 env:
   # C# Unsga3 reference for the Layer-1 fixture and the C# IGD column.
   # Bump deliberately; the published tables still reproduce on this SHA.
-  UNSGA3_CS_SHA: 478909d0c2b24674990da2d8f77a43a4a78d4599
+  UNSGA3_CS_SHA: b350a88f7044cf7402643066b2742fa44056804e
   BEND_NO_TELEMETRY: "1"
   DOTNET_NOLOGO: "1"
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"

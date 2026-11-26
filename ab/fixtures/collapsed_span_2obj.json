@@ -1,0 +1,15 @@
+{
+  "problem": "fixture",
+  "n_obj": 2,
+  "partitions": 4,
+  "target_size": 4,
+  "notes": "2-objective fixture with collapsed second-axis span (4e-7 <= 1e-6), exercising degenerate hyperplane fallback and niching on the splitting front.",
+  "objectives": [
+    [0.0, 4e-7],
+    [0.25, 3e-7],
+    [0.5, 2e-7],
+    [0.75, 1e-7],
+    [1.0, 0.0],
+    [0.8, 4e-7]
+  ]
+}

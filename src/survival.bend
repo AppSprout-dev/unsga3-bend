@@ -258,8 +258,12 @@ def nearest_go(+f: List<&2, F32>, dirs: List<&2, List<&2, F32>>, +i: Nat, +best_
         Bool.pick(F32, F32.is_lt(d, best_d), d, best_d)
       )
 
-def nearest_one(f: List<&2, F32>, dirs: List<&2, List<&2, F32>>) -> Assignment:
-  nearest_go(f, dirs, 0n, 0n, 1000000000.0)
+def nearest_one(+f: List<&2, F32>, dirs: List<&2, List<&2, F32>>) -> Assignment:
+  match dirs:
+    case Nil{}:
+      MkAssignment{0n, 0.0, 0n}
+    case +w <> ws:
+      nearest_go(f, ws, 1n, 0n, perp(f, w))
 
 def associate_head(+dirs: List<&2, List<&2, F32>>, +ind: Ind.Individual, F: List<&2, List<&2, F32>>) -> Assignment:
   match F:
@@ -337,6 +341,27 @@ def with_counts(+counts: List<&2, Nat>, +asgs: List<&2, Assignment>) -> List<&2,
 def associate(+pop: List<&2, Ind.Individual>, +F: List<&2, List<&2, F32>>, +dirs: List<&2, List<&2, F32>>) -> List<&2, Assignment>:
   +raw = associate_raw(pop, F, dirs)
   with_counts(count_asg(raw, Util.zeros_nat(Util.list_len(List<&2, F32>, dirs))), raw)
+
+def keep_feas_asgs.on(+a: Assignment, rest: List<&2, Assignment>, ok: Bool) -> List<&2, Assignment>:
+  match ok:
+    case True{}:
+      a <> rest
+    case False{}:
+      rest
+
+def keep_feas_asgs(pop: List<&2, Ind.Individual>, asgs: List<&2, Assignment>) -> List<&2, Assignment>:
+  match pop asgs:
+    case Nil{} _:
+      Nil{}
+    case _ Nil{}:
+      Nil{}
+    case ind <> ps a <> as:
+      keep_feas_asgs.on(a, keep_feas_asgs(ps, as), Ind.feasible(ind))
+
+# Mixed-pool association: count only feasible members toward niche occupancy.
+def associate_feas(+pop: List<&2, Ind.Individual>, +F: List<&2, List<&2, F32>>, +dirs: List<&2, List<&2, F32>>) -> List<&2, Assignment>:
+  +raw = associate_raw(pop, F, dirs)
+  with_counts(count_asg(keep_feas_asgs(pop, raw), Util.zeros_nat(Util.list_len(List<&2, F32>, dirs))), raw)
 
 def front0(fronts: List<&2, List<&2, Nat>>) -> List<&2, Nat>:
   match fronts:
@@ -656,25 +681,28 @@ def pick_member.rng.empty.rows(+group: List<&2, NRow>, empty_niche: Bool, rng: R
     case False{}:
       pick_near.rng.rows(group, rng)
 
-def niche_loop(fuel: Nat, k: Nat, rows: List<&2, NRow>, +counts: List<&2, Nat>, selected: List<&2, Nat>) -> List<&2, Nat>:
+def niche_loop.rev(fuel: Nat, k: Nat, rows: List<&2, NRow>, +counts: List<&2, Nat>, picked_rev: List<&2, Nat>) -> List<&2, Nat>:
   match fuel k rows:
     case 0n kk r:
-      selected
+      List.reverse(&2, Nat, picked_rev)
     case f 0n r:
-      selected
+      List.reverse(&2, Nat, picked_rev)
     case f kk Nil{}:
-      selected
+      List.reverse(&2, Nat, picked_rev)
     case 1n+f 1n+krest +r0 <> +rs:
       +rows2 = {r0 <> rs : List<&2, NRow>}
       +r = pick_ref.rows(counts, rows2)
       +pick = pick_member.rows(counts, rows2, r)
-      niche_loop(
+      niche_loop.rev(
         f,
         krest,
         drop_nrow(rows2, pick),
         Util.inc_at(counts, r),
-        List.append(&2, Nat, selected, [pick])
+        pick <> picked_rev
       )
+
+def niche_loop(fuel: Nat, k: Nat, rows: List<&2, NRow>, +counts: List<&2, Nat>, selected: List<&2, Nat>) -> List<&2, Nat>:
+  List.append(&2, Nat, selected, niche_loop.rev(fuel, k, rows, counts, Nil{}))
 
 def fill(fuel: Nat, fronts: List<&2, List<&2, Nat>>, fits: Bool, +acc: List<&2, Nat>, +target: Nat, +asgs: List<&2, Assignment>, +n_dirs: Nat) -> List<&2, Nat>:
   match fuel fronts fits:
@@ -716,11 +744,11 @@ def fill.wrap(+fronts: List<&2, List<&2, Nat>>, +target: Nat, +asgs: List<&2, As
   )
 
 # Occupied last-front reference. Members stay in original row order.
-# `pos` is that row's place in the last front, so a per-pick sort by the
-# earliest remaining member restores first-seen ref order (deleting an
-# early row can move its ref behind one that started later). `count` is
-# the niche histogram, not the member length. Counts live on the bag, so
-# a pick does not `List.get` the counts spine.
+# `pos` is that row's place in the last front. `bags_of` builds bags in
+# strictly ascending `head_pos` order; when a pick drops a member from bag
+# `r`, its `head_pos` can only stay equal or increase, so reinserting that
+# single bag into `rest` via `sort_put` preserves first-seen ref order in
+# O(B) per pick instead of re-sorting all bags in O(B^2).
 type MRow is Data:
   MRow{
     pos: Nat
@@ -850,25 +878,6 @@ def drop_mrow(ms: List<&2, MRow>, +pick: Nat) -> List<&2, MRow>:
     case MRow{+pos, +row} <> rest:
       drop_mrow.put(MRow{pos, row}, drop_mrow(rest, pick), Nat.is_eq(nrow_i(row), pick))
 
-def bags_kept(+ref: Nat, +count: Nat, members: List<&2, MRow>, rest: List<&2, Bag>) -> List<&2, Bag>:
-  match members:
-    case Nil{}:
-      rest
-    case +m <> +ms:
-      Bag{ref, 1n+count, {m <> ms : List<&2, MRow>}} <> rest
-
-def bags_refill.go(bags: List<&2, Bag>, +r: Nat, +pick: Nat, hit: Bool) -> List<&2, Bag>:
-  match bags hit:
-    case Nil{} p:
-      Nil{}
-    case Bag{+ref, +count, +members} <> rest True{}:
-      bags_kept(ref, count, drop_mrow(members, pick), rest)
-    case Bag{+ref, +count, +members} <> +rest False{}:
-      Bag{ref, count, members} <> bags_refill.go(rest, r, pick, head_is_ref(rest, r))
-
-def bags_refill(+bags: List<&2, Bag>, +r: Nat, +pick: Nat) -> List<&2, Bag>:
-  bags_refill.go(bags, r, pick, head_is_ref(bags, r))
-
 def head_pos.ms(ms: List<&2, MRow>) -> Nat:
   match ms:
     case Nil{}:
@@ -900,38 +909,51 @@ def insert_bag(acc: List<&2, Bag>, +b: Bag, before: Bool) -> List<&2, Bag>:
 def sort_put(+acc: List<&2, Bag>, +b: Bag) -> List<&2, Bag>:
   insert_bag(acc, b, insert_before(acc, b))
 
-def sort_go(bags: List<&2, Bag>, +acc: List<&2, Bag>) -> List<&2, Bag>:
-  match bags:
+def bags_kept(+ref: Nat, +count: Nat, members: List<&2, MRow>, rest: List<&2, Bag>) -> List<&2, Bag>:
+  match members:
     case Nil{}:
-      acc
-    case +b <> rest:
-      sort_go(rest, sort_put(acc, b))
+      rest
+    case +m <> +ms:
+      sort_put(rest, Bag{ref, 1n+count, {m <> ms : List<&2, MRow>}})
 
-def sort_bags(+bags: List<&2, Bag>) -> List<&2, Bag>:
-  sort_go(bags, Nil{})
+def bags_refill.go(bags: List<&2, Bag>, +r: Nat, +pick: Nat, hit: Bool) -> List<&2, Bag>:
+  match bags hit:
+    case Nil{} p:
+      Nil{}
+    case Bag{+ref, +count, +members} <> rest True{}:
+      bags_kept(ref, count, drop_mrow(members, pick), rest)
+    case Bag{+ref, +count, +members} <> +rest False{}:
+      Bag{ref, count, members} <> bags_refill.go(rest, r, pick, head_is_ref(rest, r))
 
-def niche_loop.bags(fuel: Nat, k: Nat, bags: List<&2, Bag>, selected: List<&2, Nat>, rng: Rng.State) -> List<&2, Nat> & Rng.State:
+def bags_refill(+bags: List<&2, Bag>, +r: Nat, +pick: Nat) -> List<&2, Bag>:
+  bags_refill.go(bags, r, pick, head_is_ref(bags, r))
+
+def niche_loop.bags.go(fuel: Nat, k: Nat, bags: List<&2, Bag>, selected: List<&2, Nat>, picked_rev: List<&2, Nat>, rng: Rng.State) -> List<&2, Nat> & Rng.State:
   match fuel k bags:
     case 0n kk bs:
-      (selected, rng)
+      (List.append(&2, Nat, selected, List.reverse(&2, Nat, picked_rev)), rng)
     case f 0n bs:
-      (selected, rng)
+      (List.append(&2, Nat, selected, List.reverse(&2, Nat, picked_rev)), rng)
     case f kk Nil{}:
-      (selected, rng)
+      (List.append(&2, Nat, selected, List.reverse(&2, Nat, picked_rev)), rng)
     case 1n+f 1n+krest +b0 <> +bs:
-      +bags2 = sort_bags({b0 <> bs : List<&2, Bag>})
+      +bags2 = {b0 <> bs : List<&2, Bag>}
       +rng1 = pick_ref.rng.bags(bags2, rng)
       +r = Rng.last_nat(rng1)
       +rng2 = pick_member.rng.empty.rows(bag_members_of(bags2, r), Nat.is_eq(bag_count_of(bags2, r), 0n), rng1)
       +pick = Rng.last_nat(rng2)
       +next = bags_refill(bags2, r, pick)
-      niche_loop.bags(
+      niche_loop.bags.go(
         f,
         krest,
         next,
-        List.append(&2, Nat, selected, [pick]),
+        selected,
+        pick <> picked_rev,
         rng2
       )
+
+def niche_loop.bags(fuel: Nat, k: Nat, bags: List<&2, Bag>, selected: List<&2, Nat>, rng: Rng.State) -> List<&2, Nat> & Rng.State:
+  niche_loop.bags.go(fuel, k, bags, selected, Nil{}, rng)
 
 def fill.rng(fuel: Nat, fronts: List<&2, List<&2, Nat>>, fits: Bool, +acc: List<&2, Nat>, +target: Nat, +asgs: List<&2, Assignment>, +n_dirs: Nat, rng: Rng.State) -> List<&2, Nat> & Rng.State:
   match fuel fronts fits:
@@ -1008,26 +1030,37 @@ type CvRow is Data:
     ind: Ind.Individual
   }
 
-def any_infeas.on(later: Bool, feas: Bool) -> Bool:
-  match feas:
-    case False{}:
+def any_infeas.go(pop: List<&2, Ind.Individual>, hit: Bool) -> Bool:
+  match pop hit:
+    case _ True{}:
       True{}
-    case True{}:
-      later
+    case Nil{} False{}:
+      False{}
+    case h <> t False{}:
+      any_infeas.go(t, Bool.not(Ind.feasible(h)))
 
 def any_infeas(pop: List<&2, Ind.Individual>) -> Bool:
-  match pop:
-    case Nil{}:
+  any_infeas.go(pop, False{})
+
+# Non-NaN CVs order before NaN CVs; equal CVs (or both NaN) tie-break by
+# ascending original index.
+def row_before.cmp(+i: Nat, +j: Nat, +ca: F32, +cb: F32, a_ok: Bool, b_ok: Bool) -> Bool:
+  match a_ok b_ok:
+    case True{} False{}:
+      True{}
+    case False{} True{}:
       False{}
-    case h <> t:
-      any_infeas.on(any_infeas(t), Ind.feasible(h))
+    case False{} False{}:
+      Bool.not(Nat.is_le(j, i))
+    case True{} True{}:
+      Bool.or(F32.is_lt(ca, cb), Bool.and(F32.is_eq(ca, cb), Bool.not(Nat.is_le(j, i))))
 
 def row_before(a: CvRow, b: CvRow) -> Bool:
   match a b:
-    case CvRow{i, ind} CvRow{j, other}:
+    case CvRow{+i, ind} CvRow{+j, other}:
       +ca = Ind.constraint_violation(ind)
       +cb = Ind.constraint_violation(other)
-      Bool.or(F32.is_lt(ca, cb), Bool.and(F32.is_eq(ca, cb), Bool.not(Nat.is_le(j, i))))
+      row_before.cmp(i, j, ca, cb, F32.is_eq(ca, ca), F32.is_eq(cb, cb))
 
 # Insertion sort step. One def: the recursive call is only the
 # `before = False` arm, and that arm's tail is the original rest.
@@ -1097,10 +1130,18 @@ def unused_idxs(+used: List<&2, Nat>, +n: Nat) -> List<&2, Nat>:
   Util.minus(List.range(n), used)
 
 # Length lock: |take(pad(core, want, n), want)| = want when want ≤ n.
-# Identity when core is already a unique subset of 0..n-1 of length want
-# (the fill / range / take paths used in A/B).
+# Short-circuits when |xs| >= want so unused_idxs (O(N^2)) is skipped on
+# the normal path.
+def pad_idxs.go(+xs: List<&2, Nat>, +want: Nat, +n: Nat, +len: Nat, short: Bool) -> List<&2, Nat>:
+  match short:
+    case True{}:
+      List.append(&2, Nat, xs, List.take(&2, Nat, unused_idxs(xs, n), Nat.sub(want, len)))
+    case False{}:
+      xs
+
 def pad_idxs(+xs: List<&2, Nat>, +want: Nat, +n: Nat) -> List<&2, Nat>:
-  List.append(&2, Nat, xs, List.take(&2, Nat, unused_idxs(xs, n), Nat.sub(want, Util.list_len(Nat, xs))))
+  +len = Util.list_len(Nat, xs)
+  pad_idxs.go(xs, want, n, len, Nat.is_lt(len, want))
 
 def clip_idxs(+xs: List<&2, Nat>, +want: Nat) -> List<&2, Nat>:
   List.take(&2, Nat, xs, want)
@@ -1115,18 +1156,6 @@ def select_idx(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: Li
 
 def select_plain(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
   gather(combined, select_idx(combined, target_size, dirs))
-
-# Feasible subset already fits: keep original order. Niching runs only
-# when that subset is longer than the slot count.
-def feas_keep.det.on(+feas: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, fits: Bool) -> List<&2, Ind.Individual>:
-  match fits:
-    case True{}:
-      feas
-    case False{}:
-      select_plain(feas, target, dirs)
-
-def feas_keep.det(+feas: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
-  feas_keep.det.on(feas, target, dirs, Nat.is_le(Util.list_len(Ind.Individual, feas), target))
 
 type Split is Data:
   Split{
@@ -1158,27 +1187,18 @@ def split.go(pop: List<&2, Ind.Individual>, +i: Nat) -> Split:
     case +h <> t:
       split_on(h, split.go(t, 1n+i), i, Ind.feasible(h))
 
-def select_constrained.feas(feas: List<&2, Ind.Individual>, +rows: List<&2, CvRow>, +target: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
-  match feas:
-    case Nil{}:
-      take_clear(rows, target)
-    case h <> t:
-      append_fill(feas_keep.det(h <> t, target, dirs), rows, target)
+# All-feasible Run path. Short-circuits size_lock when fill already
+# produced exact length `want`, avoiding List.range(want) + append.
+def size_lock.rng.go(+xs: List<&2, Nat>, +want: Nat, +n: Nat, rng: Rng.State, exact: Bool) -> List<&2, Nat> & Rng.State:
+  match exact:
+    case True{}:
+      (xs, rng)
+    case False{}:
+      (size_lock(xs, want, n), rng)
 
-def select_constrained.from(sp: Split, +target: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
-  match sp:
-    case Split{feas, rows}:
-      select_constrained.feas(feas, rows, target, dirs)
-
-def select_constrained(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>) -> List<&2, Ind.Individual>:
-  select_constrained.from(split.go(pop, 0n), target, dirs)
-
-# All-feasible Run path. Defined before constrained fill so a feasible
-# subset that still needs niching calls this directly (no cycle through
-# select_st).
 def size_lock.rng(+want: Nat, +n: Nat, pair: List<&2, Nat> & Rng.State) -> List<&2, Nat> & Rng.State:
-  (xs, rng) = pair
-  (size_lock(xs, want, n), rng)
+  (+xs, rng) = pair
+  size_lock.rng.go(xs, want, n, rng, Nat.is_eq(Util.list_len(Nat, xs), want))
 
 def select_st.after(+st: Norm.State, +pop: List<&2, Ind.Individual>, pair: List<&2, Nat> & Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   (idxs, rng2) = pair
@@ -1240,13 +1260,6 @@ def select_st.constrained.from(sp: Split, +target: Nat, +dirs: List<&2, List<&2,
 
 def select_st.constrained(+pop: List<&2, Ind.Individual>, +target: Nat, +dirs: List<&2, List<&2, F32>>, state: Norm.State, rng: Rng.State) -> Norm.State & List<&2, Ind.Individual> & Rng.State:
   select_st.constrained.from(split.go(pop, 0n), target, dirs, state, rng)
-
-def select.route(+combined: List<&2, Ind.Individual>, +target_size: Nat, +dirs: List<&2, List<&2, F32>>, constrained: Bool) -> List<&2, Ind.Individual>:
-  match constrained:
-    case True{}:
-      select_constrained(combined, target_size, dirs)
-    case False{}:
-      select_plain(combined, target_size, dirs)
 
 # `select` stays the rng-null length-locked path (`Laws.select_size`).
 # Constrained feasible-niching + CV fill is `select_st` (Run).

@@ -401,6 +401,12 @@ def hash_sources():
     files = [RUN_SRC, BENCH / "quad_pass.bend", BENCH / "alloc_pass.bend", BENCH / "slow_pass.bend"]
     files.extend(sorted((ROOT / "src").glob("*.bend")))
     digest = hashlib.sha256()
+    try:
+        ver = subprocess.run([bend_exe(), "version"], capture_output=True, text=True, check=False)
+        digest.update(b"bend:")
+        digest.update(((ver.stdout or "") + (ver.stderr or "")).strip().encode("utf-8"))
+    except OSError:
+        pass
     for path in files:
         digest.update(path.name.encode())
         digest.update(path.read_bytes())
@@ -461,6 +467,9 @@ def summarize_workload(measured, workload, config, baseline, machine):
         if len(points) < int(config["min_fit_points"]) or not span_ok(xs, config):
             result["fit_status"] = "inconclusive"
             result["fit_reason"] = "span or point count"
+        elif any(p["median"] <= 0.0 for p in points):
+            result["fit_status"] = "inconclusive"
+            result["fit_reason"] = "non-positive median"
         else:
             fit = fit_points(points)
             status, allowed = classify_fit(fit, workload, config)
@@ -832,11 +841,6 @@ def format_report(summaries, code, problems):
     lines = [f"verdict={'pass' if code == 0 else 'fail'}", f"exit={code}"]
     for s in summaries:
         if s["role"] == "record":
-            cells = ",".join(cell for cell, _ in []) if False else ""
-            bits = []
-            for cell, samples in s.get("cells_raw", []) or []:
-                bits.append(cell)
-            # measured cells are not on the summary; points may be absent.
             line = f"{s['id']} record"
             if "reference" in s:
                 line += f" ref={s['reference']['median']:.4g}"
