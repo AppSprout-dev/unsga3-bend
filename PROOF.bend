@@ -18,6 +18,7 @@ import ./src/util.bend as Util
 import ./src/reference_directions.bend as Refs
 import ./src/algorithm.bend as Algo
 import ./src/problems.bend as Prob
+import ./src/rng.bend as Rng
 
 # Same-list Pareto walk keeps both flags equal, so verdict is 0n
 # without any F32 axiom: verdict(True,True)=0 and verdict(False,False)=0.
@@ -1374,4 +1375,248 @@ def count_raw_sum(
 
 def Laws.niche_count_sum(asgs, n_dirs):
   count_raw_sum(n_dirs, Util.list_len(Surv.Assignment, asgs), asgs)
+
+# --- dominates_cd_irreflexive --------------------------------------------
+
+def verdict_same(b: Bool) -> {NDS.verdict(b, b) == 0n : Nat}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def compare_cd_same.feas(+f: List<&2, F32>, +cv: F32, feas: Bool) -> {NDS.compare_cd.feas(f, f, cv, cv, feas, feas) == 0n : Nat}:
+  match feas:
+    case True{}:
+      compare_same.false(f)
+    case False{}:
+      verdict_same(F32.is_lt(cv, cv))
+
+def Laws.dominates_cd_irreflexive(ind):
+  +f = Ind.objectives(ind)
+  +cv = Ind.constraint_violation(ind)
+  dominates_via(NDS.compare_cd(f, f, cv, cv), compare_cd_same.feas(f, cv, F32.is_le(cv, 0.0)))
+
+# --- normalize_nd_cv_len -------------------------------------------------
+
+def project_fixed_ideal_len(
+  +n: Nat,
+  ideal: List<&2, F32>,
+  +worst: List<&2, F32>,
+  +nadir: List<&2, F32>,
+  +intercepts: List<&2, F32>,
+  +extremes: List<&2, List<&2, F32>>,
+  +pop: List<&2, Ind.Individual>
+) -> {Util.list_len(List<&2, F32>, Norm.normalize_vecs.snd(Norm.project_fixed.ideal(n, ideal, worst, nadir, intercepts, extremes, pop))) == Util.list_len(Ind.Individual, pop) : Nat}:
+  match ideal:
+    case Nil{}:
+      +lo = Norm.col_min(pop)
+      +hi = Norm.fallback_unit(Norm.col_max(pop), lo)
+      map_norm_len(lo, hi, Util.list_len(Ind.Individual, pop), pop)
+    case +h <> +t:
+      map_norm_len({h <> t : List<&2, F32>}, nadir, Util.list_len(Ind.Individual, pop), pop)
+
+def project_fixed_len(
+  st: Norm.State,
+  +pop: List<&2, Ind.Individual>
+) -> {Util.list_len(List<&2, F32>, Norm.normalize_vecs.snd(Norm.project_fixed(st, pop))) == Util.list_len(Ind.Individual, pop) : Nat}:
+  match st:
+    case Norm.MkState{n_objectives, ideal, worst, nadir, intercepts, extremes}:
+      project_fixed_ideal_len(n_objectives, ideal, worst, nadir, intercepts, extremes, pop)
+
+def norm_nd_go_len(
+  st: Norm.State,
+  +pop: List<&2, Ind.Individual>,
+  +nd: List<&2, Nat>
+) -> {Util.list_len(List<&2, F32>, Norm.normalize_vecs.snd(Norm.normalize_nd.go(st, pop, nd))) == Util.list_len(Ind.Individual, pop) : Nat}:
+  match st:
+    case Norm.MkState{n_objectives, +ideal0, +worst0, nadir0, intercepts0, +ext0}:
+      +mn = Norm.col_min(pop)
+      +mx = Norm.col_max(pop)
+      +ideal = Norm.merge_ideal(ideal0, mn)
+      +worst = Norm.merge_worst(worst0, mx)
+      +nd_use = Norm.nd_or_all(nd, Util.list_len(Ind.Individual, pop))
+      +front = Norm.col_max_idx(pop, nd_use)
+      +cand = List.append(&2, List<&2, F32>, ext0, Norm.gather_objs(pop, nd_use))
+      +m = Norm.n_obj_pop(pop)
+      +ext = Norm.pick_extremes(cand, ideal, m)
+      +nadir0 = Norm.nadir_from_maybe(Norm.try_intercepts(ext, ideal), ideal, worst, front)
+      +nadir1 = Norm.fallback_pop(nadir0, ideal, mx)
+      +nadir = Norm.fallback_unit(nadir1, ideal)
+      map_norm_len(ideal, nadir, Util.list_len(Ind.Individual, pop), pop)
+
+def norm_mixed_len(
+  st: Norm.State,
+  +pop: List<&2, Ind.Individual>,
+  +nd: List<&2, Nat>
+) -> {Util.list_len(List<&2, F32>, Norm.normalize_vecs.snd(Norm.normalize_mixed(st, pop, nd))) == Util.list_len(Ind.Individual, pop) : Nat}:
+  match st:
+    case Norm.MkState{n_objectives, +ideal, +worst, nadir, intercepts, +extremes}:
+      +stat = Norm.feas_inds(pop)
+      +use = Norm.nd_mixed(pop, nd)
+      +mn = Norm.col_min(stat)
+      +mx = Norm.col_max(stat)
+      +ideal2 = Norm.merge_ideal(ideal, mn)
+      +worst2 = Norm.merge_worst(worst, mx)
+      +front = Norm.col_max_idx(pop, use)
+      +cand = List.append(&2, List<&2, F32>, extremes, Norm.gather_objs(pop, use))
+      +m = Norm.n_obj_pop(pop)
+      +ext = Norm.pick_extremes(cand, ideal2, m)
+      +nadir0 = Norm.nadir_from_maybe(Norm.try_intercepts(ext, ideal2), ideal2, worst2, front)
+      +nadir1 = Norm.fallback_pop(nadir0, ideal2, mx)
+      +nadir2 = Norm.fallback_unit(nadir1, ideal2)
+      map_norm_len(ideal2, nadir2, Util.list_len(Ind.Individual, pop), pop)
+
+def norm_nd_bad_len(
+  +st: Norm.State,
+  +pop: List<&2, Ind.Individual>,
+  +nd: List<&2, Nat>,
+  feas: Bool
+) -> {Util.list_len(List<&2, F32>, Norm.normalize_vecs.snd(Norm.normalize_nd.bad(st, pop, nd, feas))) == Util.list_len(Ind.Individual, pop) : Nat}:
+  match feas:
+    case False{}:
+      project_fixed_len(st, pop)
+    case True{}:
+      norm_mixed_len(st, pop, nd)
+
+def norm_nd_pick_len(
+  +st: Norm.State,
+  +pop: List<&2, Ind.Individual>,
+  +nd: List<&2, Nat>,
+  bad: Bool
+) -> {Util.list_len(List<&2, F32>, Norm.normalize_vecs.snd(Norm.normalize_nd.pick(st, pop, nd, bad))) == Util.list_len(Ind.Individual, pop) : Nat}:
+  match bad:
+    case False{}:
+      norm_nd_go_len(st, pop, nd)
+    case True{}:
+      norm_nd_bad_len(st, pop, nd, Norm.has_feas(pop))
+
+def Laws.normalize_nd_cv_len(st, pop, nd):
+  match pop:
+    case Nil{}:
+      {==}
+    case +h <> +t:
+      +pop2 = {h <> t : List<&2, Ind.Individual>}
+      norm_nd_pick_len(st, pop2, nd, Norm.has_infeas(pop2))
+
+# --- insert_row_len & sort_rows_len --------------------------------------
+
+def mul2_succ(+k: Nat) -> {Nat.mul(2n, 1n+k) == 1n+1n+Nat.mul(2n, k) : Nat}:
+  succ_eq(Nat.add(k, 1n+Nat.add(k, 0n)), 1n+Nat.add(k, Nat.add(k, 0n)), add_succ_r(k, Nat.add(k, 0n)))
+
+def insert_row_rw(
+  +fuel1: Nat,
+  +fuel2: Nat,
+  +x: Surv.CvRow,
+  +xs: List<&2, Surv.CvRow>,
+  +h: Surv.CvRow,
+  e: {fuel1 == fuel2 : Nat}
+) -> {Util.list_len(Surv.CvRow, Surv.insert_row.go(1n+fuel1, 0n, False{}, x, xs, h)) == Util.list_len(Surv.CvRow, Surv.insert_row.go(1n+fuel2, 0n, False{}, x, xs, h)) : Nat}:
+  %e : {Util.list_len(Surv.CvRow, Surv.insert_row.go(1n+fuel1, 0n, False{}, x, xs, h)) == Util.list_len(Surv.CvRow, Surv.insert_row.go(1n+_, 0n, False{}, x, xs, h)) : Nat}
+  {==}
+
+def insert_row_phase1(
+  +f: Nat,
+  before: Bool,
+  +x: Surv.CvRow,
+  +tail: List<&2, Surv.CvRow>,
+  +head: Surv.CvRow,
+  ih: {Util.list_len(Surv.CvRow, Surv.insert_row.go(1n+f, 0n, False{}, x, tail, head)) == 1n+Util.list_len(Surv.CvRow, tail) : Nat}
+) -> {Util.list_len(Surv.CvRow, Surv.insert_row.go(1n+1n+f, 1n, before, x, tail, head)) == 1n+1n+Util.list_len(Surv.CvRow, tail) : Nat}:
+  match before:
+    case True{}:
+      {==}
+    case False{}:
+      succ_eq(Util.list_len(Surv.CvRow, Surv.insert_row.go(1n+f, 0n, False{}, x, tail, head)), 1n+Util.list_len(Surv.CvRow, tail), ih)
+
+def insert_row_len.go(
+  +x: Surv.CvRow,
+  xs: List<&2, Surv.CvRow>,
+  +h: Surv.CvRow
+) -> {Util.list_len(Surv.CvRow, Surv.insert_row.go(1n+Nat.mul(2n, Util.list_len(Surv.CvRow, xs)), 0n, False{}, x, xs, h)) == 1n+Util.list_len(Surv.CvRow, xs) : Nat}:
+  match xs:
+    case Nil{}:
+      {==}
+    case +head <> +tail:
+      +k = Util.list_len(Surv.CvRow, tail)
+      +f = Nat.mul(2n, k)
+      Equal.trans(
+        Nat,
+        Util.list_len(Surv.CvRow, Surv.insert_row.go(1n+Nat.mul(2n, 1n+k), 0n, False{}, x, head <> tail, h)),
+        Util.list_len(Surv.CvRow, Surv.insert_row.go(1n+1n+1n+f, 0n, False{}, x, head <> tail, h)),
+        1n+1n+k,
+        insert_row_rw(Nat.mul(2n, 1n+k), 1n+1n+f, x, head <> tail, h, mul2_succ(k)),
+        insert_row_phase1(f, Surv.row_before(x, head), x, tail, head, insert_row_len.go(x, tail, head))
+      )
+
+def Laws.insert_row_len(x, xs):
+  insert_row_len.go(x, xs, x)
+
+def Laws.sort_rows_len(xs):
+  match xs:
+    case Nil{}:
+      {==}
+    case +h <> +t:
+      Equal.trans(
+        Nat,
+        Util.list_len(Surv.CvRow, Surv.insert_row(h, Surv.sort_rows(t))),
+        1n+Util.list_len(Surv.CvRow, Surv.sort_rows(t)),
+        1n+Util.list_len(Surv.CvRow, t),
+        insert_row_len.go(h, Surv.sort_rows(t), h),
+        succ_eq(Util.list_len(Surv.CvRow, Surv.sort_rows(t)), Util.list_len(Surv.CvRow, t), Laws.sort_rows_len(t))
+      )
+
+# --- next_except_distinct ------------------------------------------------
+
+def last_nat_with_k(s: Rng.State, +k2: Nat) -> {Rng.last_nat(Rng.with_k(s, k2)) == k2 : Nat}:
+  match s:
+    case Rng.MkState{s0, u, z, k}:
+      {==}
+
+def nat_eq_cong_l(+a: Nat, +b: Nat, +ex: Nat, e: {a == b : Nat}) -> {Nat.is_eq(a, ex) == Nat.is_eq(b, ex) : Bool}:
+  %e : {Nat.is_eq(a, ex) == Nat.is_eq(_, ex) : Bool}
+  {==}
+
+def bump_succ(+v: Nat, +ex: Nat, b: Bool) -> {Rng.bump_except(1n+v, 1n+ex, b) == 1n+Rng.bump_except(v, ex, b) : Nat}:
+  match b:
+    case True{}:
+      {==}
+    case False{}:
+      {==}
+
+def bump_neq(v: Nat, ex: Nat) -> {Nat.is_eq(Rng.bump_except(v, ex, Nat.is_lt(v, ex)), ex) == False{} : Bool}:
+  match v ex:
+    case 0n 0n:
+      {==}
+    case 0n 1n+e:
+      {==}
+    case 1n+p 0n:
+      {==}
+    case 1n++p 1n++e:
+      Equal.trans(
+        Bool,
+        Nat.is_eq(Rng.bump_except(1n+p, 1n+e, Nat.is_lt(p, e)), 1n+e),
+        Nat.is_eq(1n+Rng.bump_except(p, e, Nat.is_lt(p, e)), 1n+e),
+        False{},
+        nat_eq_cong_l(
+          Rng.bump_except(1n+p, 1n+e, Nat.is_lt(p, e)),
+          1n+Rng.bump_except(p, e, Nat.is_lt(p, e)),
+          1n+e,
+          bump_succ(p, e, Nat.is_lt(p, e))
+        ),
+        bump_neq(p, e)
+      )
+
+def Laws.next_except_distinct(s, m, exclude):
+  +s2 = Rng.next_nat(s, 1n+m)
+  +v = Rng.last_nat(s2)
+  +r = Rng.bump_except(v, exclude, Nat.is_lt(v, exclude))
+  Equal.trans(
+    Bool,
+    Nat.is_eq(Rng.last_nat(Rng.with_k(s2, r)), exclude),
+    Nat.is_eq(r, exclude),
+    False{},
+    nat_eq_cong_l(Rng.last_nat(Rng.with_k(s2, r)), r, exclude, last_nat_with_k(s2, r)),
+    bump_neq(v, exclude)
+  )
 

@@ -99,16 +99,10 @@ def compare_pareto(a: List<&2, F32>, b: List<&2, F32>) -> Nat:
 
 # Equal CV among infeasible points: 0. Deb does not Pareto-compare
 # (matches C# NonDominatedSort.CompareConstraintDominated).
+# Uses `verdict` so (True, True) -> 0n (unreachable on IEEE-754 floats),
+# making `dominates_cd_irreflexive` provable without an F32 axiom.
 def compare_cd.infeas(+cva: F32, +cvb: F32, a_lt: Bool, b_lt: Bool) -> Nat:
-  match a_lt:
-    case True{}:
-      1n
-    case False{}:
-      match b_lt:
-        case True{}:
-          2n
-        case False{}:
-          0n
+  verdict(a_lt, b_lt)
 
 # 0 mutual, 1 a dominates b, 2 b dominates a.
 # Feasible (cv ≤ 0) beats infeasible. Both feasible → Pareto,

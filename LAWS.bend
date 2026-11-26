@@ -1,10 +1,10 @@
 # Core + pass-2 laws. Human-owned. Do not weaken v0 / operator claims.
 # Every law below is closed in PROOF.bend (0 ?TODO). A law with no
 # def Laws.<name> is an open claim — do not delete it to pass it.
-# The wall checks lengths, literals, irreflexivity, and p=0 bit-zero
-# copies. It does not buy simplex membership, front identity, or
-# SBX / PM / ASF algebra. Das–Dennis length laws depend on @unsafe
-# nth_comp.go.
+# The wall checks lengths, literals, irreflexivity, CV-sort preservation,
+# RNG exclusion distinctness, and p=0 bit-zero copies with 0 @unsafe.
+# It does not buy simplex membership, front identity, or SBX / PM / ASF
+# algebra.
 
 import Base
 import ./src/individual.bend as Ind
@@ -175,3 +175,33 @@ law run_zero_pop:
 law run_pop_size:
   for +cfg: Algo.Config
   {Util.list_len(Ind.Individual, Algo.run(Prob.zdt1(30n), cfg)) == Algo.cfg_pop(cfg) : Nat}
+
+# LAW: an individual does not constraint-dominate itself (Deb CD irreflexivity)
+law dominates_cd_irreflexive:
+  for +ind: Ind.Individual
+  {NDS.dominates_cd(Ind.objectives(ind), Ind.constraint_violation(ind), Ind.objectives(ind), Ind.constraint_violation(ind)) == False{} : Bool}
+
+# LAW: |NormalizeNdCv(state, P, nd)| = |P| across feasible, mixed, and all-infeasible pools
+law normalize_nd_cv_len:
+  for +st: Norm.State
+  for +pop: List<&2, Ind.Individual>
+  for +nd: List<&2, Nat>
+  {Util.list_len(List<&2, F32>, Norm.normalize_vecs.snd(Norm.normalize_nd_cv(st, pop, nd))) == Util.list_len(Ind.Individual, pop) : Nat}
+
+# LAW: CV insertion step inserts exactly one row (fuel sufficient; rules out duplication or drop)
+law insert_row_len:
+  for +x: Surv.CvRow
+  for +xs: List<&2, Surv.CvRow>
+  {Util.list_len(Surv.CvRow, Surv.insert_row(x, xs)) == 1n+Util.list_len(Surv.CvRow, xs) : Nat}
+
+# LAW: CV insertion sort preserves list length
+law sort_rows_len:
+  for +xs: List<&2, Surv.CvRow>
+  {Util.list_len(Surv.CvRow, Surv.sort_rows(xs)) == Util.list_len(Surv.CvRow, xs) : Nat}
+
+# LAW: Rng.next_except(s, n, exclude) never returns exclude when n >= 2
+law next_except_distinct:
+  for +s: Rng.State
+  for +m: Nat
+  for +exclude: Nat
+  {Nat.is_eq(Rng.last_nat(Rng.next_except(s, 1n+1n+m, exclude)), exclude) == False{} : Bool}
